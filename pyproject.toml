@@ -1,7 +1,33 @@
 [project]
 name = "trove"
 version = "0.1.0"
-description = "Add your description here"
+description = "Local LLM platform for non-technical users"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "pydantic>=2.10",
+    "psutil>=6.1",
+    "sse-starlette>=2.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "httpx>=0.28",
+    "taskipy>=1.14",
+]
+
+[tool.taskipy.tasks]
+dev-backend  = "uvicorn backend.main:app --reload"
+dev-frontend = "cd frontend && bun run dev"
+build        = "cd frontend && bun run build"
+start        = "task build && uvicorn backend.main:app"
+install-deps = "uv sync --extra dev && cd frontend && bun install"
+test         = "pytest -v"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
