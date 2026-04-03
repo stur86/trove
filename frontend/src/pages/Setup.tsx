@@ -42,7 +42,7 @@ export default function Setup() {
         setPhase('ready')
       }
     })
-  }, [])
+  }, [navigate])
 
   useEffect(() => {
     // Scroll log to bottom whenever a new line arrives
@@ -85,7 +85,7 @@ export default function Setup() {
     phase === 'ready' ? t('setup.install_button') :
     phase === 'installing' ? t('setup.installing') :
     phase === 'pulling' ? t('setup.pulling') :
-    phase === 'building' ? 'Building model...' :
+    phase === 'building' ? t('setup.building') :
     'Done'
 
   if (phase === 'checking') {

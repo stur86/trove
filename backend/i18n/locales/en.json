@@ -4,6 +4,7 @@
   "setup.installing": "Installing Ollama...",
   "setup.pull_model": "Download model",
   "setup.pulling": "Downloading model...",
+  "setup.building": "Building model...",
   "setup.system_check": "Checking your system...",
   "setup.ram": "RAM",
   "setup.disk": "Free disk",
