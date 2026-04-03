@@ -1,33 +1,28 @@
 """
 Ollama management service.
 
-Handles Ollama installation detection, model pulling, Modelfile generation,
-and building the custom trove_model. Long-running operations yield SSE-formatted
-strings for streaming to the frontend.
+Defines the OllamaService Protocol and two implementations:
+- RealOllamaService: uses the actual ollama binary and subprocess
+- FakeOllamaService: simulates all operations for dev mode and testing
 
-All subprocess calls go through an injectable `runner` parameter (defaulting to
-subprocess.Popen) so tests can inject a FakeProcess without touching the system.
+Which implementation is used is controlled by the TROVE_FAKE_OLLAMA
+environment variable (set to 1 to use the fake). Load via python-dotenv.
 """
+import os
 import shutil
 import subprocess
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Protocol, runtime_checkable
 
 from backend.config.models import TroveConfig
 from backend.config.service import get_config_dir, load_config
 from backend.system.service import is_ollama_service_running
 
 
-def is_ollama_installed() -> bool:
-    """Return True if the `ollama` binary is on the PATH."""
-    return shutil.which("ollama") is not None
-
-
-def is_trove_model_built() -> bool:
-    """Return True if `trove_model` appears in `ollama list` output."""
-    result = subprocess.run(["ollama", "list"], capture_output=True, text=True)
-    return "trove_model" in result.stdout
-
+# ---------------------------------------------------------------------------
+# Shared utility (used by both implementations)
+# ---------------------------------------------------------------------------
 
 def generate_modelfile(config: TroveConfig) -> Path:
     """
@@ -46,96 +41,205 @@ def generate_modelfile(config: TroveConfig) -> Path:
     return path
 
 
-def get_ollama_status() -> dict:
+# ---------------------------------------------------------------------------
+# Protocol (interface)
+# ---------------------------------------------------------------------------
+
+@runtime_checkable
+class OllamaService(Protocol):
     """
-    Return the current Ollama installation status.
+    Interface for Ollama management operations.
 
-    Keys:
-      installed (bool): whether the ollama binary is on the PATH.
-      running (bool): whether the ollama systemd service is active.
-      model_built (bool): whether trove_model has been created.
-
-    running and model_built are False when installed is False (no point checking).
+    Implementations: RealOllamaService (production), FakeOllamaService (dev/test).
     """
-    installed = is_ollama_installed()
-    running = is_ollama_service_running() if installed else False
-    model_built = is_trove_model_built() if installed else False
-    return {"installed": installed, "running": running, "model_built": model_built}
+
+    def get_status(self) -> dict:
+        """Return installation status: installed, running, model_built."""
+        ...
+
+    def stream_install(self) -> Iterator[str]:
+        """Install Ollama and yield SSE-formatted progress lines."""
+        ...
+
+    def stream_pull(self, model_tag: str) -> Iterator[str]:
+        """Pull an Ollama model and yield SSE-formatted progress lines."""
+        ...
+
+    def build_trove_model(self) -> Iterator[str]:
+        """Generate Modelfile and build trove_model, yielding SSE progress."""
+        ...
 
 
-def stream_install(runner: Callable = subprocess.Popen) -> Iterator[str]:
+# ---------------------------------------------------------------------------
+# Real implementation
+# ---------------------------------------------------------------------------
+
+class RealOllamaService:
     """
-    Run the official Ollama Linux install script and yield SSE-formatted lines.
+    Production Ollama service that shells out to the real ollama binary.
 
-    Streams stdout+stderr line by line. Yields a [DONE] or [ERROR] sentinel
-    as the final event so the frontend knows when the operation is complete.
-
-    Args:
-        runner: subprocess.Popen-compatible callable. Inject a FakeProcess in tests.
+    All subprocess calls use subprocess.Popen for streaming output.
     """
-    yield "data: Starting Ollama installation...\n\n"
-    process = runner(
-        ["bash", "-c", "curl -fsSL https://ollama.com/install.sh | sh"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
-    for line in process.stdout:
-        yield f"data: {line.rstrip()}\n\n"
-    process.wait()
-    if process.returncode == 0:
+
+    def get_status(self) -> dict:
+        """
+        Return the current Ollama installation status.
+
+        Keys:
+          installed (bool): whether the ollama binary is on the PATH.
+          running (bool): whether the ollama systemd service is active.
+          model_built (bool): whether trove_model has been created.
+        """
+        installed = shutil.which("ollama") is not None
+        running = is_ollama_service_running() if installed else False
+        model_built = self._is_trove_model_built() if installed else False
+        return {"installed": installed, "running": running, "model_built": model_built}
+
+    def _is_trove_model_built(self) -> bool:
+        """Return True if trove_model appears in `ollama list` output."""
+        result = subprocess.run(["ollama", "list"], capture_output=True, text=True)
+        return "trove_model" in result.stdout
+
+    def stream_install(self) -> Iterator[str]:
+        """
+        Run the official Ollama Linux install script and yield SSE-formatted lines.
+
+        Streams stdout+stderr line by line. Final event is [DONE] or [ERROR].
+        """
+        yield "data: Starting Ollama installation...\n\n"
+        process = subprocess.Popen(
+            ["bash", "-c", "curl -fsSL https://ollama.com/install.sh | sh"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        for line in process.stdout:
+            yield f"data: {line.rstrip()}\n\n"
+        process.wait()
+        if process.returncode == 0:
+            yield "data: [DONE] Ollama installed successfully.\n\n"
+        else:
+            yield f"data: [ERROR] Installation failed (exit {process.returncode}).\n\n"
+
+    def stream_pull(self, model_tag: str) -> Iterator[str]:
+        """Pull an Ollama model and yield SSE-formatted progress lines."""
+        yield f"data: Pulling {model_tag}...\n\n"
+        process = subprocess.Popen(
+            ["ollama", "pull", model_tag],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        for line in process.stdout:
+            yield f"data: {line.rstrip()}\n\n"
+        process.wait()
+        if process.returncode == 0:
+            yield "data: [DONE] Model pulled successfully.\n\n"
+        else:
+            yield f"data: [ERROR] Pull failed (exit {process.returncode}).\n\n"
+
+    def build_trove_model(self) -> Iterator[str]:
+        """
+        Generate the Modelfile from current config and build trove_model.
+
+        Reads config, writes ~/.config/trove/Modelfile, then runs ollama create.
+        """
+        config = load_config()
+        modelfile_path = generate_modelfile(config)
+        yield f"data: Building trove_model from {config.base_model}...\n\n"
+        process = subprocess.Popen(
+            ["ollama", "create", "trove_model", "-f", str(modelfile_path)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        for line in process.stdout:
+            yield f"data: {line.rstrip()}\n\n"
+        process.wait()
+        if process.returncode == 0:
+            yield "data: [DONE] trove_model built successfully.\n\n"
+        else:
+            yield f"data: [ERROR] Build failed (exit {process.returncode}).\n\n"
+
+
+# ---------------------------------------------------------------------------
+# Fake implementation (dev mode + testing)
+# ---------------------------------------------------------------------------
+
+class FakeOllamaService:
+    """
+    Simulated Ollama service for development and testing.
+
+    Activated by setting TROVE_FAKE_OLLAMA=1 in the environment (or .env file).
+    All operations succeed immediately with realistic-looking fake output.
+    No real subprocess calls are made.
+    """
+
+    def get_status(self) -> dict:
+        """Return a fully-installed status — as if Ollama is set up and running."""
+        return {"installed": True, "running": True, "model_built": True}
+
+    def stream_install(self) -> Iterator[str]:
+        """Yield fake install output that looks like the real Ollama installer."""
+        lines = [
+            ">>> Downloading ollama...",
+            ">>> Installing ollama to /usr/local/bin",
+            ">>> Creating ollama user",
+            ">>> Adding ollama user to 'ollama' group",
+            ">>> Adding current user to 'ollama' group",
+            ">>> Creating ollama systemd service",
+            ">>> Enabling and starting ollama service",
+        ]
+        yield "data: Starting Ollama installation (fake mode)...\n\n"
+        for line in lines:
+            yield f"data: {line}\n\n"
         yield "data: [DONE] Ollama installed successfully.\n\n"
-    else:
-        yield f"data: [ERROR] Installation failed (exit {process.returncode}).\n\n"
 
-
-def stream_pull(model_tag: str, runner: Callable = subprocess.Popen) -> Iterator[str]:
-    """
-    Pull an Ollama model and yield SSE-formatted progress lines.
-
-    Args:
-        model_tag: Ollama model tag to pull, e.g. 'gemma4:e4b'.
-        runner: subprocess.Popen-compatible callable. Inject a FakeProcess in tests.
-    """
-    yield f"data: Pulling {model_tag}...\n\n"
-    process = runner(
-        ["ollama", "pull", model_tag],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
-    for line in process.stdout:
-        yield f"data: {line.rstrip()}\n\n"
-    process.wait()
-    if process.returncode == 0:
+    def stream_pull(self, model_tag: str) -> Iterator[str]:
+        """Yield fake model pull output."""
+        lines = [
+            f"pulling manifest for {model_tag}",
+            "pulling 819c2adf5ce6... 100% ▕████████████████▏ 4.3 GB",
+            "pulling 38527fd45e30... 100% ▕████████████████▏  112 B",
+            "pulling af0ddbdaaa26... 100% ▕████████████████▏   70 B",
+            "pulling 35c9e4b3e265... 100% ▕████████████████▏  561 B",
+            "verifying sha256 digest",
+            "writing manifest",
+        ]
+        yield f"data: Pulling {model_tag} (fake mode)...\n\n"
+        for line in lines:
+            yield f"data: {line}\n\n"
         yield "data: [DONE] Model pulled successfully.\n\n"
-    else:
-        yield f"data: [ERROR] Pull failed (exit {process.returncode}).\n\n"
 
-
-def build_trove_model(runner: Callable = subprocess.Popen) -> Iterator[str]:
-    """
-    Generate the Modelfile from current config and build the trove_model.
-
-    Reads config from disk, writes the Modelfile, then runs
-    `ollama create trove_model -f <Modelfile>`, streaming output as SSE.
-
-    Args:
-        runner: subprocess.Popen-compatible callable. Inject a FakeProcess in tests.
-    """
-    config = load_config()
-    modelfile_path = generate_modelfile(config)
-    yield f"data: Building trove_model from {config.base_model}...\n\n"
-    process = runner(
-        ["ollama", "create", "trove_model", "-f", str(modelfile_path)],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
-    for line in process.stdout:
-        yield f"data: {line.rstrip()}\n\n"
-    process.wait()
-    if process.returncode == 0:
+    def build_trove_model(self) -> Iterator[str]:
+        """Yield fake trove_model build output."""
+        config = load_config()
+        lines = [
+            f"reading model metadata from {get_config_dir() / 'Modelfile'}",
+            f"using existing layer sha256:abc123 (FROM {config.base_model})",
+            "writing new layer sha256:def456 (PARAMETER num_ctx)",
+            "writing manifest",
+            "removing any unused layers",
+            "success",
+        ]
+        generate_modelfile(config)  # still write the real Modelfile
+        yield f"data: Building trove_model from {config.base_model} (fake mode)...\n\n"
+        for line in lines:
+            yield f"data: {line}\n\n"
         yield "data: [DONE] trove_model built successfully.\n\n"
-    else:
-        yield f"data: [ERROR] Build failed (exit {process.returncode}).\n\n"
+
+
+# ---------------------------------------------------------------------------
+# Service factory (used by FastAPI Depends)
+# ---------------------------------------------------------------------------
+
+def get_ollama_service() -> OllamaService:
+    """
+    FastAPI dependency that returns the appropriate OllamaService implementation.
+
+    Returns FakeOllamaService if TROVE_FAKE_OLLAMA=1, otherwise RealOllamaService.
+    Set TROVE_FAKE_OLLAMA in .env for local dev without a real Ollama installation.
+    """
+    if os.environ.get("TROVE_FAKE_OLLAMA") == "1":
+        return FakeOllamaService()
+    return RealOllamaService()

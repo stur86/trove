@@ -4,6 +4,9 @@ Trove FastAPI application entry point.
 Mounts all domain routers and serves the frontend as static files in production.
 CORS is enabled for the Vite dev server (localhost:5173) during development.
 """
+from dotenv import load_dotenv
+load_dotenv()  # Load .env file if present; no-op if absent
+
 from pathlib import Path
 
 from fastapi import FastAPI
