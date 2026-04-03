@@ -48,6 +48,10 @@ def health() -> dict:
 # Serve the compiled React frontend as static files.
 # Only mounted if frontend/dist/ exists (i.e. after `task build`).
 # html=True makes FastAPI serve index.html for unknown paths (SPA routing).
+# NOTE: This mount must come after all app.include_router() calls. FastAPI
+# matches explicit routes first, but only when they were registered before
+# the catch-all "/" mount. Moving this block above the routers would shadow
+# all /api/* endpoints in production.
 _FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
 if _FRONTEND_DIST.exists():
     app.mount("/", StaticFiles(directory=str(_FRONTEND_DIST), html=True), name="frontend")
