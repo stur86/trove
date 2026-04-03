@@ -67,6 +67,8 @@ def get_viable_models(ram_gb: float, gpu_info: dict) -> list[dict]:
     Currently filters by RAM only. gpu_info is accepted for future use
     (e.g. GPU-accelerated inference with lower RAM requirements).
     """
+    # TODO: Consider VRAM as contributing to model viability in future,
+    # model can be split between RAM and VRAM for GPU inference. 
     return [m for m in MODELS if ram_gb >= m["min_ram_gb"]]
 
 
