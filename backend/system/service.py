@@ -1,12 +1,22 @@
 """
 System information service.
 
-Checks available hardware resources (RAM, disk, GPU) and determines
-which Gemma 4 model variants are viable on this machine.
-Also checks whether the Ollama systemd service is running.
+Defines the SystemService Protocol and two implementations:
+- RealSystemService: reads actual hardware via psutil and nvidia-smi
+- FakeSystemService: returns configurable values for dev mode and testing
+
+Controlled via environment variables (set in .env):
+  TROVE_FAKE_SYSTEM=1          — enable fake mode
+  TROVE_FAKE_SYSTEM_RAM_GB     — total RAM to report (default: 8.0)
+  TROVE_FAKE_SYSTEM_DISK_GB    — free disk to report (default: 50.0)
+  TROVE_FAKE_SYSTEM_GPU        — 1 if GPU present, 0 if not (default: 0)
+  TROVE_FAKE_SYSTEM_GPU_VRAM   — VRAM in GB when GPU present (default: 8.0)
+  TROVE_FAKE_SYSTEM_OLLAMA_RUNNING — 1 if service active (default: 1)
 """
+import os
 import shutil
 import subprocess
+from typing import Protocol, runtime_checkable
 
 import psutil
 
@@ -22,62 +32,161 @@ MODELS = [
 ]
 
 
-def get_ram_gb() -> float:
-    """Return total system RAM in gigabytes."""
-    return psutil.virtual_memory().total / 1024**3
+# ---------------------------------------------------------------------------
+# Protocol (interface)
+# ---------------------------------------------------------------------------
 
-
-def get_disk_free_gb() -> float:
-    """Return free disk space on the root filesystem in gigabytes."""
-    return psutil.disk_usage("/").free / 1024**3
-
-
-def get_gpu_info() -> dict:
+@runtime_checkable
+class SystemService(Protocol):
     """
-    Detect NVIDIA GPU presence and VRAM via nvidia-smi.
+    Interface for system hardware checks.
 
-    Returns a dict with:
-      available (bool): True if nvidia-smi is present and reports a GPU.
-      vram_gb (float | None): Total VRAM in GB, or None if unavailable.
-
-    Gracefully returns available=False if nvidia-smi is absent or fails.
-    AMD/ROCm GPUs are not detected in this version.
+    Implementations: RealSystemService (production), FakeSystemService (dev/test).
     """
-    if shutil.which("nvidia-smi") is None:
-        return {"available": False, "vram_gb": None}
-    result = subprocess.run(
-        ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        return {"available": False, "vram_gb": None}
-    try:
-        # nvidia-smi reports VRAM in MiB; convert to GB
-        vram_mb = float(result.stdout.strip().splitlines()[0])
-        return {"available": True, "vram_gb": round(vram_mb / 1024, 1)}
-    except (ValueError, IndexError):
-        return {"available": False, "vram_gb": None}
+
+    def check(self) -> dict:
+        """
+        Return a hardware snapshot used by the Setup page.
+
+        Keys: ram_gb, disk_free_gb, gpu, ollama_running, viable_models.
+        """
+        ...
 
 
-def get_viable_models(ram_gb: float, gpu_info: dict) -> list[dict]:
+# ---------------------------------------------------------------------------
+# Real implementation
+# ---------------------------------------------------------------------------
+
+class RealSystemService:
+    """Production system service that reads real hardware via psutil and nvidia-smi."""
+
+    def check(self) -> dict:
+        """
+        Run all system checks and return a combined status dict.
+
+        Keys:
+          ram_gb (float): Total RAM rounded to 1 decimal.
+          disk_free_gb (float): Free disk space rounded to 1 decimal.
+          gpu (dict): GPU info with 'available' and 'vram_gb'.
+          ollama_running (bool): Whether the Ollama systemd service is active.
+          viable_models (list[dict]): Models from MODELS that fit in RAM.
+        """
+        ram_gb = self._get_ram_gb()
+        gpu_info = self._get_gpu_info()
+        return {
+            "ram_gb": round(ram_gb, 1),
+            "disk_free_gb": round(self._get_disk_free_gb(), 1),
+            "gpu": gpu_info,
+            "ollama_running": self._is_ollama_service_running(),
+            "viable_models": _get_viable_models(ram_gb, gpu_info),
+        }
+
+    def _get_ram_gb(self) -> float:
+        """Return total system RAM in gigabytes."""
+        return psutil.virtual_memory().total / 1024**3
+
+    def _get_disk_free_gb(self) -> float:
+        """Return free disk space on the root filesystem in gigabytes."""
+        return psutil.disk_usage("/").free / 1024**3
+
+    def _get_gpu_info(self) -> dict:
+        """
+        Detect NVIDIA GPU presence and VRAM via nvidia-smi.
+
+        Returns dict with 'available' (bool) and 'vram_gb' (float|None).
+        Gracefully returns available=False if nvidia-smi is absent or fails.
+        """
+        if shutil.which("nvidia-smi") is None:
+            return {"available": False, "vram_gb": None}
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            return {"available": False, "vram_gb": None}
+        try:
+            # nvidia-smi reports VRAM in MiB; convert to GB
+            vram_mb = float(result.stdout.strip().splitlines()[0])
+            return {"available": True, "vram_gb": round(vram_mb / 1024, 1)}
+        except (ValueError, IndexError):
+            return {"available": False, "vram_gb": None}
+
+    def _is_ollama_service_running(self) -> bool:
+        """
+        Check whether the Ollama systemd service is active.
+
+        Returns False on any error, including systems without systemd.
+        """
+        result = subprocess.run(
+            ["systemctl", "is-active", "ollama"],
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip() == "active"
+
+
+# ---------------------------------------------------------------------------
+# Fake implementation (dev mode + testing)
+# ---------------------------------------------------------------------------
+
+class FakeSystemService:
     """
-    Return the subset of MODELS that can run on this machine.
+    Configurable fake system service for development and testing.
 
-    Currently filters by RAM only. gpu_info is accepted for future use
-    (e.g. GPU-accelerated inference with lower RAM requirements).
+    Values are read from environment variables at instantiation time,
+    allowing different test scenarios without changing code:
+
+        TROVE_FAKE_SYSTEM_RAM_GB=3.0  # simulate low-RAM machine
+        TROVE_FAKE_SYSTEM_OLLAMA_RUNNING=0  # simulate Ollama not started
+
+    Defaults simulate a mid-range machine with no GPU and Ollama running.
+    """
+
+    def check(self) -> dict:
+        """Return hardware snapshot from environment variable configuration."""
+        ram_gb = float(os.environ.get("TROVE_FAKE_SYSTEM_RAM_GB", "8.0"))
+        disk_gb = float(os.environ.get("TROVE_FAKE_SYSTEM_DISK_GB", "50.0"))
+        gpu_present = os.environ.get("TROVE_FAKE_SYSTEM_GPU", "0") == "1"
+        gpu_vram = float(os.environ.get("TROVE_FAKE_SYSTEM_GPU_VRAM", "8.0")) if gpu_present else None
+        ollama_running = os.environ.get("TROVE_FAKE_SYSTEM_OLLAMA_RUNNING", "1") == "1"
+
+        gpu_info = {"available": gpu_present, "vram_gb": gpu_vram}
+        return {
+            "ram_gb": round(ram_gb, 1),
+            "disk_free_gb": round(disk_gb, 1),
+            "gpu": gpu_info,
+            "ollama_running": ollama_running,
+            "viable_models": _get_viable_models(ram_gb, gpu_info),
+        }
+
+
+# ---------------------------------------------------------------------------
+# Shared utility
+# ---------------------------------------------------------------------------
+
+def _get_viable_models(ram_gb: float, gpu_info: dict) -> list[dict]:
+    """
+    Return the subset of MODELS that can run on a machine with the given RAM.
+
+    gpu_info is accepted for future use (GPU-accelerated inference with lower
+    RAM requirements may be supported in a later version).
     """
     # TODO: Consider VRAM as contributing to model viability in future,
     # model can be split between RAM and VRAM for GPU inference. 
     return [m for m in MODELS if ram_gb >= m["min_ram_gb"]]
 
 
+# ---------------------------------------------------------------------------
+# Keep module-level is_ollama_service_running for import by ollama domain
+# ---------------------------------------------------------------------------
+
 def is_ollama_service_running() -> bool:
     """
     Check whether the Ollama systemd service is active.
 
-    Uses `systemctl is-active ollama`. Returns False on any error,
-    including systems without systemd.
+    Kept as a module-level function because backend/ollama/service.py imports it.
+    Returns False on any error, including systems without systemd.
     """
     result = subprocess.run(
         ["systemctl", "is-active", "ollama"],
@@ -87,24 +196,17 @@ def is_ollama_service_running() -> bool:
     return result.stdout.strip() == "active"
 
 
-def check_system() -> dict:
-    """
-    Run all system checks and return a combined status dict.
+# ---------------------------------------------------------------------------
+# Service factory (used by FastAPI Depends)
+# ---------------------------------------------------------------------------
 
-    Used by the admin Setup page to display hardware info and guide
-    model selection. Keys:
-      ram_gb (float): Total RAM rounded to 1 decimal.
-      disk_free_gb (float): Free disk space rounded to 1 decimal.
-      gpu (dict): GPU info from get_gpu_info().
-      ollama_running (bool): Whether the Ollama service is active.
-      viable_models (list[dict]): Models from MODELS that fit in RAM.
+def get_system_service() -> SystemService:
     """
-    ram_gb = get_ram_gb()
-    gpu_info = get_gpu_info()
-    return {
-        "ram_gb": round(ram_gb, 1),
-        "disk_free_gb": round(get_disk_free_gb(), 1),
-        "gpu": gpu_info,
-        "ollama_running": is_ollama_service_running(),
-        "viable_models": get_viable_models(ram_gb, gpu_info),
-    }
+    FastAPI dependency that returns the appropriate SystemService implementation.
+
+    Returns FakeSystemService if TROVE_FAKE_SYSTEM=1, otherwise RealSystemService.
+    Configure fake hardware via TROVE_FAKE_SYSTEM_* variables in .env.
+    """
+    if os.environ.get("TROVE_FAKE_SYSTEM") == "1":
+        return FakeSystemService()
+    return RealSystemService()

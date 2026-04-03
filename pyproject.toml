@@ -10,6 +10,7 @@ dependencies = [
     "pydantic>=2.10",
     "psutil>=6.1",
     "sse-starlette>=2.2",
+    "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]

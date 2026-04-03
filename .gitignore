@@ -18,3 +18,6 @@ tmp_docs/
 # Frontend
 frontend/node_modules/
 frontend/dist/
+
+# Local environment variables (never commit secrets)
+.env
