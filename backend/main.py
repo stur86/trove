@@ -6,10 +6,12 @@ Mounts all domain routers and serves the frontend in production.
 from fastapi import FastAPI
 
 from backend.config.router import router as config_router
+from backend.i18n.router import router as i18n_router
 
 app = FastAPI(title="Trove", version="0.1.0")
 
 app.include_router(config_router)
+app.include_router(i18n_router)
 
 
 @app.get("/api/health")
