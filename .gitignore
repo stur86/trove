@@ -8,3 +8,9 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Temporary docs
+tmp_docs/
+
+# Git worktrees
+.worktrees/
