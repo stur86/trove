@@ -1,25 +1,96 @@
-The project: Trove, a local LLM AI agent for non-technical users powered by the new Gemma 4 models.
+# Trove
 
-The focuses: accessibility, reach, overcoming the digital divide and empowering non-technical users in facilities like schools, care homes, prisons etc to access the power of AI for simple tasks.
+Local LLM platform for non-technical users powered by Gemma 4, built for resource-constrained institutions (schools, care homes, prisons). Competition submission for the Ollama prize.
 
-Core ideas:
+## Project vision
 
-* ability to define unitary tasks - a single prompt, structured inputs and optionally outputs. No iteration. We are working with short context windows and relatively less powerful models
+**The core unit is a Task** — a single prompt template with structured inputs, optional document access, and a defined output format. No iteration, no freeform chat. Designed for short context windows and non-technical users.
 
-* multimodal inputs (images and audio allowed)
+Key principles:
+- **No-code**: admins define tasks via a form UI, not code. Jinja-style `{{ variable }}` for text fields, checkboxes for image/audio input
+- **Multimodal**: all Gemma 4 models support image input; E2B and E4B also support audio
+- **Document library**: documents uploaded → converted to markdown (Markitdown) → stored with AI-generated one-liner descriptions. Folder-based access control per task. Three access tiers: always-visible / on-request (fetched via tool call) / no-access. No vector store — the model reasons from metadata
+- **Server-client on LAN**: one server, all devices connect via browser. Fixed IP, then just works
+- **Translation**: locale JSON files only — no runtime translation by the local model. Cloud LLM translates locale files offline
 
-* no-code. The user only types in a prompt, adds arguments (Jinja template syntax, possibly aided via UI) and then the agent is programmatically constructed
+## Tech stack (decided)
 
-* document archiving supported. MCP server with documents uploaded by the user, and the AI itself can generate classification taglines. MCP organised in folders/subfolders, with each task given optional access to only some of them (configurable)
+| Layer | Choice |
+|---|---|
+| Model runtime | Ollama (automated setup) |
+| Backend | Python + FastAPI |
+| Agentic workflows | Pydantic AI |
+| Document conversion | Markitdown |
+| Frontend | Bun + React + Vite (TypeScript) |
+| Task runner | taskipy (in pyproject.toml) |
+| Python deps | uv |
 
-* server-client architecture. One single server operating on a more powerful machine on a local network. Every other device (mobile etc) connects via that network. Some configuration required (fixed IP etc) but once it's set up, it just works. There is a server application and a mobile-first client
+## Project structure
 
-Tech stack:
+```
+trove/
+├── backend/
+│   ├── main.py                  # FastAPI app, mounts all routers
+│   ├── config/                  # Server configuration (model, context window, locale)
+│   ├── i18n/                    # Locale file loading and API
+│   ├── system/                  # Hardware checks (RAM, disk, GPU)
+│   └── ollama/                  # Ollama install, pull, build, status (TODO)
+├── frontend/                    # Bun/React/Vite app (TODO)
+├── tests/                       # pytest tests, one file per domain
+├── docs/
+│   └── superpowers/
+│       ├── specs/               # Design documents
+│       └── plans/               # Implementation plans
+├── pyproject.toml               # uv deps + taskipy tasks
+└── uv.lock
+```
 
-Ollama for model running (automate the set up)
-Python for serving
-Pydantic AI for agentic workflows
-Markitdown for converting documents in different formats to text for addition to the MCP
-App framework for the clients to decide - can we use something like Streamlit or is it too constraining? Should we go full client-server with FastAPI + React Native frontend?
+**Runtime config** (not in repo): `~/.config/trove/config.json` and `~/.config/trove/Modelfile`
 
-Read the document in tmp_docs/ for a more in depth discussion.
+## Gemma 4 model catalogue
+
+| Ollama tag | Effective params | Context max | Min RAM | Audio |
+|---|---|---|---|---|
+| `gemma4:e2b` | 2.3B | 128K | ~4 GB | ✓ |
+| `gemma4:e4b` | 4.5B | 128K | ~6 GB | ✓ |
+| `gemma4:26b` | 4B activated (MoE) | 256K | ~10 GB | ✗ |
+| `gemma4:31b` | 31B dense | 256K | ~20 GB | ✗ |
+
+The active model is always `trove_model` — a custom Ollama model derived from the chosen base via a generated Modelfile (`FROM <base> / PARAMETER num_ctx <n>`).
+
+## Task runner (taskipy)
+
+```bash
+task dev-backend   # uvicorn backend.main:app --reload
+task dev-frontend  # cd frontend && bun run dev
+task build         # cd frontend && bun run build
+task start         # build + uvicorn (production, serves frontend as static files)
+task install-deps  # uv sync --extra dev && cd frontend && bun install
+task test          # pytest -v
+```
+
+## Development conventions
+
+- **TDD**: write failing tests first, implement, verify passing
+- **Docstrings**: every Python module, class, and function. Every exported TypeScript function, interface, and hook (JSDoc)
+- **Inline comments**: on any non-obvious logic
+- **Feature-grouped**: each backend domain owns its `router.py`, `service.py`, and `models.py`
+- **Mocks for Ollama**: all subprocess calls (install, pull, build, systemctl) must be mockable — use dependency injection so tests never touch the real Ollama installation
+- **XDG spec**: config lives at `$XDG_CONFIG_HOME/trove/` (default `~/.config/trove/`)
+
+## What's built
+
+- [x] Project scaffold (pyproject.toml, FastAPI skeleton, test infrastructure)
+- [x] Config domain (`/api/config` GET+PUT, XDG persistence)
+- [x] i18n domain (`/api/i18n/{locale}`, locale file loading with en fallback)
+- [x] System check domain (`/api/system/check` — RAM, disk, GPU, viable models)
+- [ ] Ollama domain (install/pull/build via SSE, status, Modelfile generation)
+- [ ] Frontend scaffold (Bun/React/Vite, routing)
+- [ ] Frontend API layer + i18n hook
+- [ ] Setup page (system check display, install flow)
+- [ ] Admin page (model picker, context window slider)
+- [ ] Production build (FastAPI serves frontend as static files)
+- [ ] Document library (upload, Markitdown conversion, folder structure, access tiers)
+- [ ] Task definition system (Jinja templates, structured inputs, tool toggles)
+- [ ] Auth (username/password, admin-created accounts)
+- [ ] Pydantic AI agentic workflows
