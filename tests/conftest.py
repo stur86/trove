@@ -1,3 +1,10 @@
+"""
+Shared pytest fixtures for the Trove test suite.
+
+The config_dir fixture is used by all tests that exercise config
+persistence — it redirects XDG_CONFIG_HOME to a temp directory so
+tests never read or write to the real ~/.config/trove/.
+"""
 import pytest
 
 

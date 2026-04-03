@@ -1,3 +1,4 @@
+"""Tests for the config domain: XDG path resolution, load/save persistence."""
 import json
 import pytest
 from pathlib import Path
