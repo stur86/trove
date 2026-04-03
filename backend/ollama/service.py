@@ -11,6 +11,7 @@ environment variable (set to 1 to use the fake). Load via python-dotenv.
 import os
 import shutil
 import subprocess
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Protocol, runtime_checkable
@@ -61,6 +62,10 @@ class OllamaService(Protocol):
         """Install Ollama and yield SSE-formatted progress lines."""
         ...
 
+    def start_service(self) -> Iterator[str]:
+        """Start the Ollama service and yield SSE-formatted progress lines."""
+        ...
+
     def stream_pull(self, model_tag: str) -> Iterator[str]:
         """Pull an Ollama model and yield SSE-formatted progress lines."""
         ...
@@ -88,12 +93,25 @@ class RealOllamaService:
         Keys:
           installed (bool): whether the ollama binary is on the PATH.
           running (bool): whether the ollama systemd service is active.
+          model_pulled (bool): whether the configured base model has been pulled.
           model_built (bool): whether trove_model has been created.
         """
         installed = shutil.which("ollama") is not None
         running = is_ollama_service_running() if installed else False
+        config = load_config()
+        model_pulled = self._is_model_pulled(config.base_model) if installed else False
         model_built = self._is_trove_model_built() if installed else False
-        return {"installed": installed, "running": running, "model_built": model_built}
+        return {
+            "installed": installed,
+            "running": running,
+            "model_pulled": model_pulled,
+            "model_built": model_built,
+        }
+
+    def _is_model_pulled(self, model_tag: str) -> bool:
+        """Return True if model_tag appears in `ollama list` output."""
+        result = subprocess.run(["ollama", "list"], capture_output=True, text=True)
+        return model_tag in result.stdout
 
     def _is_trove_model_built(self) -> bool:
         """Return True if trove_model appears in `ollama list` output."""
@@ -113,13 +131,44 @@ class RealOllamaService:
             stderr=subprocess.STDOUT,
             text=True,
         )
-        for line in process.stdout:
+        stdout = process.stdout or []
+        for line in stdout:
             yield f"data: {line.rstrip()}\n\n"
         process.wait()
         if process.returncode == 0:
             yield "data: [DONE] Ollama installed successfully.\n\n"
         else:
             yield f"data: [ERROR] Installation failed (exit {process.returncode}).\n\n"
+
+    def start_service(self) -> Iterator[str]:
+        """
+        Start the Ollama service and yield SSE-formatted progress lines.
+
+        Tries systemctl first (standard after the official install script).
+        Falls back to running ``ollama serve`` as a detached background process.
+        """
+        yield "data: Starting Ollama service...\n\n"
+        result = subprocess.run(
+            ["systemctl", "start", "ollama"],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0 and is_ollama_service_running():
+            yield "data: [DONE] Ollama service started.\n\n"
+            return
+
+        # Fallback for non-systemd environments (WSL, containers, etc.)
+        yield "data: systemctl unavailable, starting ollama serve...\n\n"
+        subprocess.Popen(
+            ["ollama", "serve"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        # Give the server a moment to bind its port.
+        time.sleep(2)
+        if is_ollama_service_running():
+            yield "data: [DONE] Ollama service started.\n\n"
+        else:
+            yield "data: [ERROR] Failed to start Ollama service.\n\n"
 
     def stream_pull(self, model_tag: str) -> Iterator[str]:
         """Pull an Ollama model and yield SSE-formatted progress lines."""
@@ -130,7 +179,8 @@ class RealOllamaService:
             stderr=subprocess.STDOUT,
             text=True,
         )
-        for line in process.stdout:
+        stdout = process.stdout or []
+        for line in stdout:
             yield f"data: {line.rstrip()}\n\n"
         process.wait()
         if process.returncode == 0:
@@ -153,7 +203,8 @@ class RealOllamaService:
             stderr=subprocess.STDOUT,
             text=True,
         )
-        for line in process.stdout:
+        stdout = process.stdout or []
+        for line in stdout:
             yield f"data: {line.rstrip()}\n\n"
         process.wait()
         if process.returncode == 0:
@@ -177,7 +228,7 @@ class FakeOllamaService:
 
     def get_status(self) -> dict:
         """Return a fully-installed status — as if Ollama is set up and running."""
-        return {"installed": True, "running": True, "model_built": True}
+        return {"installed": True, "running": True, "model_pulled": True, "model_built": True}
 
     def stream_install(self) -> Iterator[str]:
         """Yield fake install output that looks like the real Ollama installer."""
@@ -194,6 +245,11 @@ class FakeOllamaService:
         for line in lines:
             yield f"data: {line}\n\n"
         yield "data: [DONE] Ollama installed successfully.\n\n"
+
+    def start_service(self) -> Iterator[str]:
+        """Yield fake service-start output."""
+        yield "data: Starting Ollama service (fake mode)...\n\n"
+        yield "data: [DONE] Ollama service started.\n\n"
 
     def stream_pull(self, model_tag: str) -> Iterator[str]:
         """Yield fake model pull output."""

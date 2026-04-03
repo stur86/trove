@@ -12,6 +12,9 @@ import { get, post } from './client'
 export interface OllamaStatus {
   installed: boolean
   running: boolean
+  /** Whether the configured base model has been pulled from the registry. */
+  model_pulled: boolean
+  /** Whether trove_model (the custom derived model) has been built. */
   model_built: boolean
 }
 
@@ -60,6 +63,8 @@ export const ollamaApi = {
   status: () => get<OllamaStatus>('/ollama/status'),
   /** Start Ollama install; returns a streaming Response. */
   install: () => post('/ollama/install'),
+  /** Start the Ollama service; returns a streaming Response. */
+  start: () => post('/ollama/start'),
   /** Pull the configured model; returns a streaming Response. */
   pull: () => post('/ollama/pull'),
   /** Build trove_model from Modelfile; returns a streaming Response. */

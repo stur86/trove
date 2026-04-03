@@ -36,6 +36,18 @@ def install_ollama(
     return StreamingResponse(service.stream_install(), media_type="text/event-stream")
 
 
+@router.post("/start")
+def start_ollama(
+    service: Annotated[OllamaService, Depends(get_ollama_service)],
+) -> StreamingResponse:
+    """
+    Start the Ollama service and stream progress as SSE.
+
+    Tries systemctl first, falls back to ollama serve for non-systemd environments.
+    """
+    return StreamingResponse(service.start_service(), media_type="text/event-stream")
+
+
 @router.post("/pull")
 def pull_model(
     service: Annotated[OllamaService, Depends(get_ollama_service)],

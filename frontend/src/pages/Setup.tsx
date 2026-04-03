@@ -5,18 +5,21 @@ import { type SystemCheck, systemApi } from '../api/system'
 import { configApi } from '../api/config'
 import { useTranslation } from '../i18n'
 
-/** The setup flow progresses through these phases in order. */
-type Phase = 'checking' | 'ready' | 'installing' | 'pulling' | 'building' | 'done'
-
 /**
- * Setup page — shown on first run and whenever Ollama needs configuration.
+ * Setup page — three-step ladder that blocks progression until each step succeeds.
  *
- * Flow:
- * 1. On mount: fetch system info and Ollama status in parallel
- * 2. If already fully set up: redirect to /admin immediately
- * 3. Otherwise: show system check table and "Install Ollama" button
- * 4. On button click: run install → pull → build in sequence, streaming output
- * 5. On completion: redirect to /admin
+ * Steps:
+ *   1. Install Ollama binary
+ *   2. Start the Ollama service
+ *   3. Pull the configured base model
+ *
+ * Each step has its own button. A step's button is only enabled when all
+ * previous steps are done and the step itself hasn't completed yet. If a step
+ * fails, it stays active for retry — no forward progression.
+ *
+ * Once all three are done, the user can continue to the Admin page.
+ * Building trove_model is NOT done here — it depends on the admin's
+ * model/context-window choices and is triggered from Admin on save.
  */
 export default function Setup() {
   const navigate = useNavigate()
@@ -24,123 +27,127 @@ export default function Setup() {
   const { t } = useTranslation(locale)
   const [status, setStatus] = useState<OllamaStatus | null>(null)
   const [system, setSystem] = useState<SystemCheck | null>(null)
-  const [phase, setPhase] = useState<Phase>('checking')
+  const [loading, setLoading] = useState(true)
+  /** Which step is currently executing, or null if idle. */
+  const [activeStep, setActiveStep] = useState<'install' | 'start' | 'pull' | null>(null)
   const [log, setLog] = useState<string[]>([])
-  // Auto-scroll the log to the bottom as new lines arrive
   const logEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    // Fetch locale preference, system info, and Ollama status in parallel
     configApi.get().then(c => setLocale(c.locale))
     Promise.all([ollamaApi.status(), systemApi.check()]).then(([s, sys]) => {
       setStatus(s)
       setSystem(sys)
-      if (s.installed && s.running && s.model_built) {
-        // Already set up — skip straight to admin
+      setLoading(false)
+      if (s.installed && s.running && s.model_pulled) {
         navigate('/admin')
-      } else {
-        setPhase('ready')
       }
     })
   }, [navigate])
 
   useEffect(() => {
-    // Scroll log to bottom whenever a new line arrives
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [log])
 
-  /** Append a line to the log, colouring errors red via a prefix. */
+  /** Append a line to the log, suppressing [DONE] sentinels and colouring errors. */
   function appendLog(line: string) {
-    if (line.startsWith('[DONE]')) return // suppress sentinel
+    if (line.startsWith('[DONE]')) return
     const formatted = line.startsWith('[ERROR]')
       ? `ERROR: ${line.replace('[ERROR] ', '')}`
       : line
     setLog(prev => [...prev, formatted])
   }
 
-  /** Run the full install → pull → build sequence. */
-  async function runSetup() {
-    setLog([])
-
-    if (!status?.installed) {
-      setPhase('installing')
-      const res = await ollamaApi.install()
-      await new Promise<void>(resolve => streamLines(res, appendLog, resolve))
-    }
-
-    setPhase('pulling')
-    const pullRes = await ollamaApi.pull()
-    await new Promise<void>(resolve => streamLines(pullRes, appendLog, resolve))
-
-    setPhase('building')
-    const buildRes = await ollamaApi.build()
-    await new Promise<void>(resolve => streamLines(buildRes, appendLog, resolve))
-
-    setPhase('done')
-    setTimeout(() => navigate('/admin'), 1500)
+  /** Stream an SSE response into the log. Returns true if no [ERROR] was emitted. */
+  async function runStream(res: Response): Promise<boolean> {
+    let failed = false
+    await new Promise<void>(resolve =>
+      streamLines(res, line => {
+        if (line.startsWith('[ERROR]')) failed = true
+        appendLog(line)
+      }, resolve),
+    )
+    return !failed
   }
 
-  /** Human-readable label for the button based on current phase. */
-  const buttonLabel =
-    phase === 'ready' ? t('setup.install_button') :
-    phase === 'installing' ? t('setup.installing') :
-    phase === 'pulling' ? t('setup.pulling') :
-    phase === 'building' ? t('setup.building') :
-    'Done'
+  /** Re-fetch authoritative status from the backend. */
+  async function refreshStatus(): Promise<OllamaStatus> {
+    const s = await ollamaApi.status()
+    setStatus(s)
+    return s
+  }
 
-  if (phase === 'checking') {
+  /** Run a setup step: stream output, refresh status, auto-navigate if all done. */
+  async function runStep(
+    step: 'install' | 'start' | 'pull',
+    apiCall: () => Promise<Response>,
+  ) {
+    setActiveStep(step)
+    setLog([])
+    await runStream(await apiCall())
+    const s = await refreshStatus()
+    setActiveStep(null)
+    if (s.installed && s.running && s.model_pulled) {
+      navigate('/admin')
+    }
+  }
+
+  if (loading) {
     return <div style={{ padding: '2rem' }}>{t('setup.system_check')}</div>
   }
+
+  const allDone = status?.installed && status?.running && status?.model_pulled
 
   return (
     <div style={{ padding: '2rem', maxWidth: '640px', margin: '0 auto' }}>
       <h1>{t('setup.title')}</h1>
 
-      {/* System hardware summary table */}
+      {/* Compact system summary */}
       {system && (
-        <table style={{ marginBottom: '1.5rem', borderCollapse: 'collapse', width: '100%' }}>
-          <tbody>
-            <tr>
-              <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>{t('setup.ram')}</td>
-              <td>{system.ram_gb} GB</td>
-            </tr>
-            <tr>
-              <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>{t('setup.disk')}</td>
-              <td>{system.disk_free_gb} GB free</td>
-            </tr>
-            <tr>
-              <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>{t('setup.gpu')}</td>
-              <td>{system.gpu.available ? `${system.gpu.vram_gb} GB VRAM` : 'None'}</td>
-            </tr>
-            <tr>
-              <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>{t('setup.ollama_status')}</td>
-              <td>
-                {status?.installed
-                  ? (status.running ? t('setup.running') : t('setup.not_running'))
-                  : t('setup.not_installed')}
-              </td>
-            </tr>
-            <tr>
-              <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>{t('setup.model_built')}</td>
-              <td>{status?.model_built ? '✓' : '✗'}</td>
-            </tr>
-          </tbody>
-        </table>
+        <p style={{ color: '#888', marginBottom: '1.5rem' }}>
+          {system.ram_gb} GB RAM &middot; {system.disk_free_gb} GB free disk
+          {system.gpu.available ? ` \u00b7 ${system.gpu.vram_gb} GB VRAM` : ' \u00b7 No GPU'}
+        </p>
       )}
 
-      {phase === 'done' ? (
-        <p>Setup complete. Redirecting to admin...</p>
-      ) : (
+      {/* Step ladder */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
+        <SetupStep
+          number={1}
+          label={t('setup.step_install')}
+          done={!!status?.installed}
+          active={activeStep === 'install'}
+          enabled={activeStep === null && !status?.installed}
+          onAction={() => runStep('install', ollamaApi.install)}
+        />
+        <SetupStep
+          number={2}
+          label={t('setup.step_start')}
+          done={!!status?.running}
+          active={activeStep === 'start'}
+          enabled={activeStep === null && !!status?.installed && !status?.running}
+          onAction={() => runStep('start', ollamaApi.start)}
+        />
+        <SetupStep
+          number={3}
+          label={t('setup.step_pull')}
+          done={!!status?.model_pulled}
+          active={activeStep === 'pull'}
+          enabled={activeStep === null && !!status?.installed && !!status?.running && !status?.model_pulled}
+          onAction={() => runStep('pull', ollamaApi.pull)}
+        />
+      </div>
+
+      {allDone && (
         <button
-          onClick={runSetup}
-          disabled={phase !== 'ready'}
-          style={{ padding: '0.75rem 2rem', fontSize: '1.1rem', cursor: phase === 'ready' ? 'pointer' : 'default' }}
+          onClick={() => navigate('/admin')}
+          style={{ padding: '0.75rem 2rem', fontSize: '1.1rem', cursor: 'pointer' }}
         >
-          {buttonLabel}
+          Continue &rarr;
         </button>
       )}
 
-      {/* Live log output from install/pull/build */}
+      {/* Live log output from the active step */}
       {log.length > 0 && (
         <pre style={{
           marginTop: '1rem',
@@ -164,6 +171,63 @@ export default function Setup() {
           ))}
           <div ref={logEndRef} />
         </pre>
+      )}
+    </div>
+  )
+}
+
+/**
+ * A single row in the setup ladder.
+ *
+ * Shows a numbered circle (or checkmark when done), a label, and an action
+ * button that is only clickable when enabled.
+ */
+function SetupStep({ number, label, done, active, enabled, onAction }: {
+  number: number
+  label: string
+  done: boolean
+  active: boolean
+  enabled: boolean
+  onAction: () => void
+}) {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.75rem',
+      padding: '0.6rem 0.75rem',
+      border: '1px solid #333',
+      borderRadius: '6px',
+      opacity: !done && !active && !enabled ? 0.5 : 1,
+    }}>
+      <span style={{
+        width: '1.75rem',
+        height: '1.75rem',
+        borderRadius: '50%',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: done ? '#2a5' : '#333',
+        color: done ? '#fff' : '#aaa',
+        fontWeight: 'bold',
+        fontSize: '0.85rem',
+        flexShrink: 0,
+      }}>
+        {done ? '\u2713' : number}
+      </span>
+      <span style={{ flex: 1 }}>{label}</span>
+      {!done && (
+        <button
+          onClick={onAction}
+          disabled={!enabled}
+          style={{
+            padding: '0.35rem 1rem',
+            fontSize: '0.85rem',
+            cursor: enabled ? 'pointer' : 'default',
+          }}
+        >
+          {active ? 'Running\u2026' : 'Run'}
+        </button>
       )}
     </div>
   )

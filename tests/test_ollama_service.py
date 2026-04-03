@@ -38,18 +38,24 @@ def test_real_get_status_not_installed():
         status = svc.get_status()
     assert status["installed"] is False
     assert status["running"] is False
+    assert status["model_pulled"] is False
     assert status["model_built"] is False
 
 
 def test_real_get_status_installed_and_running():
     svc = RealOllamaService()
-    mock_list = MagicMock(returncode=0, stdout="NAME\ntrove_model:latest\n")
+    # stdout includes both the base model and trove_model; config is patched to
+    # avoid reading the real ~/.config/trove/config.json during the test.
+    mock_list = MagicMock(returncode=0, stdout="NAME\ngemma4:e4b:latest\ntrove_model:latest\n")
+    mock_config = TroveConfig()  # defaults: base_model="gemma4:e4b"
     with patch("backend.ollama.service.shutil.which", return_value="/usr/bin/ollama"):
         with patch("backend.ollama.service.subprocess.run", return_value=mock_list):
             with patch("backend.ollama.service.is_ollama_service_running", return_value=True):
-                status = svc.get_status()
+                with patch("backend.ollama.service.load_config", return_value=mock_config):
+                    status = svc.get_status()
     assert status["installed"] is True
     assert status["running"] is True
+    assert status["model_pulled"] is True
     assert status["model_built"] is True
 
 
@@ -77,6 +83,28 @@ def test_real_stream_install_yields_error_on_failure():
     assert any("[ERROR]" in e for e in events)
 
 
+def test_real_start_service_systemctl_success():
+    """start_service yields [DONE] when systemctl succeeds and service is running."""
+    svc = RealOllamaService()
+    mock_result = MagicMock(returncode=0)
+    with patch("backend.ollama.service.subprocess.run", return_value=mock_result):
+        with patch("backend.ollama.service.is_ollama_service_running", return_value=True):
+            events = list(svc.start_service())
+    assert any("[DONE]" in e for e in events)
+
+
+def test_real_start_service_fallback_failure():
+    """start_service yields [ERROR] when both systemctl and ollama serve fail."""
+    svc = RealOllamaService()
+    mock_result = MagicMock(returncode=1)
+    with patch("backend.ollama.service.subprocess.run", return_value=mock_result):
+        with patch("backend.ollama.service.subprocess.Popen"):
+            with patch("backend.ollama.service.is_ollama_service_running", return_value=False):
+                with patch("backend.ollama.service.time.sleep"):
+                    events = list(svc.start_service())
+    assert any("[ERROR]" in e for e in events)
+
+
 def test_real_stream_pull_yields_done():
     svc = RealOllamaService()
     mock_proc = MagicMock()
@@ -95,6 +123,7 @@ def test_fake_get_status_returns_all_true():
     status = svc.get_status()
     assert status["installed"] is True
     assert status["running"] is True
+    assert status["model_pulled"] is True
     assert status["model_built"] is True
 
 
@@ -103,6 +132,12 @@ def test_fake_stream_install_yields_done():
     events = list(svc.stream_install())
     assert any("[DONE]" in e for e in events)
     assert any("fake mode" in e for e in events)
+
+
+def test_fake_start_service_yields_done():
+    svc = FakeOllamaService()
+    events = list(svc.start_service())
+    assert any("[DONE]" in e for e in events)
 
 
 def test_fake_stream_pull_yields_done():

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { type TroveConfig, configApi } from '../api/config'
 import { type ModelInfo, systemApi } from '../api/system'
+import { ollamaApi, streamLines } from '../api/ollama'
 import { useTranslation } from '../i18n'
 
 /** Human-readable labels for each Gemma 4 model variant. */
@@ -24,7 +25,8 @@ const MODEL_LABELS: Record<string, string> = {
 export default function Admin() {
   const [config, setConfig] = useState<TroveConfig | null>(null)
   const [viableModels, setViableModels] = useState<ModelInfo[]>([])
-  const [saved, setSaved] = useState(false)
+  /** 'idle' | 'saving' | 'building' | 'done' | 'error' */
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'building' | 'done' | 'error'>('idle')
   const { t } = useTranslation(config?.locale ?? 'en')
 
   useEffect(() => {
@@ -35,13 +37,26 @@ export default function Admin() {
     })
   }, [])
 
-  /** Persist the current config to the backend. */
+  /**
+   * Save config then rebuild trove_model from the new settings.
+   *
+   * Build is triggered here rather than during setup because it depends on
+   * the admin's model and context-window choices, and runs in seconds.
+   */
   async function handleSave() {
     if (!config) return
+    setSaveState('saving')
     await configApi.update(config)
-    setSaved(true)
-    // Reset the "Saved" confirmation after 2 seconds
-    setTimeout(() => setSaved(false), 2000)
+
+    setSaveState('building')
+    let failed = false
+    const res = await ollamaApi.build()
+    await new Promise<void>(resolve =>
+      streamLines(res, line => { if (line.startsWith('[ERROR]')) failed = true }, resolve)
+    )
+
+    setSaveState(failed ? 'error' : 'done')
+    if (!failed) setTimeout(() => setSaveState('idle'), 2000)
   }
 
   if (!config) {
@@ -127,9 +142,14 @@ export default function Admin() {
 
       <button
         onClick={handleSave}
-        style={{ padding: '0.75rem 2rem', fontSize: '1rem', cursor: 'pointer' }}
+        disabled={saveState === 'saving' || saveState === 'building'}
+        style={{ padding: '0.75rem 2rem', fontSize: '1rem', cursor: saveState === 'idle' || saveState === 'error' ? 'pointer' : 'default' }}
       >
-        {saved ? t('config.saved') : t('config.save')}
+        {saveState === 'saving' ? 'Saving...' :
+         saveState === 'building' ? 'Applying...' :
+         saveState === 'done' ? t('config.saved') :
+         saveState === 'error' ? 'Failed — retry?' :
+         t('config.save')}
       </button>
     </div>
   )

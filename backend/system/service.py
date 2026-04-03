@@ -118,13 +118,7 @@ class RealSystemService:
 
         Returns False on any error, including systems without systemd.
         """
-        result = subprocess.run(
-            ["systemctl", "is-active", "ollama"],
-            capture_output=True,
-            text=True,
-        )
-        return result.stdout.strip() == "active"
-
+        return is_ollama_service_running()
 
 # ---------------------------------------------------------------------------
 # Fake implementation (dev mode + testing)
@@ -189,11 +183,11 @@ def is_ollama_service_running() -> bool:
     Returns False on any error, including systems without systemd.
     """
     result = subprocess.run(
-        ["systemctl", "is-active", "ollama"],
+        ["ollama", "ls"],
         capture_output=True,
         text=True,
     )
-    return result.stdout.strip() == "active"
+    return result.returncode == 0
 
 
 # ---------------------------------------------------------------------------
