@@ -22,7 +22,7 @@ dev = [
 ]
 
 [tool.taskipy.tasks]
-dev-backend  = "uvicorn backend.main:app --reload"
+dev-backend  = "uvicorn backend.main:app --reload --port 5173"
 dev-frontend = "cd frontend && bun run dev"
 build        = "cd frontend && bun run build"
 start        = "task build && uvicorn backend.main:app"
