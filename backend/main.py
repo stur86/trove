@@ -24,9 +24,9 @@ from backend.system.router import router as system_router
 
 app = FastAPI(title="Trove", version="0.1.0")
 
-# Allow the Vite dev server to call the backend during development.
-# In production the frontend is served by FastAPI itself, so CORS is not needed,
-# but it doesn't hurt to keep it here for hybrid dev/prod setups.
+# Allow the Vite dev server (port 5173) to call the backend (port 8001).
+# In production FastAPI serves everything on one port, so CORS isn't needed,
+# but keeping it here doesn't hurt.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],

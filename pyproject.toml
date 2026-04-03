@@ -14,10 +14,14 @@ dependencies = [
 ]
 
 [tool.taskipy.tasks]
-dev-backend  = "uvicorn backend.main:app --reload --port 5173"
+# Run both servers together (recommended for development)
+dev          = "bash scripts/dev.sh"
+# Run servers individually
+dev-backend  = "uvicorn backend.main:app --reload --port 8001"
 dev-frontend = "cd frontend && bun run dev"
+# Production: build frontend then serve everything from FastAPI on port 5173
 build        = "cd frontend && bun run build"
-start        = "task build && uvicorn backend.main:app"
+start        = "task build && uvicorn backend.main:app --port 5173"
 install-deps = "uv sync --extra dev && cd frontend && bun install"
 test         = "pytest -v"
 
