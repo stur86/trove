@@ -34,8 +34,12 @@ trove/
 │   ├── config/                  # Server configuration (model, context window, locale)
 │   ├── i18n/                    # Locale file loading and API
 │   ├── system/                  # Hardware checks (RAM, disk, GPU)
-│   └── ollama/                  # Ollama install, pull, build, status (TODO)
-├── frontend/                    # Bun/React/Vite app (TODO)
+│   └── ollama/                  # Ollama install/pull/build SSE, status, Modelfile generation
+├── frontend/                    # Bun/React/Vite app
+│   ├── src/
+│   │   ├── api/                 # Typed API clients (config, system, ollama)
+│   │   ├── i18n/                # useTranslation hook, locale cache
+│   │   └── pages/               # Setup.tsx, Admin.tsx
 ├── tests/                       # pytest tests, one file per domain
 ├── docs/
 │   └── superpowers/
@@ -75,7 +79,7 @@ task test          # pytest -v
 - **Docstrings**: every Python module, class, and function. Every exported TypeScript function, interface, and hook (JSDoc)
 - **Inline comments**: on any non-obvious logic
 - **Feature-grouped**: each backend domain owns its `router.py`, `service.py`, and `models.py`
-- **Mocks for Ollama**: all subprocess calls (install, pull, build, systemctl) must be mockable — use dependency injection so tests never touch the real Ollama installation
+- **Protocol/Real/Fake pattern**: services use `@runtime_checkable Protocol` + `RealXxxService` + `FakeXxxService` + `get_xxx_service()` FastAPI dependency factory. Activated by env flags (`TROVE_FAKE_OLLAMA=1`, `TROVE_FAKE_SYSTEM=1`) in `.env` (gitignored)
 - **XDG spec**: config lives at `$XDG_CONFIG_HOME/trove/` (default `~/.config/trove/`)
 
 ## What's built
@@ -84,12 +88,12 @@ task test          # pytest -v
 - [x] Config domain (`/api/config` GET+PUT, XDG persistence)
 - [x] i18n domain (`/api/i18n/{locale}`, locale file loading with en fallback)
 - [x] System check domain (`/api/system/check` — RAM, disk, GPU, viable models)
-- [ ] Ollama domain (install/pull/build via SSE, status, Modelfile generation)
-- [ ] Frontend scaffold (Bun/React/Vite, routing)
-- [ ] Frontend API layer + i18n hook
-- [ ] Setup page (system check display, install flow)
-- [ ] Admin page (model picker, context window slider)
-- [ ] Production build (FastAPI serves frontend as static files)
+- [x] Ollama domain (install/pull/build via SSE, status, Modelfile generation; FakeOllamaService for dev)
+- [x] Frontend scaffold (Bun/React/Vite, routing, API proxy)
+- [x] Frontend API layer + i18n hook (`useTranslation`, locale cache)
+- [x] Setup page (hardware table, phase-based install flow, SSE log streaming)
+- [x] Admin page (model picker, num_ctx slider, language selector)
+- [x] Production build (FastAPI serves `frontend/dist/` as static files; dev mode unaffected)
 - [ ] Document library (upload, Markitdown conversion, folder structure, access tiers)
 - [ ] Task definition system (Jinja templates, structured inputs, tool toggles)
 - [ ] Auth (username/password, admin-created accounts)
