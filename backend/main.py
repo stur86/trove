@@ -10,6 +10,7 @@ frontend/dist/ so only one process needs to run on one port.
 from dotenv import load_dotenv
 load_dotenv()  # Load .env file if present; no-op if absent
 
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -20,9 +21,20 @@ from fastapi.staticfiles import StaticFiles
 from backend.config.router import router as config_router
 from backend.i18n.router import router as i18n_router
 from backend.ollama.router import router as ollama_router
+from backend.ollama.service import RealOllamaService
 from backend.system.router import router as system_router
 
-app = FastAPI(title="Trove", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Terminate any ollama serve process we spawned on shutdown."""
+    yield
+    proc = RealOllamaService._serve_process
+    if proc is not None and proc.poll() is None:
+        proc.terminate()
+
+
+app = FastAPI(title="Trove", version="0.1.0", lifespan=lifespan)
 
 # Allow the Vite dev server (port 5173) to call the backend (port 8001).
 # In production FastAPI serves everything on one port, so CORS isn't needed,

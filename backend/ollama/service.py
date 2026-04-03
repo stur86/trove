@@ -14,7 +14,7 @@ import subprocess
 import time
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import ClassVar, Protocol, runtime_checkable
 
 from backend.config.models import TroveConfig
 from backend.config.service import get_config_dir, load_config
@@ -84,7 +84,14 @@ class RealOllamaService:
     Production Ollama service that shells out to the real ollama binary.
 
     All subprocess calls use subprocess.Popen for streaming output.
+
+    ``_serve_process`` is a class-level singleton holding the handle for any
+    ``ollama serve`` process we spawned ourselves (non-systemd fallback). It
+    persists across request instances so we can avoid double-spawning and can
+    terminate it cleanly on application shutdown.
     """
+
+    _serve_process: ClassVar[subprocess.Popen | None] = None
 
     def get_status(self) -> dict:
         """
@@ -157,12 +164,17 @@ class RealOllamaService:
             return
 
         # Fallback for non-systemd environments (WSL, containers, etc.)
-        yield "data: systemctl unavailable, starting ollama serve...\n\n"
-        subprocess.Popen(
-            ["ollama", "serve"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        # Reuse an existing process if it is still alive.
+        proc = RealOllamaService._serve_process
+        if proc is not None and proc.poll() is None:
+            yield "data: ollama serve already running (pid {proc.pid}).\n\n"
+        else:
+            yield "data: systemctl unavailable, starting ollama serve...\n\n"
+            RealOllamaService._serve_process = subprocess.Popen(
+                ["ollama", "serve"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
         # Give the server a moment to bind its port.
         time.sleep(2)
         if is_ollama_service_running():

@@ -93,8 +93,25 @@ def test_real_start_service_systemctl_success():
     assert any("[DONE]" in e for e in events)
 
 
+def test_real_start_service_fallback_stores_process():
+    """start_service stores the Popen handle on RealOllamaService when using fallback."""
+    RealOllamaService._serve_process = None  # reset class-level state
+    svc = RealOllamaService()
+    mock_run = MagicMock(returncode=1)
+    mock_proc = MagicMock()
+    mock_proc.poll.return_value = None  # process appears alive
+    with patch("backend.ollama.service.subprocess.run", return_value=mock_run):
+        with patch("backend.ollama.service.subprocess.Popen", return_value=mock_proc):
+            with patch("backend.ollama.service.is_ollama_service_running", return_value=True):
+                with patch("backend.ollama.service.time.sleep"):
+                    events = list(svc.start_service())
+    assert any("[DONE]" in e for e in events)
+    assert RealOllamaService._serve_process is mock_proc
+
+
 def test_real_start_service_fallback_failure():
     """start_service yields [ERROR] when both systemctl and ollama serve fail."""
+    RealOllamaService._serve_process = None
     svc = RealOllamaService()
     mock_result = MagicMock(returncode=1)
     with patch("backend.ollama.service.subprocess.run", return_value=mock_result):

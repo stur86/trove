@@ -45,6 +45,9 @@ export function useTranslation(locale: string = 'en') {
   const [strings, setStrings] = useState<Strings>(cache[locale] ?? {})
 
   useEffect(() => {
+    // Apply cached strings immediately so the UI switches without any flash,
+    // then fetch (which is a no-op if already cached).
+    if (cache[locale]) setStrings(cache[locale])
     fetchLocale(locale).then(setStrings)
   }, [locale])
 

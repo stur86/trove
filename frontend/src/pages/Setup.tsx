@@ -96,8 +96,6 @@ export default function Setup() {
     return <div style={{ padding: '2rem' }}>{t('setup.system_check')}</div>
   }
 
-  const allDone = status?.installed && status?.running && status?.model_pulled
-
   return (
     <div style={{ padding: '2rem', maxWidth: '640px', margin: '0 auto' }}>
       <h1>{t('setup.title')}</h1>
@@ -137,15 +135,6 @@ export default function Setup() {
           onAction={() => runStep('pull', ollamaApi.pull)}
         />
       </div>
-
-      {allDone && (
-        <button
-          onClick={() => navigate('/admin')}
-          style={{ padding: '0.75rem 2rem', fontSize: '1.1rem', cursor: 'pointer' }}
-        >
-          Continue &rarr;
-        </button>
-      )}
 
       {/* Live log output from the active step */}
       {log.length > 0 && (
