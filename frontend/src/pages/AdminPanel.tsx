@@ -16,6 +16,7 @@ import { type TroveConfig, configApi } from '../api/config'
 import { streamLines } from '../api/ollama'
 import { systemApi, type ModelInfo } from '../api/system'
 import { useTranslation } from '../i18n'
+import { Label, RangeSlider } from "flowbite-react";
 
 /** Possible states for the save + build operation. */
 type SaveState = 'idle' | 'saving' | 'building' | 'done' | 'error'
@@ -160,11 +161,10 @@ export default function AdminPanel() {
           {(['settings', 'documents', 'tasks'] as const).map(tab => (
             <button
               key={tab}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab
                   ? 'border-blue-500 text-white'
                   : 'border-transparent text-gray-400 hover:text-gray-200'
-              }`}
+                }`}
               onClick={() => setActiveTab(tab)}
             >
               {t(`admin.tab.${tab}`)}
@@ -199,10 +199,10 @@ export default function AdminPanel() {
               >
                 {viableModels.length > 0
                   ? viableModels.map(m => (
-                      <option key={m.tag} value={m.tag}>
-                        {MODEL_LABELS[m.tag] ?? m.tag}
-                      </option>
-                    ))
+                    <option key={m.tag} value={m.tag}>
+                      {MODEL_LABELS[m.tag] ?? m.tag}
+                    </option>
+                  ))
                   : (
                     // Fallback: show current model even if viable_models is empty
                     <option value={config.base_model}>
@@ -215,22 +215,12 @@ export default function AdminPanel() {
 
             {/* Context window slider — bounded by the selected model's max */}
             <div>
-              <label className="block text-sm text-gray-400 mb-2">
-                {t('config.num_ctx')}: {config.num_ctx.toLocaleString()}
-              </label>
-              <input
-                type="range"
-                min={512}
-                max={maxCtx}
-                step={512}
-                value={config.num_ctx}
-                onChange={e => setConfig({ ...config, num_ctx: Number(e.target.value) })}
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>512</span>
-                <span>{Math.round(maxCtx / 1000)}K</span>
+              <div className="block text-sm text-gray-400 mb-2">
+                <Label htmlFor="num-ctx-range">{t('config.num_ctx')}: {config.num_ctx.toLocaleString()}</Label>
               </div>
+              <RangeSlider id="num-ctx-range" min={512} max={maxCtx} step={512} value={config.num_ctx}
+                onChange={e => setConfig({ ...config, num_ctx: Number(e.target.value) })}
+              />              
             </div>
 
             {/* Language selector */}
@@ -256,10 +246,10 @@ export default function AdminPanel() {
               {saveState === 'saving'
                 ? 'Saving...'
                 : saveState === 'building'
-                ? 'Building model...'
-                : saveState === 'done'
-                ? t('config.saved')
-                : t('config.save')}
+                  ? 'Building model...'
+                  : saveState === 'done'
+                    ? t('config.saved')
+                    : t('config.save')}
             </button>
 
             {/* Live build log */}
