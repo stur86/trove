@@ -73,3 +73,104 @@ def test_get_lan_ip_returns_string():
     # Should look like an IP address
     parts = ip.split(".")
     assert len(parts) == 4
+
+
+# ---------------------------------------------------------------------------
+# Router tests — require setup mode app
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def setup_client(config_dir, monkeypatch):
+    """TestClient with the app running in setup mode, fake services active."""
+    monkeypatch.setenv("TROVE_FAKE_SERVICE", "1")
+    monkeypatch.setenv("TROVE_FAKE_OLLAMA", "1")
+    monkeypatch.setenv("TROVE_FAKE_SYSTEM", "1")
+    from backend.main import create_app
+    return TestClient(create_app(mode="setup"))
+
+
+def test_setup_status_returns_expected_fields(setup_client):
+    response = setup_client.get("/api/setup/status")
+    assert response.status_code == 200
+    data = response.json()
+    assert "ollama_installed" in data
+    assert "models_pulled" in data
+    assert "admin_configured" in data
+    assert "service_installed" in data
+
+
+def test_setup_status_admin_not_configured_by_default(setup_client):
+    response = setup_client.get("/api/setup/status")
+    assert response.json()["admin_configured"] is False
+
+
+def test_setup_status_service_not_installed_by_default(setup_client):
+    response = setup_client.get("/api/setup/status")
+    assert response.json()["service_installed"] is False
+
+
+def test_setup_language_saves_locale(setup_client, config_dir):
+    response = setup_client.post("/api/setup/language", json={"locale": "it"})
+    assert response.status_code == 200
+    from backend.config.service import load_config
+    assert load_config().locale == "it"
+
+
+def test_setup_admin_credentials_saves_to_config(setup_client, config_dir):
+    response = setup_client.post(
+        "/api/setup/admin-credentials",
+        json={"username": "teacher", "password": "blackboard"},
+    )
+    assert response.status_code == 200
+    from backend.config.service import load_config
+    config = load_config()
+    assert config.admin_username == "teacher"
+    assert config.admin_password == "blackboard"
+
+
+def test_setup_status_admin_configured_after_save(setup_client, config_dir):
+    setup_client.post(
+        "/api/setup/admin-credentials",
+        json={"username": "admin", "password": "pw"},
+    )
+    response = setup_client.get("/api/setup/status")
+    assert response.json()["admin_configured"] is True
+
+
+def test_setup_install_service_streams_done(setup_client):
+    response = setup_client.post("/api/setup/install-service", json={"app_port": 7770})
+    assert response.status_code == 200
+    assert "[DONE]" in response.text
+
+
+def test_setup_uninstall_streams_done(setup_client):
+    response = setup_client.post("/api/setup/uninstall")
+    assert response.status_code == 200
+    assert "[DONE]" in response.text
+
+
+def test_setup_restart_streams_done(setup_client):
+    response = setup_client.post("/api/setup/restart-service")
+    assert response.status_code == 200
+    assert "[DONE]" in response.text
+
+
+def test_setup_lan_url_returns_url(setup_client):
+    response = setup_client.get("/api/setup/lan-url")
+    assert response.status_code == 200
+    data = response.json()
+    assert "url" in data
+    assert ":" in data["url"]  # contains port
+    assert data["port"] == 7770
+
+
+def test_setup_ollama_version_returns_string(setup_client):
+    response = setup_client.get("/api/setup/ollama-version")
+    assert response.status_code == 200
+    assert "version" in response.json()
+
+
+def test_setup_not_available_in_app_mode(config_dir):
+    from backend.main import create_app
+    client = TestClient(create_app(mode="app"))
+    assert client.get("/api/setup/status").status_code == 404

@@ -51,14 +51,17 @@ def start_ollama(
 @router.post("/pull")
 def pull_model(
     service: Annotated[OllamaService, Depends(get_ollama_service)],
+    model_tag: str | None = None,
 ) -> StreamingResponse:
     """
-    Pull the configured base model and stream progress as SSE.
+    Pull a model and stream progress as SSE.
 
-    Uses the base_model from current config (~/.config/trove/config.json).
+    Uses the provided model_tag query parameter if given, otherwise falls back
+    to the base_model from current config. This allows the setup wizard to pull
+    specific models by tag without changing the persisted config.
     """
-    config = load_config()
-    return StreamingResponse(service.stream_pull(config.base_model), media_type="text/event-stream")
+    tag = model_tag or load_config().base_model
+    return StreamingResponse(service.stream_pull(tag), media_type="text/event-stream")
 
 
 @router.post("/build")
