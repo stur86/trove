@@ -30,3 +30,16 @@ def test_list_locales_returns_list_of_strings():
     """Every entry returned by list_locales() must be a plain string BCP-47 code."""
     locales = list_locales()
     assert all(isinstance(loc, str) for loc in locales)
+
+
+def test_italian_locale_has_all_english_keys():
+    """it.json must contain every key that en.json contains."""
+    en = load_locale("en")
+    it = load_locale("it")
+    missing = set(en.keys()) - set(it.keys())
+    assert missing == set(), f"it.json missing keys: {missing}"
+
+
+def test_italian_locale_loads():
+    it = load_locale("it")
+    assert it["config.save"] == "Salva"

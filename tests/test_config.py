@@ -51,3 +51,21 @@ def test_save_config_creates_dir_if_missing(tmp_path, monkeypatch):
     config = TroveConfig(base_model="gemma4:e4b", num_ctx=8192, locale="en")
     save_config(config)
     assert (tmp_path / "trove" / "config.json").exists()
+
+
+def test_config_has_admin_username_default(config_dir):
+    config = load_config()
+    assert config.admin_username == "admin"
+
+
+def test_config_has_admin_password_default(config_dir):
+    config = load_config()
+    assert config.admin_password == ""
+
+
+def test_save_and_load_admin_credentials(config_dir):
+    config = TroveConfig(admin_username="sysadmin", admin_password="secret")
+    save_config(config)
+    loaded = load_config()
+    assert loaded.admin_username == "sysadmin"
+    assert loaded.admin_password == "secret"

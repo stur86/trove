@@ -22,3 +22,9 @@ class TroveConfig(BaseModel):
 
     locale: str = "en"
     """BCP-47 locale code for the UI language (e.g. 'en', 'fr'). Server-wide setting."""
+
+    admin_username: str = "admin"
+    """Admin account username used to access the admin panel. Plaintext until full auth system is built."""
+
+    admin_password: str = ""
+    """Admin account password. Empty string means setup is not yet complete."""
