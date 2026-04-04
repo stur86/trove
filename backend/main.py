@@ -104,7 +104,15 @@ def create_app(mode: str | None = None) -> FastAPI:
 
         @application.get("/{full_path:path}")
         async def serve_spa(full_path: str) -> FileResponse:
-            """SPA fallback: serve static file if it exists, else index.html."""
+            """SPA fallback: serve static file if it exists, else index.html.
+
+            API paths (/api/*) are intentionally excluded — if an API route is
+            not registered, FastAPI must return 404, not the SPA shell.
+            """
+            # Let FastAPI's own 404 handler deal with unknown API paths.
+            if full_path.startswith("api/"):
+                from fastapi import HTTPException
+                raise HTTPException(status_code=404)
             file_path = _frontend_dist / full_path
             if full_path and file_path.is_file():
                 return FileResponse(file_path)
