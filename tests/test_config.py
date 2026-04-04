@@ -43,6 +43,8 @@ def test_save_config_writes_file(config_dir):
     assert data["base_model"] == "gemma4:e2b"
     assert data["num_ctx"] == 4096
     assert data["locale"] == "es"
+    assert "admin_username" in data
+    assert "admin_password" in data
 
 
 def test_save_config_creates_dir_if_missing(tmp_path, monkeypatch):
