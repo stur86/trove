@@ -21,3 +21,6 @@ frontend/dist/
 
 # Local environment variables (never commit secrets)
 .env
+
+# Visual brainstorming sessions
+.superpowers/
