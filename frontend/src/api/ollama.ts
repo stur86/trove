@@ -65,8 +65,15 @@ export const ollamaApi = {
   install: () => post('/ollama/install'),
   /** Start the Ollama service; returns a streaming Response. */
   start: () => post('/ollama/start'),
-  /** Pull the configured model; returns a streaming Response. */
-  pull: () => post('/ollama/pull'),
+  /**
+   * Pull a model; returns a streaming Response.
+   * @param modelTag Specific tag to pull (e.g. "gemma4:26b").
+   *   If omitted, backend uses the base_model from config.
+   */
+  pull: (modelTag?: string) =>
+    post(modelTag
+      ? `/ollama/pull?model_tag=${encodeURIComponent(modelTag)}`
+      : '/ollama/pull'),
   /** Build trove_model from Modelfile; returns a streaming Response. */
   build: () => post('/ollama/build'),
 }

@@ -1,53 +1,53 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
-import Admin from './pages/Admin'
-import Setup from './pages/Setup'
-import { ollamaApi } from './api/ollama'
-
-/**
- * Guard component for /admin.
- *
- * Checks Ollama status on mount. If Ollama is not fully set up
- * (installed + running + model built), redirects to /setup so the
- * user cannot reach the admin page before setup is complete.
- * Shows a loading indicator while the check is in flight.
- */
-function AdminRoute() {
-  const navigate = useNavigate()
-  const [ready, setReady] = useState<boolean | null>(null)
-
-  useEffect(() => {
-    ollamaApi.status().then(s => {
-      if (s.installed && s.running && s.model_pulled) {
-        setReady(true)
-      } else {
-        navigate('/setup', { replace: true })
-      }
-    })
-  }, [navigate])
-
-  if (ready === null) return <div style={{ padding: '2rem' }}>Loading...</div>
-  return <Admin />
-}
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { get } from './api/client'
+import AdminPanel from './pages/AdminPanel'
+import ManageDashboard from './pages/ManageDashboard'
+import SetupWizard from './pages/SetupWizard'
+import TaskShell from './pages/TaskShell'
 
 /**
  * Root application component.
  *
- * Routing:
- *   /setup  — Ollama install flow and system check (first-run page)
- *   /admin  — Server configuration (model picker, context window); guarded
- *   *       — Redirects to /setup by default
+ * Fetches GET /api/mode on load to determine which surface to render.
+ * Setup mode exposes the setup wizard and management dashboard.
+ * App mode exposes the task runner shell and the admin panel.
  *
- * /admin is protected by AdminRoute: direct navigation redirects to /setup
- * unless Ollama is confirmed installed, running, and the model is built.
+ * Shows a loading screen while the mode is being fetched.
  */
 export default function App() {
+  const [mode, setMode] = useState<'setup' | 'app' | null>(null)
+
+  useEffect(() => {
+    get<{ mode: string }>('/mode')
+      .then(({ mode: m }) => setMode(m as 'setup' | 'app'))
+      .catch(() => setMode('app')) // default to app on error
+  }, [])
+
+  if (mode === null) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
+        <p className="text-gray-400">Loading...</p>
+      </div>
+    )
+  }
+
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/setup" element={<Setup />} />
-        <Route path="/admin" element={<AdminRoute />} />
-        <Route path="*" element={<Navigate to="/setup" replace />} />
+        {mode === 'setup' ? (
+          <>
+            <Route path="/" element={<SetupWizard />} />
+            <Route path="/manage" element={<ManageDashboard />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </>
+        ) : (
+          <>
+            <Route path="/" element={<TaskShell />} />
+            <Route path="/admin" element={<AdminPanel />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </>
+        )}
       </Routes>
     </BrowserRouter>
   )
