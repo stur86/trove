@@ -1,17 +1,20 @@
 """
 Trove FastAPI application entry point.
 
-Mounts all domain routers and serves the frontend as static files in production.
-CORS is enabled for the Vite dev server (localhost:5173) during development.
+Exports create_app(mode) factory used by both the CLI and tests.
+The module-level `app` instance uses TROVE_MODE env var (defaults to "app").
 
-In production (after `task build`), FastAPI serves the compiled React app from
-frontend/dist/ so only one process needs to run on one port.
+Mode routing:
+  setup  — mounts setup_router (/api/setup/*), binds 127.0.0.1
+  app    — mounts app_router (/api/app/*), binds 0.0.0.0
+Shared routers (config GET, i18n, system, ollama) are always mounted.
 """
-from dotenv import load_dotenv
-load_dotenv()  # Load .env file if present; no-op if absent
-
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+from dotenv import load_dotenv
+load_dotenv()  # Must run before os.getenv calls below
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,48 +37,81 @@ async def lifespan(app: FastAPI):
         proc.terminate()
 
 
-app = FastAPI(title="Trove", version="0.1.0", lifespan=lifespan)
+def create_app(mode: str | None = None) -> FastAPI:
+    """
+    Create and configure the FastAPI application for the given mode.
 
-# Allow the Vite dev server (port 5173) to call the backend (port 8001).
-# In production FastAPI serves everything on one port, so CORS isn't needed,
-# but keeping it here doesn't hurt.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    Args:
+        mode: "setup" or "app". Reads TROVE_MODE env var if None,
+              defaults to "app" if env var is also unset.
+    """
+    if mode is None:
+        mode = os.getenv("TROVE_MODE", "app")
 
-app.include_router(config_router)
-app.include_router(i18n_router)
-app.include_router(system_router)
-app.include_router(ollama_router)
+    application = FastAPI(title="Trove", version="0.1.0", lifespan=lifespan)
+
+    # Allow the Vite dev server to call the backend during development.
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Shared routers — always available in both modes.
+    application.include_router(config_router)   # GET /api/config
+    application.include_router(i18n_router)     # GET /api/i18n/*
+    application.include_router(system_router)   # GET /api/system/check
+    application.include_router(ollama_router)   # GET/POST /api/ollama/*
+
+    # Mode endpoint — tells the frontend which surface to render.
+    @application.get("/api/mode")
+    def get_mode() -> dict:
+        """Return the current operating mode (setup or app)."""
+        return {"mode": mode}
+
+    @application.get("/api/health")
+    def health() -> dict:
+        """Health check endpoint."""
+        return {"status": "ok"}
+
+    # Mode-specific routers.
+    # NOTE: These imports are deferred so that tests can call create_app(mode)
+    # before those modules are fully implemented (they fail gracefully as 404s).
+    if mode == "setup":
+        try:
+            from backend.setup.router import router as setup_router
+            application.include_router(setup_router)
+        except ImportError:
+            pass  # setup domain not yet implemented
+    elif mode == "app":
+        try:
+            from backend.app.router import router as app_router
+            application.include_router(app_router)
+        except ImportError:
+            pass  # app domain not yet implemented
+
+    # Serve the compiled React frontend in production.
+    # NOTE: Must come after all include_router() calls — FastAPI matches
+    # explicit routes first, but only if registered before the catch-all.
+    _frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
+    if _frontend_dist.exists():
+        application.mount(
+            "/assets",
+            StaticFiles(directory=str(_frontend_dist / "assets")),
+            name="assets",
+        )
+
+        @application.get("/{full_path:path}")
+        async def serve_spa(full_path: str) -> FileResponse:
+            """SPA fallback: serve static file if it exists, else index.html."""
+            file_path = _frontend_dist / full_path
+            if full_path and file_path.is_file():
+                return FileResponse(file_path)
+            return FileResponse(_frontend_dist / "index.html")
+
+    return application
 
 
-@app.get("/api/health")
-def health() -> dict:
-    """Health check endpoint. Returns ok if the server is running."""
-    return {"status": "ok"}
-
-
-# Serve the compiled React frontend in production.
-# Only activated if frontend/dist/ exists (i.e. after `task build`).
-# NOTE: Must come after all app.include_router() calls so /api/* routes
-# are matched before the catch-all.
-_FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
-if _FRONTEND_DIST.exists():
-    # Built JS/CSS bundles live under dist/assets/
-    app.mount("/assets", StaticFiles(directory=str(_FRONTEND_DIST / "assets")), name="assets")
-
-    @app.get("/{full_path:path}")
-    async def serve_spa(full_path: str) -> FileResponse:
-        """
-        SPA fallback: serve static files if they exist, otherwise index.html.
-
-        This lets React Router handle client-side routes like /setup and /admin
-        while still serving favicon.svg, icons.svg, etc. directly.
-        """
-        file_path = _FRONTEND_DIST / full_path
-        if full_path and file_path.is_file():
-            return FileResponse(file_path)
-        return FileResponse(_FRONTEND_DIST / "index.html")
+# Module-level instance for production (uvicorn backend.main:app).
+app = create_app()

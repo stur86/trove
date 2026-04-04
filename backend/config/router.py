@@ -1,8 +1,11 @@
-"""FastAPI router for the config domain. Exposes GET and PUT /api/config."""
+"""FastAPI router for the config domain. Exposes GET /api/config only.
+
+PUT /api/config has moved to /api/app/admin/config (auth-gated, app mode only).
+"""
 from fastapi import APIRouter
 
 from backend.config.models import TroveConfig
-from backend.config.service import load_config, save_config
+from backend.config.service import load_config
 
 router = APIRouter(prefix="/api/config", tags=["config"])
 
@@ -11,10 +14,3 @@ router = APIRouter(prefix="/api/config", tags=["config"])
 def get_config() -> TroveConfig:
     """Return the current server configuration."""
     return load_config()
-
-
-@router.put("")
-def update_config(config: TroveConfig) -> TroveConfig:
-    """Persist updated configuration to disk and return it."""
-    save_config(config)
-    return config
