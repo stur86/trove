@@ -2,8 +2,12 @@
 Service installation management for the setup domain.
 
 Defines the ServiceInstaller Protocol and two implementations:
-- RealServiceInstaller: manages the systemd trove.service unit
+- RealServiceInstaller: manages a per-user systemd service (no sudo required)
 - FakeServiceInstaller: records calls and simulates operations for dev/testing
+
+Uses systemd user services (~/.config/systemd/user/trove.service) so that no
+root privileges are needed. The service runs under the current user account,
+which is appropriate for a single-user LAN appliance.
 
 Activated by TROVE_FAKE_SERVICE=1 in the environment (.env file).
 
@@ -17,8 +21,8 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-# Path where the systemd unit file is installed (requires sudo).
-UNIT_FILE_PATH = Path("/etc/systemd/system/trove.service")
+# User-level systemd unit file path — no sudo required.
+UNIT_FILE_PATH = Path.home() / ".config" / "systemd" / "user" / "trove.service"
 SERVICE_NAME = "trove"
 
 
@@ -42,15 +46,15 @@ def get_lan_ip() -> str:
 
 def _build_unit_file(app_port: int) -> str:
     """
-    Generate the systemd unit file content for the trove service.
+    Generate the systemd user unit file content for the trove service.
 
-    Resolves the trove executable path via shutil.which() so the unit
-    works regardless of install location.
+    Uses the user session unit target so no root privileges are required.
+    Resolves the trove executable path via shutil.which() so the unit works
+    regardless of install location (venv, pipx, uv tool, etc.).
     """
     import sys
     trove_bin = shutil.which("trove") or f"{sys.prefix}/bin/trove"
     working_dir = Path(__file__).parent.parent.parent  # repo root
-    username = os.environ.get("USER", "trove")
     return (
         "[Unit]\n"
         "Description=Trove LLM Platform\n"
@@ -58,10 +62,9 @@ def _build_unit_file(app_port: int) -> str:
         "[Service]\n"
         f"ExecStart={trove_bin} start --port {app_port}\n"
         "Restart=on-failure\n"
-        f"User={username}\n"
         f"WorkingDirectory={working_dir}\n\n"
         "[Install]\n"
-        "WantedBy=multi-user.target\n"
+        "WantedBy=default.target\n"
     )
 
 
@@ -100,59 +103,72 @@ class ServiceInstaller(Protocol):
 
 class RealServiceInstaller:
     """
-    Manages the trove systemd service using subprocess calls.
+    Manages a per-user systemd service — no sudo required.
 
-    Requires sudo for writing to /etc/systemd/system/ and running
-    systemctl commands that affect system-level services.
+    Writes the unit file directly to ~/.config/systemd/user/trove.service
+    and manages it with `systemctl --user`. The service runs under the current
+    user account, so it starts only when the user is logged in.
+
+    To have the service survive logout (e.g. on a headless server), the admin
+    can run `loginctl enable-linger <username>` once manually — this is not
+    done automatically as it requires root.
     """
 
     def install(self, app_port: int) -> Iterator[str]:
-        """Write unit file via sudo tee and enable the service."""
+        """Write unit file directly and enable the user service."""
         unit_content = _build_unit_file(app_port)
         yield "data: Writing systemd unit file...\n\n"
 
-        result = subprocess.run(
-            ["sudo", "tee", str(UNIT_FILE_PATH)],
-            input=unit_content,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            yield f"data: [ERROR] Failed to write unit file: {result.stderr.strip()}\n\n"
+        try:
+            UNIT_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            UNIT_FILE_PATH.write_text(unit_content)
+        except OSError as exc:
+            yield f"data: [ERROR] Failed to write unit file: {exc}\n\n"
             return
 
         yield "data: Reloading systemd daemon...\n\n"
-        subprocess.run(["sudo", "systemctl", "daemon-reload"], check=True)
+        result = subprocess.run(
+            ["systemctl", "--user", "daemon-reload"],
+            capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            yield f"data: [ERROR] daemon-reload failed: {result.stderr.strip()}\n\n"
+            return
 
         yield "data: Enabling and starting trove service...\n\n"
-        subprocess.run(
-            ["sudo", "systemctl", "enable", "--now", SERVICE_NAME], check=True
+        result = subprocess.run(
+            ["systemctl", "--user", "enable", "--now", SERVICE_NAME],
+            capture_output=True, text=True,
         )
+        if result.returncode != 0:
+            yield f"data: [ERROR] Failed to enable service: {result.stderr.strip()}\n\n"
+            return
+
         yield "data: Service installed and started.\n\n"
         yield "data: [DONE]\n\n"
 
     def uninstall(self) -> Iterator[str]:
-        """Stop, disable and remove the service unit file."""
+        """Stop, disable and remove the user service unit file."""
         yield "data: Stopping trove service...\n\n"
         subprocess.run(
-            ["sudo", "systemctl", "stop", SERVICE_NAME], capture_output=True
+            ["systemctl", "--user", "stop", SERVICE_NAME], capture_output=True
         )
         subprocess.run(
-            ["sudo", "systemctl", "disable", SERVICE_NAME], capture_output=True
+            ["systemctl", "--user", "disable", SERVICE_NAME], capture_output=True
         )
         yield "data: Removing unit file...\n\n"
+        UNIT_FILE_PATH.unlink(missing_ok=True)
         subprocess.run(
-            ["sudo", "rm", "-f", str(UNIT_FILE_PATH)], check=True
+            ["systemctl", "--user", "daemon-reload"], capture_output=True
         )
-        subprocess.run(["sudo", "systemctl", "daemon-reload"], check=True)
         yield "data: Trove uninstalled.\n\n"
         yield "data: [DONE]\n\n"
 
     def restart(self) -> Iterator[str]:
-        """Restart the service."""
+        """Restart the user service."""
         yield "data: Restarting trove service...\n\n"
         result = subprocess.run(
-            ["sudo", "systemctl", "restart", SERVICE_NAME],
+            ["systemctl", "--user", "restart", SERVICE_NAME],
             capture_output=True,
             text=True,
         )
@@ -167,9 +183,9 @@ class RealServiceInstaller:
         return UNIT_FILE_PATH.exists()
 
     def is_running(self) -> bool:
-        """Return True if systemctl reports the service as active."""
+        """Return True if systemctl reports the user service as active."""
         result = subprocess.run(
-            ["systemctl", "is-active", SERVICE_NAME],
+            ["systemctl", "--user", "is-active", SERVICE_NAME],
             capture_output=True,
             text=True,
         )
