@@ -64,6 +64,6 @@
   "config.saved": "Salvato",
   "model.gemma4_e2b": "Gemma 4 E2B (2,3B — più veloce)",
   "model.gemma4_e4b": "Gemma 4 E4B (4,5B — bilanciato)",
-  "model.gemma4_26b": "Gemma 4 26B MoE (grande efficiente)",
+  "model.gemma4_26b": "Gemma 4 26B MoE (grande ma efficiente)",
   "model.gemma4_31b": "Gemma 4 31B (più capace)"
 }
