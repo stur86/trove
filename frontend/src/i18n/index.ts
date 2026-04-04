@@ -28,6 +28,12 @@ async function fetchLocale(locale: string): Promise<Strings> {
   return strings
 }
 
+export type TranslationFunction = (key: string, fallback?: string) => string;
+type UseTranslationResult = {
+  t: TranslationFunction;
+  ready: boolean;
+};
+
 /**
  * React hook for UI string translation.
  *
@@ -41,7 +47,7 @@ async function fetchLocale(locale: string): Promise<Strings> {
  * const { t } = useTranslation('en')
  * return <button>{t('setup.install_button')}</button>
  */
-export function useTranslation(locale: string = 'en') {
+export function useTranslation(locale: string = 'en'): UseTranslationResult {
   const [strings, setStrings] = useState<Strings>(cache[locale] ?? {})
 
   useEffect(() => {

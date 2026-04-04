@@ -17,6 +17,7 @@ import { ollamaApi, streamLines } from '../api/ollama'
 import { setupApi, type SetupStatus } from '../api/setup'
 import { systemApi, type ModelInfo, type SystemCheck } from '../api/system'
 import { useTranslation } from '../i18n'
+import type { TranslationFunction } from '../i18n'
 
 import type { Dispatch, SetStateAction, RefObject } from 'react'
 
@@ -30,7 +31,7 @@ function LogBox({ log, logEndRef }: { log: string[]; logEndRef: RefObject<HTMLDi
   ) : null
 }
 
-function LanguageStep({ t, locale, onChangeLocale, onNext }: { t: any; locale: string; onChangeLocale: (l: string) => Promise<void>; onNext: () => void }) {
+function LanguageStep({ t, locale, onChangeLocale, onNext }: { t: TranslationFunction; locale: string; onChangeLocale: (l: string) => Promise<void>; onNext: () => void }) {
   return (
     <>
       <h1 className="text-2xl font-bold">{t('setup.language.title')}</h1>
@@ -46,7 +47,7 @@ function LanguageStep({ t, locale, onChangeLocale, onNext }: { t: any; locale: s
   )
 }
 
-function WelcomeStep({ t, system, onNext }: { t: any; system: SystemCheck; onNext: () => void }) {
+function WelcomeStep({ t, system, onNext }: { t: TranslationFunction; system: SystemCheck; onNext: () => void }) {
   return (
     <>
       <h1 className="text-2xl font-bold">{t('setup.welcome.title')}</h1>
@@ -76,7 +77,7 @@ function WelcomeStep({ t, system, onNext }: { t: any; system: SystemCheck; onNex
   )
 }
 
-function InstallOllamaStep({ t, status, busy, onInstall, onNext, log, logEndRef }: { t: any; status: SetupStatus; busy: boolean; onInstall: () => Promise<void>; onNext: () => void; log: string[]; logEndRef: RefObject<HTMLDivElement | null> }) {
+function InstallOllamaStep({ t, status, busy, onInstall, onNext, log, logEndRef }: { t: TranslationFunction; status: SetupStatus; busy: boolean; onInstall: () => Promise<void>; onNext: () => void; log: string[]; logEndRef: RefObject<HTMLDivElement | null> }) {
   return (
     <>
       <h1 className="text-2xl font-bold">{t('setup.install.title')}</h1>
@@ -95,7 +96,7 @@ function InstallOllamaStep({ t, status, busy, onInstall, onNext, log, logEndRef 
   )
 }
 
-function ModelsStep({ t, system, selectedModels, setSelectedModels, busy, onPull, onNext, status, log, logEndRef }: { t: any; system: SystemCheck; selectedModels: Set<string>; setSelectedModels: Dispatch<SetStateAction<Set<string>>>; busy: boolean; onPull: () => Promise<void>; onNext: () => void; status: SetupStatus; log: string[]; logEndRef: RefObject<HTMLDivElement | null> }) {
+function ModelsStep({ t, system, selectedModels, setSelectedModels, busy, onPull, onNext, status, log, logEndRef }: { t: TranslationFunction; system: SystemCheck; selectedModels: Set<string>; setSelectedModels: Dispatch<SetStateAction<Set<string>>>; busy: boolean; onPull: () => Promise<void>; onNext: () => void; status: SetupStatus; log: string[]; logEndRef: RefObject<HTMLDivElement | null> }) {
   return (
     <>
       <h1 className="text-2xl font-bold">{t('setup.models.title')}</h1>
@@ -150,7 +151,7 @@ function ModelsStep({ t, system, selectedModels, setSelectedModels, busy, onPull
   )
 }
 
-function AdminStep({ t, adminUser, setAdminUser, adminPass, setAdminPass, busy, onSave, onNext, status }: { t: any; adminUser: string; setAdminUser: Dispatch<SetStateAction<string>>; adminPass: string; setAdminPass: Dispatch<SetStateAction<string>>; busy: boolean; onSave: () => Promise<void>; onNext: () => void; status: SetupStatus }) {
+function AdminStep({ t, adminUser, setAdminUser, adminPass, setAdminPass, busy, onSave, onNext, status }: { t: TranslationFunction; adminUser: string; setAdminUser: Dispatch<SetStateAction<string>>; adminPass: string; setAdminPass: Dispatch<SetStateAction<string>>; busy: boolean; onSave: () => Promise<void>; onNext: () => void; status: SetupStatus }) {
   return (
     <>
       <h1 className="text-2xl font-bold">{t('setup.admin.title')}</h1>
@@ -181,7 +182,7 @@ function AdminStep({ t, adminUser, setAdminUser, adminPass, setAdminPass, busy, 
   )
 }
 
-function ServiceStep({ t, busy, onInstall, log, logEndRef }: { t: any; busy: boolean; onInstall: () => Promise<void>; log: string[]; logEndRef: RefObject<HTMLDivElement | null> }) {
+function ServiceStep({ t, busy, onInstall, log, logEndRef }: { t: TranslationFunction; busy: boolean; onInstall: () => Promise<void>; log: string[]; logEndRef: RefObject<HTMLDivElement | null> }) {
   return (
     <>
       <h1 className="text-2xl font-bold">{t('setup.service.title')}</h1>
