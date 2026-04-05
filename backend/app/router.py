@@ -52,3 +52,7 @@ def build_model(
         service.build_trove_model(),
         media_type="text/event-stream",
     )
+
+
+from backend.tasks.router import router as gems_router  # noqa: E402
+router.include_router(gems_router)
