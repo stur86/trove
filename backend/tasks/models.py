@@ -1,8 +1,8 @@
 """Task data models for Trove.
 
-A Task is an immutable prompt definition: a Jinja2 template, typed arguments,
-capability flags, and output mode. Internal tasks are hardcoded in Python;
-user-defined tasks are stored in SQLite.
+Task is a pure, immutable prompt definition (template + args + capabilities).
+UserTask extends Task with the identity and display fields needed for user-facing
+Gems stored in the database. Internal tasks use plain Task instances.
 """
 from enum import Enum
 from typing import Annotated, Literal
@@ -46,21 +46,44 @@ class OutputMode(str, Enum):
     STRUCTURED = "structured"  # JSON output — reserved for later
 
 
+class GemHue(str, Enum):
+    """
+    16 preconfigured display colours for user-facing Gems.
+
+    Named after Tailwind CSS colour palette entries. Used by GemIcon
+    in the frontend to select facet colours.
+    """
+
+    RED = "red"
+    ORANGE = "orange"
+    AMBER = "amber"
+    YELLOW = "yellow"
+    LIME = "lime"
+    GREEN = "green"
+    EMERALD = "emerald"
+    TEAL = "teal"
+    CYAN = "cyan"
+    SKY = "sky"
+    BLUE = "blue"
+    INDIGO = "indigo"
+    VIOLET = "violet"
+    PURPLE = "purple"
+    FUCHSIA = "fuchsia"
+    ROSE = "rose"
+
+
 class Task(BaseModel, frozen=True):
     """
-    Immutable task definition.
+    Immutable, pure prompt definition.
 
-    A task pairs a Jinja2 prompt template with typed arguments. It cannot be
-    modified after creation. Use render_prompt() from backend.tasks.render to
-    fill in argument values and produce a final prompt string.
+    Contains only what is needed to render and execute a prompt:
+    a Jinja2 template, typed arguments, multimodal capability flags,
+    and the expected output mode. Has no identity or display fields.
+
+    Use render_prompt() from backend.tasks.render to fill in argument
+    values and produce a final prompt string.
     """
 
-    id: str
-    """Unique slug identifier (e.g. 'summarise-document')."""
-    name: str
-    """Human-readable display name."""
-    description: str = ""
-    """Brief explanation of what this task does."""
     template: str
     """Jinja2 template source. Named args map to {{ variable }} placeholders."""
     args: tuple[TaskArg, ...] = ()
@@ -71,3 +94,21 @@ class Task(BaseModel, frozen=True):
     """Task accepts an audio input passed alongside the prompt (mock for now)."""
     output_mode: OutputMode = OutputMode.TEXT
     """Expected output format. STRUCTURED is reserved and not yet implemented."""
+
+
+class UserTask(Task):
+    """
+    A user-defined Task with identity and display metadata.
+
+    Stored in SQLite. Listed by the public Gems API. Rendered in the
+    frontend as a Gem card with icon, name, description, and hue.
+    """
+
+    id: str
+    """Unique slug identifier (e.g. 'summarise-text')."""
+    name: str
+    """Human-readable title displayed in the UI."""
+    description: str = ""
+    """Brief explanation of what this Gem does, shown in the card grid."""
+    hue: GemHue = GemHue.INDIGO
+    """Display colour for the GemIcon. Admin-chosen from 16 preset hues."""
