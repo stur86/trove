@@ -21,7 +21,9 @@ export default function TaskShell() {
 
   useEffect(() => {
     configApi.get().then(c => setLocale(c.locale))
-    gemsApi.list().then(list => { setGems(list); setLoading(false) })
+    gemsApi.list()
+      .then(list => { setGems(list); setLoading(false) })
+      .catch(() => setLoading(false))
   }, [])
 
   return (

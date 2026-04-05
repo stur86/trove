@@ -59,7 +59,9 @@ export default function AdminPanel() {
   useEffect(() => {
     if (!authed) return
     setGemsLoading(true)
-    gemsApi.list().then(list => { setGems(list); setGemsLoading(false) })
+    gemsApi.list()
+      .then(list => { setGems(list); setGemsLoading(false) })
+      .catch(() => setGemsLoading(false))
   }, [authed])
 
   /**

@@ -38,7 +38,7 @@ function blankGem(): UserTask {
 
 /** Blank StringArg for the "Add argument" button. */
 function blankStringArg(): TaskArg {
-  return { type: 'string', name: '', description: '', default: '' }
+  return { type: 'string', name: '', description: '', default: '', _key: crypto.randomUUID() }
 }
 
 export default function GemForm() {
@@ -62,18 +62,26 @@ export default function GemForm() {
   useEffect(() => {
     if (!isEdit || !id) return
     gemsApi.get(id)
-      .then(g => { setGem(g); setLoading(false) })
+      .then(g => {
+        setGem({ ...g, args: g.args.map(a => ({ ...a, _key: crypto.randomUUID() })) })
+        setLoading(false)
+      })
       .catch(() => { setError('Gem not found.'); setLoading(false) })
   }, [id, isEdit])
 
   async function handleSave() {
     setError(null)
     setSaving(true)
+    // Strip _key from args before sending to the API
+    const cleanGem = {
+      ...gem,
+      args: gem.args.map(({ _key: _, ...rest }) => rest as TaskArg),
+    }
     try {
       if (isEdit && id) {
-        await gemsApi.update(id, gem, auth.username, auth.password)
+        await gemsApi.update(id, cleanGem, auth.username, auth.password)
       } else {
-        await gemsApi.create(gem, auth.username, auth.password)
+        await gemsApi.create(cleanGem, auth.username, auth.password)
       }
       navigate('/admin')
     } catch {
@@ -237,7 +245,7 @@ export default function GemForm() {
           <Label>Arguments</Label>
 
           {gem.args.map((arg, i) => (
-            <div key={i} className="border border-gray-200 rounded-lg p-4 flex flex-col gap-3 bg-white">
+            <div key={arg._key ?? i} className="border border-gray-200 rounded-lg p-4 flex flex-col gap-3 bg-white">
               <div className="flex gap-3 items-start">
                 {/* Type toggle */}
                 <div className="shrink-0">

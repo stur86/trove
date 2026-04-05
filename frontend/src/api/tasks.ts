@@ -31,6 +31,7 @@ export interface StringArg {
   name: string
   description: string
   default: string
+  _key?: string  // stable identity for React list rendering — stripped before API calls
 }
 
 /** A fixed-choice argument with a list of allowed values. */
@@ -40,6 +41,7 @@ export interface ChoiceArg {
   description: string
   default: string
   options: string[]
+  _key?: string  // stable identity for React list rendering — stripped before API calls
 }
 
 export type TaskArg = StringArg | ChoiceArg
@@ -105,7 +107,8 @@ export const gemsApi = import.meta.env.VITE_MOCK_API ? _mockGemsApi : _realGemsA
  * for await (const token of readSSEStream(res)) { ... }
  */
 export async function* readSSEStream(response: Response): AsyncGenerator<string> {
-  const reader = response.body!.getReader()
+  if (!response.body) throw new Error('Response has no body — cannot stream SSE')
+  const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
   while (true) {
