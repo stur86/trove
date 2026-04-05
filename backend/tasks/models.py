@@ -97,7 +97,7 @@ class Task(BaseModel, frozen=True):
     """Expected output format. STRUCTURED is reserved and not yet implemented."""
 
 
-class UserTask(Task):
+class UserTask(Task, frozen=True):
     """
     A user-defined Task with identity and display metadata.
 
