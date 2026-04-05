@@ -81,6 +81,7 @@ task test          # pytest -v
 - **Feature-grouped**: each backend domain owns its `router.py`, `service.py`, and `models.py`
 - **Protocol/Real/Fake pattern**: services use `@runtime_checkable Protocol` + `RealXxxService` + `FakeXxxService` + `get_xxx_service()` FastAPI dependency factory. Activated by env flags (`TROVE_FAKE_OLLAMA=1`, `TROVE_FAKE_SYSTEM=1`) in `.env` (gitignored)
 - **XDG spec**: config lives at `$XDG_CONFIG_HOME/trove/` (default `~/.config/trove/`)
+- **Frontend styling**: use Flowbite React components for all layout, forms, and UI elements. Avoid custom Tailwind classes except where Flowbite has no equivalent. The only truly custom visual element is the `GemIcon` SVG.
 
 ## What's built
 
