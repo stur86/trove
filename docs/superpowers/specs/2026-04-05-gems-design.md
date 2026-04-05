@@ -101,18 +101,7 @@ Mounted into `backend/app/router.py`. Uses the existing `require_admin` dependen
 
 The run endpoint accepts `{ values: Record<string, string> }` in the request body. For `output_mode=TEXT` it calls `stream_task` and wraps tokens as SSE `data:` lines, ending with `data: [DONE]`. For `output_mode=STRUCTURED` it returns 501 until implemented.
 
-### DB Migration
-
-`repository.py` adds a `hue` column to the existing `tasks` table on startup:
-
-```python
-try:
-    conn.execute("ALTER TABLE tasks ADD COLUMN hue TEXT NOT NULL DEFAULT 'indigo'")
-except sqlite3.OperationalError:
-    pass  # column already exists
-```
-
-`save_task` / `load_task` / `list_tasks` updated to handle `UserTask` instead of `Task`.
+`save_task` / `load_task` / `list_tasks` updated to handle `UserTask` instead of `Task`. The `tasks` table schema gains a `hue` column; the existing `_CREATE_TABLE` statement is updated in place (no migration needed — nothing to be backwards compatible with).
 
 ---
 
@@ -211,3 +200,7 @@ export const gemsApi = {
 - Structured (JSON) output execution (501 placeholder)
 - Document library integration in tasks
 - Per-gem access control
+
+## Future Notes
+
+- **Frontend error handling**: task runs can fail (Ollama unreachable, model error, timeout). A snackbar/toast notification should be added to `GemRunner` to surface these errors clearly to non-technical users. Not in scope for this sprint.
