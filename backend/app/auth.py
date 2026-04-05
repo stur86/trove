@@ -5,6 +5,7 @@ Provides require_admin(), a FastAPI dependency that validates HTTP Basic
 credentials against the stored admin_username / admin_password in TroveConfig.
 Import this in any router that needs admin-gated endpoints.
 """
+import hmac
 from typing import Annotated
 
 from fastapi import Depends, HTTPException
@@ -26,11 +27,10 @@ def require_admin(
     - username or password do not match config
     """
     config = load_config()
-    if (
-        not config.admin_password
-        or credentials.username != config.admin_username
-        or credentials.password != config.admin_password
-    ):
+    # Use timing-safe comparison to prevent timing attacks on credential checks
+    username_ok = hmac.compare_digest(credentials.username, config.admin_username)
+    password_ok = hmac.compare_digest(credentials.password, config.admin_password)
+    if not config.admin_password or not username_ok or not password_ok:
         raise HTTPException(
             status_code=401,
             detail="Invalid credentials or admin account not configured. Run trove setup first.",
