@@ -124,6 +124,33 @@ frontend/src/
 
 All layout uses Flowbite React components (Card, Button, TextInput, Select, Spinner, etc.). Custom styling is limited to `GemIcon`.
 
+### Mock API (`VITE_MOCK_API=1`)
+
+A parallel mock implementation of every API client, activated by the `VITE_MOCK_API=1` env var in a `.env.development.local` file. Allows `bun run dev` to run with no backend. Each mock module mirrors the real client's interface but returns hardcoded data after a short `setTimeout` delay (to simulate latency and make spinners visible).
+
+```
+frontend/src/api/
+├── client.ts          # real HTTP helpers
+├── mock/
+│   ├── index.ts       # re-exports all mock clients
+│   ├── tasks.ts       # 4-5 sample UserTasks covering all hues + arg types
+│   ├── config.ts      # default TroveConfig
+│   └── system.ts      # viable models list
+└── tasks.ts           # imports real or mock based on import.meta.env.VITE_MOCK_API
+```
+
+Each API module selects its implementation at module load time:
+
+```ts
+import { gemsApi as realGemsApi } from './real/tasks'
+import { gemsApi as mockGemsApi } from './mock/tasks'
+export const gemsApi = import.meta.env.VITE_MOCK_API ? mockGemsApi : realGemsApi
+```
+
+The mock `run` function simulates streaming by yielding words from a canned response one at a time via `ReadableStream`, matching the real SSE interface so `GemRunner` needs no special casing.
+
+A `task dev-mock` taskipy entry runs `VITE_MOCK_API=1 bun run dev` for convenience.
+
 ### GemIcon.tsx
 
 Renders the hexagon cut SVG (option A from design session). Accepts `hue: GemHue` and `size?: number` (default 40). Maps hue name to a set of hex colour values for the facets (crown lighter, pavilion darker).
