@@ -151,6 +151,8 @@ The mock `run` function simulates streaming by yielding words from a canned resp
 
 A `task dev-mock` taskipy entry runs `VITE_MOCK_API=1 bun run dev` for convenience.
 
+**Locale files** are the one resource mock mode fetches for real. Locale files move from `backend/i18n/locales/` to a top-level `locales/` directory (single source of truth, owned by neither backend nor frontend). The backend i18n service is updated to read from there. In mock dev mode, Vite is configured to serve `../locales/` as a static directory at `/locales/`, so `useTranslation` can `fetch('/locales/{locale}.json')` directly without the backend. In real mode the hook continues using `/api/i18n/{locale}` unchanged.
+
 ### GemIcon.tsx
 
 Renders the hexagon cut SVG (option A from design session). Accepts `hue: GemHue` and `size?: number` (default 40). Maps hue name to a set of hex colour values for the facets (crown lighter, pavilion darker).
