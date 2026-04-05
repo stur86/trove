@@ -1,17 +1,18 @@
 """
 Trove FastAPI application entry point.
 
-Exports create_app(mode) factory used by both the CLI and tests.
-The module-level `app` instance uses TROVE_MODE env var (defaults to "app").
+Exports create_app_setup() and create_app_app() factories for the two modes of operation:
+- setup mode: used for initial configuration
+- app mode: used for regular operation after setup is complete
 
 Mode routing:
   setup  — mounts setup_router (/api/setup/*), binds 127.0.0.1
   app    — mounts app_router (/api/app/*), binds 0.0.0.0
 Shared routers (config GET, i18n, system, ollama) are always mounted.
 """
-import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from enum import Enum
 
 from dotenv import load_dotenv
 
@@ -36,18 +37,17 @@ async def lifespan(app: FastAPI):
     if proc is not None and proc.poll() is None:
         proc.terminate()
 
+class AppMode(str, Enum):
+    SETUP = "setup"
+    APP = "app"
 
-def create_app(mode: str | None = None) -> FastAPI:
+def _create_app_with_mode(mode: AppMode) -> FastAPI:
     """
     Create and configure the FastAPI application for the given mode.
 
     Args:
-        mode: "setup" or "app". Reads TROVE_MODE env var if None,
-              defaults to "app" if env var is also unset.
+        mode (AppMode): The operating mode of the application (setup or app).
     """
-    if mode is None:
-        mode = os.getenv("TROVE_MODE", "app")
-
     application = FastAPI(title="Trove", version="0.1.0", lifespan=lifespan)
 
     # Allow the Vite dev server to call the backend during development.
@@ -68,7 +68,7 @@ def create_app(mode: str | None = None) -> FastAPI:
     @application.get("/api/mode")
     def get_mode() -> dict:
         """Return the current operating mode (setup or app)."""
-        return {"mode": mode}
+        return {"mode": mode.value}
 
     @application.get("/api/health")
     def health() -> dict:
@@ -78,18 +78,20 @@ def create_app(mode: str | None = None) -> FastAPI:
     # Mode-specific routers.
     # NOTE: These imports are deferred so that tests can call create_app(mode)
     # before those modules are fully implemented (they fail gracefully as 404s).
-    if mode == "setup":
+    if mode == AppMode.SETUP:
         try:
             from backend.setup.router import router as setup_router
             application.include_router(setup_router)
         except ImportError:
             pass  # setup domain not yet implemented
-    elif mode == "app":
+    elif mode == AppMode.APP:
         try:
             from backend.app.router import router as app_router
             application.include_router(app_router)
         except ImportError:
             pass  # app domain not yet implemented
+    else:
+        raise ValueError(f"Invalid mode: {mode}")
 
     # Serve the compiled React frontend in production.
     # NOTE: Must come after all include_router() calls — FastAPI matches
@@ -120,6 +122,11 @@ def create_app(mode: str | None = None) -> FastAPI:
 
     return application
 
+# Factories
+def create_app_setup() -> FastAPI:
+    """Create the FastAPI application in setup mode."""
+    return _create_app_with_mode(AppMode.SETUP)
 
-# Module-level instance for production (uvicorn backend.main:app).
-app = create_app()
+def create_app_app() -> FastAPI:
+    """Create the FastAPI application in app mode."""
+    return _create_app_with_mode(AppMode.APP)

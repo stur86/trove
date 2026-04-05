@@ -88,11 +88,11 @@ cd frontend && bun run dev
 
 The frontend is at http://localhost:5173.
 
-To run in a specific mode during development, set `TROVE_MODE`:
+To run in a specific mode during development, use the appropriate factory:
 
 ```bash
-TROVE_MODE=setup uv run uvicorn backend.main:app --reload --port 8001
-TROVE_MODE=app   uv run uvicorn backend.main:app --reload --port 8001
+uv run uvicorn backend.main:create_app_setup --reload --port 8001 --factory
+uv run uvicorn backend.main:create_app_app --reload --port 8001 --factory
 ```
 
 To skip real Ollama and system calls entirely (useful for UI work):

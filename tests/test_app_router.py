@@ -9,8 +9,8 @@ def app_client(config_dir, monkeypatch):
     """TestClient with the app running in app mode, fake services active."""
     monkeypatch.setenv("TROVE_FAKE_OLLAMA", "1")
     monkeypatch.setenv("TROVE_FAKE_SYSTEM", "1")
-    from backend.main import create_app
-    return TestClient(create_app(mode="app"))
+    from backend.main import create_app_app
+    return TestClient(create_app_app())
 
 
 @pytest.fixture
@@ -23,8 +23,8 @@ def app_client_with_admin(config_dir, monkeypatch):
     config.admin_username = "admin"
     config.admin_password = "testpass"
     save_config(config)
-    from backend.main import create_app
-    return TestClient(create_app(mode="app"))
+    from backend.main import create_app_app
+    return TestClient(create_app_app())
 
 
 def _basic_auth(username: str, password: str) -> str:
@@ -95,8 +95,8 @@ def test_admin_blocked_when_password_empty(app_client):
 
 
 def test_app_router_not_available_in_setup_mode(config_dir):
-    from backend.main import create_app
-    client = TestClient(create_app(mode="setup"))
+    from backend.main import create_app_setup
+    client = TestClient(create_app_setup())
     assert client.get("/api/app/status").status_code == 404
 
 

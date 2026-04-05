@@ -85,8 +85,8 @@ def setup_client(config_dir, monkeypatch):
     monkeypatch.setenv("TROVE_FAKE_SERVICE", "1")
     monkeypatch.setenv("TROVE_FAKE_OLLAMA", "1")
     monkeypatch.setenv("TROVE_FAKE_SYSTEM", "1")
-    from backend.main import create_app
-    return TestClient(create_app(mode="setup"))
+    from backend.main import create_app_setup
+    return TestClient(create_app_setup())
 
 
 def test_setup_status_returns_expected_fields(setup_client):
@@ -171,6 +171,6 @@ def test_setup_ollama_version_returns_string(setup_client):
 
 
 def test_setup_not_available_in_app_mode(config_dir):
-    from backend.main import create_app
-    client = TestClient(create_app(mode="app"))
+    from backend.main import create_app_app
+    client = TestClient(create_app_app())
     assert client.get("/api/setup/status").status_code == 404

@@ -1,7 +1,7 @@
 """
 FastAPI router for the setup domain.
 
-Mounted only in setup mode (TROVE_MODE=setup). Provides endpoints for
+Mounted only in setup mode. Provides endpoints for
 the setup wizard (language, status, admin credentials, service install)
 and the management dashboard (LAN URL, Ollama version, restart, uninstall).
 """

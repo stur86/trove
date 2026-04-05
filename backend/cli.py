@@ -7,11 +7,8 @@ Provides two commands launched via the `trove` script defined in
     trove setup   — setup mode, binds to 127.0.0.1 (local machine only)
     trove start   — app mode, binds to 0.0.0.0 (LAN accessible)
 
-Each command sets TROVE_MODE before starting uvicorn so that create_app()
-mounts the correct routers.
+Each command uses the appropriate factory function to create the FastAPI application.
 """
-import os
-
 import typer
 import uvicorn
 
@@ -34,10 +31,7 @@ def setup(
     No login required. Use this to install Ollama, pull models, configure
     the admin account, and install Trove as a system service.
     """
-    existing_mode = os.getenv("TROVE_MODE")
-    os.environ["TROVE_MODE"] = "setup"
-    uvicorn.run("backend.main:app", host=host, port=port)
-    os.environ["TROVE_MODE"] = existing_mode or ""  # Restore previous value
+    uvicorn.run("backend.main:create_app_setup", host=host, port=port, factory=True)
 
 
 @cli.command()
@@ -52,7 +46,4 @@ def start(
     Regular users reach the task runner without login; admins access
     /admin with the credentials set during setup.
     """
-    existing_mode = os.getenv("TROVE_MODE")
-    os.environ["TROVE_MODE"] = "app"
-    uvicorn.run("backend.main:app", host=host, port=port)
-    os.environ["TROVE_MODE"] = existing_mode or ""  # Restore previous value
+    uvicorn.run("backend.main:create_app_app", host=host, port=port, factory=True)

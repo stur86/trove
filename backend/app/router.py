@@ -1,7 +1,7 @@
 """
 FastAPI router for the app domain.
 
-Mounted only in app mode (TROVE_MODE=app). Provides:
+Mounted only in app mode. Provides:
   - GET /api/app/status — public health check
   - PUT /api/app/admin/config — save config (requires admin auth)
   - POST /api/app/admin/build-model — build trove_model SSE (requires admin auth)
