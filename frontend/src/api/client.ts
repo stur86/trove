@@ -60,3 +60,16 @@ export async function post(path: string, body?: unknown, headers?: HeadersInit):
 export function basicAuth(username: string, password: string): string {
   return `Basic ${btoa(`${username}:${password}`)}`
 }
+
+/**
+ * Make a DELETE request. Returns void on 204, throws on error.
+ * @param path API path
+ * @param headers Optional additional request headers
+ */
+export async function del(path: string, headers?: HeadersInit): Promise<void> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'DELETE',
+    headers: headers as Record<string, string> ?? {},
+  })
+  if (!res.ok) throw new Error(`DELETE ${path} failed: ${res.status}`)
+}
