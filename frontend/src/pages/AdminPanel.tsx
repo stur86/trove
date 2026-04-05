@@ -11,11 +11,14 @@
  */
 
 import { useEffect, useState } from 'react'
-import { Alert, Button, Card, Label, RangeSlider, Select, TabItem, Tabs, TextInput } from 'flowbite-react'
+import { useNavigate } from 'react-router-dom'
+import { Alert, Button, Card, Label, RangeSlider, Select, Spinner, TabItem, Tabs, TextInput } from 'flowbite-react'
 import { appApi } from '../api/app'
 import { type TroveConfig, configApi } from '../api/config'
 import { streamLines } from '../api/ollama'
 import { systemApi, type ModelInfo } from '../api/system'
+import { gemsApi, type UserTask } from '../api/tasks'
+import GemIcon from '../components/GemIcon'
 import { useTranslation } from '../i18n'
 
 /** Possible states for the save + build operation. */
@@ -40,6 +43,10 @@ export default function AdminPanel() {
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [buildLog, setBuildLog] = useState<string[]>([])
   const { t } = useTranslation(config?.locale ?? 'en')
+  const navigate = useNavigate()
+  const [gems, setGems] = useState<UserTask[]>([])
+  const [gemsLoading, setGemsLoading] = useState(false)
+  const [gemDeleteId, setGemDeleteId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!authed) return
@@ -47,6 +54,12 @@ export default function AdminPanel() {
       setConfig(c)
       setViableModels(sys.viable_models)
     })
+  }, [authed])
+
+  useEffect(() => {
+    if (!authed) return
+    setGemsLoading(true)
+    gemsApi.list().then(list => { setGems(list); setGemsLoading(false) })
   }, [authed])
 
   /**
@@ -205,8 +218,68 @@ export default function AdminPanel() {
             <p className="pt-4 text-gray-500">{t('admin.documents.placeholder')}</p>
           </TabItem>
 
-          <TabItem title={t('admin.tab.tasks')}>
-            <p className="pt-4 text-gray-500">{t('admin.tasks.placeholder')}</p>
+          <TabItem title={t('admin.tab.tasks', 'Gems')}>
+            <div className="pt-4 flex flex-col gap-4">
+              <div className="flex justify-end">
+                <Button
+                  color="blue"
+                  size="sm"
+                  onClick={() => navigate('/admin/gems/new', { state: { username, password } })}
+                >
+                  + New Gem
+                </Button>
+              </div>
+
+              {gemsLoading ? (
+                <div className="flex justify-center py-8"><Spinner /></div>
+              ) : gems.length === 0 ? (
+                <p className="text-gray-400 text-sm">No gems yet.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {gems.map(gem => (
+                    <div
+                      key={gem.id}
+                      className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg p-3"
+                    >
+                      <GemIcon hue={gem.hue} size={32} />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-gray-900 truncate">{gem.name}</p>
+                        {gem.description && (
+                          <p className="text-xs text-gray-400 truncate">{gem.description}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Button
+                          color="light"
+                          size="xs"
+                          onClick={() =>
+                            navigate(`/admin/gems/${gem.id}/edit`, { state: { username, password } })
+                          }
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          color="failure"
+                          size="xs"
+                          disabled={gemDeleteId === gem.id}
+                          onClick={async () => {
+                            setGemDeleteId(gem.id)
+                            try {
+                              await gemsApi.delete(gem.id, username, password)
+                              setGems(gs => gs.filter(g => g.id !== gem.id))
+                            } finally {
+                              setGemDeleteId(null)
+                            }
+                          }}
+                        >
+                          {gemDeleteId === gem.id ? <Spinner size="xs" /> : 'Delete'}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </TabItem>
 
         </Tabs>
