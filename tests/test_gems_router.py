@@ -107,6 +107,15 @@ def test_update_gem_not_found(client):
     assert res.status_code == 404
 
 
+def test_update_gem_id_mismatch(client, sample_gem):
+    payload = {"id": "different-id", "name": "Updated", "template": "Hi",
+               "args": [], "has_image": False, "has_audio": False,
+               "output_mode": "text", "description": "", "hue": "indigo"}
+    res = client.put("/api/app/admin/gems/hello", json=payload,
+                     headers={"Authorization": _auth()})
+    assert res.status_code == 422
+
+
 def test_update_gem_success(client, sample_gem):
     payload = {"id": "hello", "name": "Updated Hello", "template": "Hi {{ name }}",
                "args": [], "has_image": False, "has_audio": False,

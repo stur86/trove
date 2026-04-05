@@ -65,11 +65,17 @@ def update_gem(gem_id: str, gem: UserTask) -> UserTask:
     Update an existing Gem. Requires admin credentials.
 
     Raises 404 if the Gem does not exist (use POST to create).
+    Raises 422 if the body id does not match the URL gem_id.
     """
     try:
         load_task(gem_id)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Gem '{gem_id}' not found")
+    if gem.id != gem_id:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Body id '{gem.id}' does not match URL gem_id '{gem_id}'",
+        )
     save_task(gem)
     return gem
 
@@ -109,8 +115,16 @@ async def run_gem(gem_id: str, req: RunRequest) -> StreamingResponse:
 
     async def sse_generator() -> AsyncIterator[str]:
         """Wrap stream_task tokens as SSE data lines."""
-        async for chunk in stream_task(gem, req.values):
-            yield f"data: {chunk}\n\n"
+        try:
+            async for chunk in stream_task(gem, req.values):
+                yield f"data: {chunk}\n\n"
+        except ValueError as exc:
+            # Missing required argument — emit error event before closing
+            yield f"event: error\ndata: {exc}\n\n"
         yield "data: [DONE]\n\n"
 
-    return StreamingResponse(sse_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        sse_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
