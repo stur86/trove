@@ -1,14 +1,15 @@
 """
 i18n locale loader.
 
-Reads JSON locale files from the locales/ directory.
+Reads JSON locale files from the shared locales/ directory at the project root.
 Falls back to English if the requested locale doesn't exist.
 """
 import json
 from pathlib import Path
 
-# Locale files live alongside this module, in the locales/ subdirectory
-LOCALES_DIR = Path(__file__).parent / "locales"
+# Locale files live at the project root, shared between backend and frontend dev server.
+# This file is at backend/i18n/loader.py — three parents up is the project root.
+LOCALES_DIR = Path(__file__).parent.parent.parent / "locales"
 
 
 def load_locale(locale: str) -> dict[str, str]:
@@ -20,7 +21,6 @@ def load_locale(locale: str) -> dict[str, str]:
     """
     path = LOCALES_DIR / f"{locale}.json"
     if not path.exists():
-        # Unknown locale — fall back to English
         path = LOCALES_DIR / "en.json"
     return json.loads(path.read_text())
 
