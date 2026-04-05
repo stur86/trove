@@ -34,8 +34,10 @@ def setup(
     No login required. Use this to install Ollama, pull models, configure
     the admin account, and install Trove as a system service.
     """
+    existing_mode = os.getenv("TROVE_MODE")
     os.environ["TROVE_MODE"] = "setup"
     uvicorn.run("backend.main:app", host=host, port=port)
+    os.environ["TROVE_MODE"] = existing_mode or ""  # Restore previous value
 
 
 @cli.command()
@@ -50,5 +52,7 @@ def start(
     Regular users reach the task runner without login; admins access
     /admin with the credentials set during setup.
     """
+    existing_mode = os.getenv("TROVE_MODE")
     os.environ["TROVE_MODE"] = "app"
     uvicorn.run("backend.main:app", host=host, port=port)
+    os.environ["TROVE_MODE"] = existing_mode or ""  # Restore previous value

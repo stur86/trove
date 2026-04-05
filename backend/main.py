@@ -14,7 +14,6 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-load_dotenv()  # Must run before os.getenv calls below
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,6 +26,7 @@ from backend.ollama.router import router as ollama_router
 from backend.ollama.service import RealOllamaService
 from backend.system.router import router as system_router
 
+load_dotenv()  # Must run before os.getenv calls below
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
