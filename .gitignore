@@ -24,3 +24,4 @@ frontend/dist/
 
 # Visual brainstorming sessions
 .superpowers/
+.worktrees/
