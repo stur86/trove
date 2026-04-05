@@ -8,7 +8,7 @@ Import this in any router that needs admin-gated endpoints.
 import hmac
 from typing import Annotated
 
-from fastapi import Depends, HTTPException
+from fastapi import Cookie, Depends, HTTPException
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from backend.config.service import load_config
@@ -35,4 +35,17 @@ def require_admin(
             status_code=401,
             detail="Invalid credentials or admin account not configured. Run trove setup first.",
             headers={"WWW-Authenticate": "Basic"},
+        )
+
+def require_admin_cookie(admin_auth: str = Cookie(None)) -> None:
+    """
+    Verify admin credentials from HTTP cookie.
+
+    Raises HTTP 401 if:
+    - admin_auth cookie is not set to "true"
+    """
+    if admin_auth != "true":
+        raise HTTPException(
+            status_code=401,
+            detail="Admin authentication cookie missing or invalid. Please log in as admin.",
         )

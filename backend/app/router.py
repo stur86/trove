@@ -11,12 +11,12 @@ with other domain routers that need admin-gated endpoints.
 """
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Cookie, Depends, Response
 from fastapi.responses import StreamingResponse
 
-from backend.app.auth import require_admin
+from backend.app.auth import require_admin, require_admin_cookie
 from backend.config.models import TroveConfig
-from backend.config.service import load_config, save_config
+from backend.config.service import save_config
 from backend.ollama.service import OllamaService, get_ollama_service
 
 router = APIRouter(prefix="/api/app", tags=["app"])
@@ -27,8 +27,27 @@ def app_status() -> dict:
     """Confirm app mode is active. Used by the frontend as a health check."""
     return {"mode": "app", "status": "ok"}
 
+@router.post("/admin/login", dependencies=[Depends(require_admin)])
+def admin_login(response: Response):
+    response.set_cookie(
+        key="admin_auth",
+        value="true",
+        httponly=True,
+        secure=True,
+        samesite="lax"
+    )
+    return {"message": "Admin login successful. Cookie set."}
 
-@router.put("/admin/config", dependencies=[Depends(require_admin)])
+@router.get("/admin/valid")
+def check_admin_cookie(admin_auth: str = Cookie(None)):
+    return {"admin_auth": admin_auth}
+
+@router.post("/admin/logout")
+def admin_logout(response: Response):
+    response.delete_cookie(key="admin_auth")
+    return {"message": "Admin logout successful. Cookie deleted."}
+
+@router.put("/admin/config", dependencies=[Depends(require_admin_cookie)])
 def update_config(config: TroveConfig) -> TroveConfig:
     """
     Save updated configuration to disk.
@@ -39,7 +58,7 @@ def update_config(config: TroveConfig) -> TroveConfig:
     return config
 
 
-@router.post("/admin/build-model", dependencies=[Depends(require_admin)])
+@router.post("/admin/build-model", dependencies=[Depends(require_admin_cookie)])
 def build_model(
     service: Annotated[OllamaService, Depends(get_ollama_service)],
 ) -> StreamingResponse:
