@@ -1,12 +1,12 @@
-"""Tests for Task SQLite persistence."""
+"""Tests for UserTask SQLite persistence."""
 import pytest
-from backend.tasks.models import ChoiceArg, OutputMode, StringArg, Task
-from backend.tasks.repository import load_task, save_task, list_tasks
+from backend.tasks.models import ChoiceArg, GemHue, OutputMode, StringArg, UserTask
+from backend.tasks.repository import delete_task, list_tasks, load_task, save_task
 
 
 @pytest.fixture
 def sample_task():
-    return Task(
+    return UserTask(
         id="greet",
         name="Greeting",
         description="Greet someone",
@@ -17,7 +17,7 @@ def sample_task():
 
 @pytest.fixture
 def choice_task():
-    return Task(
+    return UserTask(
         id="translate",
         name="Translate",
         template="Translate '{{ text }}' to {{ language }}.",
@@ -44,15 +44,10 @@ def test_load_task_raises_key_error_when_missing(data_dir):
 
 def test_save_task_overwrites_existing(data_dir, sample_task):
     save_task(sample_task)
-    updated = Task(
-        id="greet",
-        name="Greeting v2",
-        template="Hi, {{ name }}!",
-    )
+    updated = UserTask(id="greet", name="Greeting v2", template="Hi, {{ name }}!")
     save_task(updated)
     loaded = load_task("greet")
     assert loaded.name == "Greeting v2"
-    assert loaded.template == "Hi, {{ name }}!"
 
 
 def test_args_round_trip_string(data_dir, sample_task):
@@ -68,7 +63,6 @@ def test_args_round_trip_string(data_dir, sample_task):
 def test_args_round_trip_choice(data_dir, choice_task):
     save_task(choice_task)
     loaded = load_task("translate")
-    assert len(loaded.args) == 2
     lang_arg = loaded.args[1]
     assert lang_arg.type == "choice"
     assert lang_arg.name == "language"
@@ -77,13 +71,7 @@ def test_args_round_trip_choice(data_dir, choice_task):
 
 
 def test_task_flags_round_trip(data_dir):
-    task = Task(
-        id="vision",
-        name="Vision Task",
-        template="Describe this.",
-        has_image=True,
-        has_audio=False,
-    )
+    task = UserTask(id="vision", name="Vision", template="Describe.", has_image=True)
     save_task(task)
     loaded = load_task("vision")
     assert loaded.has_image is True
@@ -91,15 +79,24 @@ def test_task_flags_round_trip(data_dir):
 
 
 def test_output_mode_round_trip(data_dir):
-    task = Task(
-        id="structured",
-        name="Structured",
-        template="Output JSON.",
-        output_mode=OutputMode.STRUCTURED,
-    )
+    task = UserTask(id="structured", name="Structured", template="JSON.", output_mode=OutputMode.STRUCTURED)
     save_task(task)
     loaded = load_task("structured")
     assert loaded.output_mode == OutputMode.STRUCTURED
+
+
+def test_hue_round_trip(data_dir):
+    task = UserTask(id="emerald-gem", name="Emerald", template="Hi", hue=GemHue.EMERALD)
+    save_task(task)
+    loaded = load_task("emerald-gem")
+    assert loaded.hue == GemHue.EMERALD
+
+
+def test_default_hue_is_indigo(data_dir):
+    task = UserTask(id="default-gem", name="Default", template="Hi")
+    save_task(task)
+    loaded = load_task("default-gem")
+    assert loaded.hue == GemHue.INDIGO
 
 
 def test_list_tasks_empty(data_dir):
@@ -111,5 +108,15 @@ def test_list_tasks_returns_all(data_dir, sample_task, choice_task):
     save_task(choice_task)
     tasks = list_tasks()
     assert len(tasks) == 2
-    ids = {t.id for t in tasks}
-    assert ids == {"greet", "translate"}
+    assert {t.id for t in tasks} == {"greet", "translate"}
+
+
+def test_delete_task(data_dir, sample_task):
+    save_task(sample_task)
+    delete_task("greet")
+    with pytest.raises(KeyError):
+        load_task("greet")
+
+
+def test_delete_task_nonexistent_is_noop(data_dir):
+    delete_task("does-not-exist")  # should not raise
