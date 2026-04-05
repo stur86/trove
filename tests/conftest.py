@@ -17,11 +17,14 @@ def config_dir(tmp_path, monkeypatch):
     config_path.mkdir()
     return config_path
 
+def _clear_lru_caches():
+    """Clear LRU caches for service factories to avoid cross-test interference."""
+    get_ollama_service.cache_clear()
+    get_system_service.cache_clear()
+
 @pytest.fixture(autouse=True)
 def clear_caches():
     """Clear LRU caches before each test to avoid cross-test interference."""
-    get_ollama_service.cache_clear()
-    get_system_service.cache_clear()
+    _clear_lru_caches()
     yield
-    get_ollama_service.cache_clear()
-    get_system_service.cache_clear()
+    _clear_lru_caches()
