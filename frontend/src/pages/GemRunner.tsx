@@ -1,0 +1,209 @@
+/**
+ * GemRunner — run a gem by filling its arguments and streaming the output.
+ *
+ * Phase 1 (form): Dynamic form built from UserTask.args. StringArg → TextInput.
+ * ChoiceArg → Select. has_image / has_audio → disabled upload buttons.
+ *
+ * Phase 2 (output): Form collapses to a summary bar showing arg values.
+ * Clicking the bar re-expands the form. Spinner shown until first token arrives.
+ * Output streams into a scrolling text area. "Run again" re-submits.
+ */
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { Button, Label, Select, Spinner, TextInput, Tooltip } from 'flowbite-react'
+import { gemsApi, readSSEStream, type UserTask } from '../api/tasks'
+import GemIcon from '../components/GemIcon'
+
+type Phase = 'form' | 'running' | 'done'
+
+export default function GemRunner() {
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const [gem, setGem] = useState<UserTask | null>(null)
+  const [loadError, setLoadError] = useState(false)
+
+  // Form state: keyed by arg name
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [phase, setPhase] = useState<Phase>('form')
+  const [output, setOutput] = useState('')
+  const outputRef = useRef<HTMLDivElement>(null)
+
+  // Load gem on mount
+  useEffect(() => {
+    if (!id) return
+    gemsApi.get(id)
+      .then(g => {
+        setGem(g)
+        // Pre-fill defaults
+        const defaults: Record<string, string> = {}
+        for (const arg of g.args) {
+          defaults[arg.name] = arg.default
+        }
+        setValues(defaults)
+      })
+      .catch(() => setLoadError(true))
+  }, [id])
+
+  // Auto-scroll output area as tokens arrive
+  useEffect(() => {
+    if (outputRef.current) {
+      outputRef.current.scrollTop = outputRef.current.scrollHeight
+    }
+  }, [output])
+
+  async function handleRun() {
+    if (!gem || !id) return
+    setOutput('')
+    setPhase('running')
+    try {
+      const res = await gemsApi.run(id, values)
+      let firstToken = true
+      for await (const token of readSSEStream(res)) {
+        if (firstToken) {
+          firstToken = false
+          setPhase('done')
+        }
+        setOutput(prev => prev + token)
+      }
+      setPhase('done')
+    } catch {
+      setOutput('An error occurred while running this gem.')
+      setPhase('done')
+    }
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-500">Gem not found.</p>
+      </div>
+    )
+  }
+
+  if (!gem) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Spinner size="lg" />
+      </div>
+    )
+  }
+
+  /** Human-readable summary of current arg values for the collapsed bar. */
+  const argSummary = gem.args
+    .filter(a => values[a.name])
+    .map(a => `${a.name}: ${values[a.name]}`)
+    .join(' · ')
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-2xl mx-auto flex flex-col gap-4">
+
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/')}
+            className="text-gray-400 hover:text-gray-600 text-sm"
+          >
+            ← Back
+          </button>
+          <GemIcon hue={gem.hue} size={28} />
+          <h1 className="text-xl font-bold text-gray-900">{gem.name}</h1>
+        </div>
+
+        {/* Phase 1: Form — shown when phase is 'form' */}
+        {phase === 'form' && (
+          <div className="bg-white border border-gray-200 rounded-lg p-5 flex flex-col gap-4">
+            {gem.description && (
+              <p className="text-sm text-gray-500">{gem.description}</p>
+            )}
+
+            {gem.args.map(arg => (
+              <div key={arg.name}>
+                <div className="mb-1">
+                  <Label htmlFor={`arg-${arg.name}`}>
+                    {arg.name}
+                    {arg.description && (
+                      <span className="text-gray-400 font-normal ml-1 text-xs">— {arg.description}</span>
+                    )}
+                  </Label>
+                </div>
+                {arg.type === 'string' ? (
+                  <TextInput
+                    id={`arg-${arg.name}`}
+                    value={values[arg.name] ?? ''}
+                    onChange={e => setValues(v => ({ ...v, [arg.name]: e.target.value }))}
+                    placeholder={arg.default || arg.description}
+                  />
+                ) : (
+                  <Select
+                    id={`arg-${arg.name}`}
+                    value={values[arg.name] ?? arg.default}
+                    onChange={e => setValues(v => ({ ...v, [arg.name]: e.target.value }))}
+                  >
+                    {arg.options.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </Select>
+                )}
+              </div>
+            ))}
+
+            {/* Image / audio upload stubs */}
+            {gem.has_image && (
+              <Tooltip content="Image upload coming soon">
+                <Button color="light" disabled>Upload image</Button>
+              </Tooltip>
+            )}
+            {gem.has_audio && (
+              <Tooltip content="Audio upload coming soon">
+                <Button color="light" disabled>Upload audio</Button>
+              </Tooltip>
+            )}
+
+            <Button color="blue" onClick={handleRun}>
+              Run
+            </Button>
+          </div>
+        )}
+
+        {/* Phase 2: Collapsed summary bar — shown when running or done */}
+        {(phase === 'running' || phase === 'done') && (
+          <button
+            onClick={() => { setPhase('form'); setOutput('') }}
+            className="w-full text-left bg-white border border-gray-200 rounded-lg px-4 py-3 flex justify-between items-center hover:bg-gray-50 transition-colors"
+          >
+            <span className="text-sm text-gray-600 truncate">{argSummary || gem.name}</span>
+            <span className="text-xs text-indigo-500 ml-3 shrink-0">Edit ✎</span>
+          </button>
+        )}
+
+        {/* Spinner — shown while running before first token */}
+        {phase === 'running' && (
+          <div className="flex justify-center py-6">
+            <Spinner size="lg" />
+          </div>
+        )}
+
+        {/* Output area — shown once first token arrives */}
+        {phase === 'done' && (
+          <div className="flex flex-col gap-3">
+            <div
+              ref={outputRef}
+              className="bg-white border border-gray-200 rounded-lg p-4 min-h-32 max-h-[60vh] overflow-y-auto text-sm text-gray-800 leading-relaxed whitespace-pre-wrap font-mono"
+            >
+              {output}
+              <span
+                className="inline-block w-0.5 h-3.5 bg-indigo-500 ml-0.5 align-middle animate-pulse"
+                aria-hidden="true"
+              />
+            </div>
+            <Button color="light" onClick={handleRun}>
+              Run again ↺
+            </Button>
+          </div>
+        )}
+
+      </div>
+    </div>
+  )
+}
