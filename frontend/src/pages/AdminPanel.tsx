@@ -12,8 +12,9 @@
 
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Alert, Button, Card, Label, RangeSlider, Select, Spinner, TabItem, Tabs, TextInput } from 'flowbite-react'
+import { Alert, Button, Label, RangeSlider, Select, Spinner, TabItem, Tabs } from 'flowbite-react'
 import { appApi } from '../api/app'
+import AdminLogin from '../components/AdminLogin'
 import { type TroveConfig, configApi } from '../api/config'
 import { streamLines } from '../api/ollama'
 import { systemApi, type ModelInfo } from '../api/system'
@@ -33,8 +34,6 @@ const MODEL_LABELS: Record<string, string> = {
 }
 
 export default function AdminPanel() {
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
   const [authed, setAuthed] = useState(false)
   const [loginError, setLoginError] = useState(false)
 
@@ -64,16 +63,21 @@ export default function AdminPanel() {
       .catch(() => setGemsLoading(false))
   }, [authed])
 
+  // On first render, check whether the admin cookie is already present.
+  useEffect(() => {
+    appApi.checkAdminValid()
+      .then(res => { if (res.admin_auth === 'true') setAuthed(true) })
+      .catch(() => {})
+  }, [])
+
   /**
    * Verify admin credentials by attempting a config save with the supplied
    * username/password. 401 responses land in the catch branch.
    */
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleLogin(usernameArg: string, passwordArg: string) {
     setLoginError(false)
     try {
-      const current = await configApi.get()
-      await appApi.saveConfig(current, username, password)
+      await appApi.login(usernameArg, passwordArg)
       setAuthed(true)
     } catch {
       setLoginError(true)
@@ -88,9 +92,9 @@ export default function AdminPanel() {
     setSaveState('saving')
     setBuildLog([])
     try {
-      await appApi.saveConfig(config, username, password)
+      await appApi.saveConfig(config)
       setSaveState('building')
-      const res = await appApi.buildModel(username, password)
+      const res = await appApi.buildModel()
       await new Promise<void>(resolve =>
         streamLines(
           res,
@@ -107,33 +111,8 @@ export default function AdminPanel() {
   if (!authed) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-sm">
-          <h1 className="text-xl font-bold text-center">{t('admin.login.title')}</h1>
-          <form onSubmit={handleLogin} className="flex flex-col gap-4">
-            <div>
-              <div className="mb-2"><Label htmlFor="login-username">{t('admin.login.username')}</Label></div>
-              <TextInput
-                id="login-username"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                autoComplete="username"
-              />
-            </div>
-            <div>
-              <div className="mb-2"><Label htmlFor="login-password">{t('admin.login.password')}</Label></div>
-              <TextInput
-                id="login-password"
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                autoComplete="current-password"
-                color={loginError ? 'failure' : undefined}
-              />
-            </div>
-            {loginError && <Alert color="failure">{t('admin.login.error')}</Alert>}
-            <Button color="blue" type="submit">{t('admin.login.button')}</Button>
-          </form>
-        </Card>
+          <AdminLogin onSubmit={handleLogin} loginError={loginError} title={t('admin.login.title')} />
+        
       </div>
     )
   }
@@ -226,7 +205,7 @@ export default function AdminPanel() {
                 <Button
                   color="blue"
                   size="sm"
-                  onClick={() => navigate('/admin/gems/new', { state: { username, password } })}
+                  onClick={() => navigate('/admin/gems/new')}
                 >
                   + New Gem
                 </Button>
@@ -254,9 +233,7 @@ export default function AdminPanel() {
                         <Button
                           color="light"
                           size="xs"
-                          onClick={() =>
-                            navigate(`/admin/gems/${gem.id}/edit`, { state: { username, password } })
-                          }
+                          onClick={() => navigate(`/admin/gems/${gem.id}/edit`)}
                         >
                           Edit
                         </Button>
@@ -267,7 +244,7 @@ export default function AdminPanel() {
                           onClick={async () => {
                             setGemDeleteId(gem.id)
                             try {
-                              await gemsApi.delete(gem.id, username, password)
+                              await gemsApi.delete(gem.id)
                               setGems(gs => gs.filter(g => g.id !== gem.id))
                             } finally {
                               setGemDeleteId(null)

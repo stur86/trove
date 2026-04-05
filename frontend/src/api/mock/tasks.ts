@@ -127,17 +127,18 @@ export const gemsApi = {
     return { ...task }
   },
 
-  create: async (task: UserTask, _u: string, _p: string): Promise<UserTask> => {
+  create: async (task: UserTask): Promise<UserTask> => {
     await delay(300)
     return { ...task }
   },
 
-  update: async (_id: string, task: UserTask, _u: string, _p: string): Promise<UserTask> => {
+  update: async (_id: string, task: UserTask): Promise<UserTask> => {
     await delay(300)
     return { ...task }
   },
 
-  delete: async (_id: string, _u: string, _p: string): Promise<void> => {
+  delete: async (_id: string): Promise<void> => {
+    console.log(`Mock delete gem with id ${_id}`)
     await delay(200)
   },
 
@@ -147,6 +148,7 @@ export const gemsApi = {
    * needs no special casing.
    */
   run: (_id: string, _values: Record<string, string>): Promise<Response> => {
+    console.log(`Mock run gem with id ${_id} and values`, _values)
     const words = CANNED_RESPONSE.split(' ')
     const encoder = new TextEncoder()
     const stream = new ReadableStream({

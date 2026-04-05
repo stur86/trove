@@ -5,28 +5,36 @@
  * basicAuth(username, password) from ./client.
  */
 import { type TroveConfig } from './config'
-import { basicAuth, post, put } from './client'
+import { basicAuth, post, put, get } from './client'
 
 export const appApi = {
   /**
-   * Save updated configuration. Requires admin credentials.
-   * @param config Updated configuration object
-   * @param username Admin username
-   * @param password Admin password
+   * Cookie-based login: exchange Basic creds for an admin cookie.
    */
-  saveConfig: (
-    config: TroveConfig,
-    username: string,
-    password: string,
-  ): Promise<TroveConfig> =>
-    put('/app/admin/config', config, { Authorization: basicAuth(username, password) }),
+  login: (username: string, password: string): Promise<void> =>
+    post('/app/admin/login', undefined, { Authorization: basicAuth(username, password) }).then(() => {}),
 
   /**
-   * Build trove_model from the current config. Requires admin credentials.
-   * Returns a raw Response for SSE streaming.
+   * Check whether the admin cookie is present/valid.
    */
-  buildModel: (username: string, password: string): Promise<Response> =>
-    post('/app/admin/build-model', undefined, {
-      Authorization: basicAuth(username, password),
-    }),
+  checkAdminValid: (): Promise<{ admin_auth: string | null }> =>
+    get('/app/admin/valid'),
+
+  /**
+   * Logout by clearing the admin cookie on the server.
+   */
+  logout: (): Promise<void> =>
+    post('/app/admin/logout').then(() => {}),
+
+  /**
+   * Save config using the admin cookie (no Basic auth header).
+   */
+  saveConfig: (config: TroveConfig): Promise<TroveConfig> =>
+    put('/app/admin/config', config),
+
+  /**
+   * Build model using the admin cookie. Returns raw Response for SSE.
+   */
+  buildModel: (): Promise<Response> =>
+    post('/app/admin/build-model'),
 }

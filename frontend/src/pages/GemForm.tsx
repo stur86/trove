@@ -10,16 +10,16 @@
  * If state is missing, shows a lightweight re-auth form.
  */
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   Alert, Button, Checkbox, Label, Select, Spinner, Textarea, TextInput,
 } from 'flowbite-react'
 import {
   gemsApi, GEM_HUES, type OutputMode, type TaskArg, type UserTask,
 } from '../api/tasks'
+import { appApi } from '../api/app'
+import AdminLogin from '../components/AdminLogin'
 import GemIcon from '../components/GemIcon'
-
-type AuthState = { username: string; password: string }
 
 /** Blank UserTask used as a starting point for the create form. */
 function blankGem(): UserTask {
@@ -44,14 +44,10 @@ function blankStringArg(): TaskArg {
 export default function GemForm() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const location = useLocation()
   const isEdit = Boolean(id)
 
-  // Admin credentials — prefer navigation state, fall back to local re-auth
-  const [auth, setAuth] = useState<AuthState>(
-    (location.state as AuthState | null) ?? { username: '', password: '' },
-  )
-  const [authReady, setAuthReady] = useState(Boolean(location.state))
+  // Admin cookie state — check whether admin cookie is present
+  const [authReady, setAuthReady] = useState(false)
 
   const [gem, setGem] = useState<UserTask>(blankGem())
   const [loading, setLoading] = useState(isEdit)
@@ -69,19 +65,26 @@ export default function GemForm() {
       .catch(() => { setError('Gem not found.'); setLoading(false) })
   }, [id, isEdit])
 
+  useEffect(() => {
+    appApi.checkAdminValid()
+      .then(res => { if (res.admin_auth === 'true') setAuthReady(true) })
+      .catch(() => {})
+  }, [])
+
   async function handleSave() {
     setError(null)
     setSaving(true)
     // Strip _key from args before sending to the API
     const cleanGem = {
       ...gem,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       args: gem.args.map(({ _key: _, ...rest }) => rest as TaskArg),
     }
     try {
       if (isEdit && id) {
-        await gemsApi.update(id, cleanGem, auth.username, auth.password)
+        await gemsApi.update(id, cleanGem)
       } else {
-        await gemsApi.create(cleanGem, auth.username, auth.password)
+        await gemsApi.create(cleanGem)
       }
       navigate('/admin')
     } catch {
@@ -107,40 +110,21 @@ export default function GemForm() {
     setGem(g => ({ ...g, args: [...g.args, blankStringArg()] }))
   }
 
-  // Re-auth screen if credentials weren't passed via navigation state
+  // Re-auth screen if admin cookie is not present
   if (!authReady) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-sm flex flex-col gap-4 bg-white border border-gray-200 rounded-lg p-6">
-          <h2 className="text-lg font-semibold">Admin login required</h2>
-          <div>
-            <div className="mb-1"><Label htmlFor="reauth-user">Username</Label></div>
-            <TextInput
-              id="reauth-user"
-              value={auth.username}
-              onChange={e => setAuth(a => ({ ...a, username: e.target.value }))}
-              autoComplete="username"
-            />
-          </div>
-          <div>
-            <div className="mb-1"><Label htmlFor="reauth-pass">Password</Label></div>
-            <TextInput
-              id="reauth-pass"
-              type="password"
-              value={auth.password}
-              onChange={e => setAuth(a => ({ ...a, password: e.target.value }))}
-              autoComplete="current-password"
-            />
-          </div>
-          <Button
-            color="blue"
-            disabled={!auth.username || !auth.password}
-            onClick={() => setAuthReady(true)}
-          >
-            Continue
-          </Button>
-        </div>
-      </div>
+      <AdminLogin
+        onSubmit={async (u, p) => {
+          try {
+            await appApi.login(u, p)
+            setAuthReady(true)
+          } catch {
+            setError('Login failed')
+          }
+        }}
+        loginError={false}
+        title="Admin login required"
+      />
     )
   }
 
@@ -258,6 +242,7 @@ export default function GemForm() {
                       if (newType === 'choice' && arg.type === 'string') {
                         updateArg(i, { type: 'choice', options: [] } as Partial<TaskArg>)
                       } else if (newType === 'string' && arg.type === 'choice') {
+                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
                         const { options: _, ...rest } = arg as { options: string[] } & Omit<TaskArg, 'type'>
                         setGem(g => {
                           const args = [...g.args]

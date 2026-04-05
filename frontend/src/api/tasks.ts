@@ -4,7 +4,7 @@
  * Exports gemsApi — switches to the mock implementation when
  * VITE_MOCK_API=1 is set in the environment.
  */
-import { basicAuth, del, get, post, put } from './client'
+import { del, get, post, put } from './client'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -70,18 +70,17 @@ const _realGemsApi = {
   get: (id: string): Promise<UserTask> =>
     get<UserTask>(`/app/gems/${id}`),
 
-  /** Create a new user task. Requires admin credentials. */
-  create: (task: UserTask, username: string, password: string): Promise<UserTask> =>
-    post('/app/admin/gems', task, { Authorization: basicAuth(username, password) })
-      .then(r => r.json()),
+  /** Create a new user task using admin cookie. */
+  create: (task: UserTask): Promise<UserTask> =>
+    post('/app/admin/gems', task).then(r => r.json()),
 
-  /** Update an existing user task. Requires admin credentials. */
-  update: (id: string, task: UserTask, username: string, password: string): Promise<UserTask> =>
-    put<UserTask>(`/app/admin/gems/${id}`, task, { Authorization: basicAuth(username, password) }),
+  /** Update using admin cookie. */
+  update: (id: string, task: UserTask): Promise<UserTask> =>
+    put<UserTask>(`/app/admin/gems/${id}`, task),
 
-  /** Delete a user task. Requires admin credentials. */
-  delete: (id: string, username: string, password: string): Promise<void> =>
-    del(`/app/admin/gems/${id}`, { Authorization: basicAuth(username, password) }),
+  /** Delete using admin cookie. */
+  delete: (id: string): Promise<void> =>
+    del(`/app/admin/gems/${id}`),
 
   /**
    * Run a gem. Returns a raw Response whose body is an SSE stream.
