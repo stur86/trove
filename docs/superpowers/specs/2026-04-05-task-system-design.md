@@ -39,15 +39,10 @@ class OutputMode(str, Enum):
     TEXT = "text"
     STRUCTURED = "structured"   # reserved
 
-class TaskOrigin(str, Enum):
-    INTERNAL = "internal"   # hardcoded in Python, system-invoked
-    USER = "user"           # admin-defined, stored in DB
-
 class Task(BaseModel, frozen=True):
     id: str                          # slug, e.g. "summarise-document"
     name: str
     description: str = ""
-    origin: TaskOrigin
     template: str                    # Jinja2 source
     args: tuple[TaskArg, ...] = ()
     has_image: bool = False          # task accepts an image input (mock for now)
@@ -73,7 +68,6 @@ CREATE TABLE IF NOT EXISTS tasks (
     id          TEXT PRIMARY KEY,
     name        TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
-    origin      TEXT NOT NULL,
     template    TEXT NOT NULL,
     args        TEXT NOT NULL,       -- JSON array with "type" discriminator
     has_image   INTEGER NOT NULL DEFAULT 0,
@@ -102,7 +96,7 @@ def render_prompt(task: Task, values: dict[str, str]) -> str:
 
 ## Usage Pattern
 
-Internal tasks (e.g. document summariser, schema suggester) are instantiated directly in Python and never stored in the DB unless needed. User-defined tasks are loaded from the DB before rendering.
+Internal tasks (e.g. document summariser, schema suggester) are hardcoded `Task` instances in Python. User-defined tasks are stored in and loaded from the DB. Both use the same class — the distinction is purely at the API layer, which lists only DB tasks.
 
 ## Out of Scope
 
