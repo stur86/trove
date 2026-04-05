@@ -6,6 +6,7 @@
  */
 
 import { get, put } from './client'
+import { configApi as _mockConfigApi } from './mock/config'
 
 /** Server configuration persisted to ~/.config/trove/config.json. */
 export interface TroveConfig {
@@ -17,10 +18,12 @@ export interface TroveConfig {
   locale: string
 }
 
-/** API wrapper for the config domain. */
-export const configApi = {
+const _realConfigApi = {
   /** Fetch the current server configuration. */
   get: () => get<TroveConfig>('/config'),
   /** Persist updated configuration and return it. */
   update: (config: TroveConfig) => put<TroveConfig>('/config', config),
 }
+
+/** API wrapper for the config domain. Switches to mock when VITE_MOCK_API=1. */
+export const configApi = import.meta.env.VITE_MOCK_API ? _mockConfigApi : _realConfigApi

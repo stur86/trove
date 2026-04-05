@@ -6,6 +6,7 @@
  */
 
 import { get } from './client'
+import { systemApi as _mockSystemApi } from './mock/system'
 
 /** GPU detection result. */
 export interface GpuInfo {
@@ -35,8 +36,10 @@ export interface SystemCheck {
   viable_models: ModelInfo[]
 }
 
-/** API wrapper for the system check domain. */
-export const systemApi = {
+const _realSystemApi = {
   /** Run system checks and return hardware info. */
   check: () => get<SystemCheck>('/system/check'),
 }
+
+/** API wrapper for the system check domain. Switches to mock when VITE_MOCK_API=1. */
+export const systemApi = import.meta.env.VITE_MOCK_API ? _mockSystemApi : _realSystemApi
