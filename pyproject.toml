@@ -35,6 +35,7 @@ dev          = "bash scripts/dev.sh"
 # Run servers individually
 dev-backend  = "uvicorn backend.main:app --reload --port 8001"
 dev-frontend = "cd frontend && bun run dev"
+dev-mock     = "cd frontend && VITE_MOCK_API=1 bun run dev"
 # Trove commands (setup mode and app mode)
 setup        = "trove setup"
 start        = "trove start"

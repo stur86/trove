@@ -9,7 +9,6 @@
  */
 
 import { useEffect, useState } from 'react'
-import { get } from '../api/client'
 
 /** Flat map of translation keys to localised strings. */
 type Strings = Record<string, string>
@@ -23,7 +22,15 @@ const cache: Record<string, Strings> = {}
  */
 async function fetchLocale(locale: string): Promise<Strings> {
   if (cache[locale]) return cache[locale]
-  const strings = await get<Strings>(`/i18n/${locale}`)
+  // In mock dev mode, locale files are served directly by the Vite dev server
+  // at /locales/{locale}.json (via the serve-locales plugin in vite.config.ts).
+  // In real mode, the FastAPI i18n endpoint handles fallback to English.
+  const url = import.meta.env.VITE_MOCK_API
+    ? `/locales/${locale}.json`
+    : `/api/i18n/${locale}`
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`Failed to load locale ${locale}: ${res.status}`)
+  const strings: Strings = await res.json()
   cache[locale] = strings
   return strings
 }
