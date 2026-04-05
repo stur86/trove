@@ -31,6 +31,7 @@ class ChoiceArg(BaseModel, frozen=True):
     options: list[str]
     """Exhaustive list of allowed values."""
     description: str = ""
+    """Human-readable hint shown to the user in the UI."""
     default: str = ""
     """Must be one of options, or empty string for no default."""
 
