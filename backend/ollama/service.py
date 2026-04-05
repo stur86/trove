@@ -12,6 +12,7 @@ import os
 import shutil
 import subprocess
 import time
+from functools import lru_cache
 from collections.abc import Iterator
 from pathlib import Path
 from typing import ClassVar, Protocol, runtime_checkable
@@ -301,6 +302,7 @@ class FakeOllamaService:
 # Service factory (used by FastAPI Depends)
 # ---------------------------------------------------------------------------
 
+@lru_cache
 def get_ollama_service() -> OllamaService:
     """
     FastAPI dependency that returns the appropriate OllamaService implementation.

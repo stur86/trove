@@ -16,6 +16,7 @@ Controlled via environment variables (set in .env):
 import os
 import shutil
 import subprocess
+from functools import lru_cache
 from typing import Protocol, runtime_checkable
 
 import psutil
@@ -194,6 +195,7 @@ def is_ollama_service_running() -> bool:
 # Service factory (used by FastAPI Depends)
 # ---------------------------------------------------------------------------
 
+@lru_cache
 def get_system_service() -> SystemService:
     """
     FastAPI dependency that returns the appropriate SystemService implementation.
