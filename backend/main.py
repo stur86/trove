@@ -17,6 +17,7 @@ from enum import Enum
 from dotenv import load_dotenv
 
 from fastapi import FastAPI
+from backend.log_buffer import setup_ollama_log_buffer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -28,6 +29,7 @@ from backend.ollama.service import RealOllamaService
 from backend.system.router import router as system_router
 
 load_dotenv()  # Must run before os.getenv calls below
+setup_ollama_log_buffer()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

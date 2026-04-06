@@ -18,7 +18,7 @@ class SetupStatus(BaseModel):
     ollama_installed: bool
     models_pulled: list[str]   # list of pulled model tags
     admin_configured: bool     # admin_password is non-empty
-    service_installed: bool
+    service_installed: bool    # systemd unit file exists
 
 
 class LanUrlResponse(BaseModel):

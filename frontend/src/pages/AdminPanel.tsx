@@ -10,7 +10,7 @@
  *   Tasks     — placeholder
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Alert, Button, Label, Select, Spinner, TabItem, Tabs, RangeSlider } from 'flowbite-react'
 import { appApi } from '../api/app'
@@ -49,6 +49,8 @@ export default function AdminPanel() {
   const [gems, setGems] = useState<UserTask[]>([])
   const [gemsLoading, setGemsLoading] = useState(false)
   const [gemDeleteId, setGemDeleteId] = useState<string | null>(null)
+  const [logLines, setLogLines] = useState<string[]>([])
+  const logEndRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (!authed) return
@@ -66,6 +68,21 @@ export default function AdminPanel() {
       .then(list => { setGems(list); setGemsLoading(false) })
       .catch(() => setGemsLoading(false))
   }, [authed])
+
+  // Fetch logs immediately once authed, then every 5 seconds.
+  useEffect(() => {
+    if (!authed) return
+    function fetchLogs() {
+      appApi.logs().then(r => setLogLines(r.lines))
+    }
+    fetchLogs()
+    const id = setInterval(fetchLogs, 5000)
+    return () => clearInterval(id)
+  }, [authed])
+
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [logLines])
 
   // On first render, check whether the admin cookie is already present.
   useEffect(() => {
@@ -244,6 +261,15 @@ export default function AdminPanel() {
 
           <TabItem title={t('admin.tab.documents')}>
             <p className="pt-4 text-gray-500">{t('admin.documents.placeholder')}</p>
+          </TabItem>
+
+          <TabItem title={t('admin.tab.logs')}>
+            <div className="pt-4">
+              <pre className="bg-gray-900 text-gray-300 rounded-lg p-4 text-xs font-mono h-96 overflow-y-auto whitespace-pre-wrap">
+                {logLines.length > 0 ? logLines.join('\n') : '(no log entries yet)'}
+                <div ref={logEndRef} />
+              </pre>
+            </div>
           </TabItem>
 
           <TabItem title={t('admin.tab.tasks', 'Gems')} active={startOnGems}>

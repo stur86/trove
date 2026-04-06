@@ -8,9 +8,11 @@ Defines the OllamaService Protocol and two implementations:
 Which implementation is used is controlled by the TROVE_FAKE_OLLAMA
 environment variable (set to 1 to use the fake). Load via python-dotenv.
 """
+import logging
 import os
 import shutil
 import subprocess
+import threading
 import time
 from functools import lru_cache
 from collections.abc import Iterator
@@ -19,7 +21,73 @@ from typing import ClassVar, Protocol, runtime_checkable
 
 from backend.config.models import TroveConfig
 from backend.config.service import get_config_dir, load_config
-from backend.system.service import is_ollama_service_running
+from backend.system.service import TROVE_OLLAMA_PORT, is_ollama_service_running
+from backend.log_buffer import OLLAMA_LOGGER_NAME
+
+_ollama_logger = logging.getLogger(OLLAMA_LOGGER_NAME)
+
+
+def _pipe_stdout_to_log(proc: subprocess.Popen) -> None:
+    """
+    Start a daemon thread that reads proc.stdout line by line and emits each
+    line via _ollama_logger.info so it appears in the in-memory log buffer.
+
+    Assumes the process was opened with stdout=PIPE, stderr=STDOUT, text=True.
+    The thread is a daemon so it never blocks application shutdown.
+    """
+    def _reader() -> None:
+        while proc.poll() is None:  # while process is still running
+            line = proc.stdout.readline()  # type: ignore[union-attr]
+            _ollama_logger.info(line.rstrip())
+
+    threading.Thread(target=_reader, daemon=True).start()
+
+
+# ---------------------------------------------------------------------------
+# Ollama lifecycle helpers
+# ---------------------------------------------------------------------------
+
+def ensure_ollama_running() -> None:
+    """
+    Start Trove's private Ollama instance if it is not already running.
+
+    Spawns ``ollama serve`` as a background subprocess. The process inherits
+    the current environment, which must have ``OLLAMA_HOST`` set to the private
+    port (done by cli.py before uvicorn starts). The handle is stored on
+    RealOllamaService._serve_process so the lifespan hook can terminate it
+    on shutdown.
+
+    Silently does nothing if:
+    - the ollama binary is not installed (setup not yet complete)
+    - a live process handle already exists
+    - the server responds within 2 s (already running)
+
+    Logs a warning if the process is spawned but doesn't become ready within
+    10 seconds (e.g. blocked by a slow disk).
+    """
+    if not shutil.which("ollama"):
+        return  # not installed yet — setup will handle it
+    if is_ollama_service_running():
+        return  # already accepting requests on our port
+    proc = RealOllamaService._serve_process
+    if proc is not None and proc.poll() is None:
+        return  # our process is still alive
+
+    _ollama_logger.info("Starting Ollama on port %d…", TROVE_OLLAMA_PORT)
+    RealOllamaService._serve_process = subprocess.Popen(
+        ["ollama", "serve"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    _pipe_stdout_to_log(RealOllamaService._serve_process)
+    # Wait up to 10 s for the server to become ready
+    for _ in range(20):
+        time.sleep(0.5)
+        if is_ollama_service_running():
+            _ollama_logger.info("Ollama ready on port %d.", TROVE_OLLAMA_PORT)
+            return
+    _ollama_logger.warning("Ollama did not become ready on port %d within 10 s.", TROVE_OLLAMA_PORT)
 
 
 # ---------------------------------------------------------------------------
@@ -145,43 +213,47 @@ class RealOllamaService:
         process.wait()
         if process.returncode == 0:
             yield "data: [DONE] Ollama installed successfully.\n\n"
+            # Immediately start our private Ollama instance so the next setup
+            # step (model pull) can proceed without a separate "Start" click.
+            yield "data: Starting Ollama service...\n\n"
+            ensure_ollama_running()
+            if is_ollama_service_running():
+                yield f"data: Ollama is running on port {TROVE_OLLAMA_PORT}.\n\n"
         else:
             yield f"data: [ERROR] Installation failed (exit {process.returncode}).\n\n"
 
     def start_service(self) -> Iterator[str]:
         """
-        Start the Ollama service and yield SSE-formatted progress lines.
+        Start Trove's private Ollama instance and yield SSE-formatted progress lines.
 
-        Tries systemctl first (standard after the official install script).
-        Falls back to running ``ollama serve`` as a detached background process.
+        Always spawns ``ollama serve`` as a managed subprocess rather than using
+        systemctl, because the system service ignores OLLAMA_HOST and would listen
+        on the default port (11434) instead of Trove's private port (11435).
         """
-        yield "data: Starting Ollama service...\n\n"
-        result = subprocess.run(
-            ["systemctl", "start", "ollama"],
-            capture_output=True, text=True,
-        )
-        if result.returncode == 0 and is_ollama_service_running():
-            yield "data: [DONE] Ollama service started.\n\n"
+        yield f"data: Starting Ollama on port {TROVE_OLLAMA_PORT}...\n\n"
+
+        if is_ollama_service_running():
+            yield "data: [DONE] Ollama is already running.\n\n"
             return
 
-        # Fallback for non-systemd environments (WSL, containers, etc.)
-        # Reuse an existing process if it is still alive.
         proc = RealOllamaService._serve_process
         if proc is not None and proc.poll() is None:
-            yield "data: ollama serve already running (pid {proc.pid}).\n\n"
-        else:
-            yield "data: systemctl unavailable, starting ollama serve...\n\n"
-            RealOllamaService._serve_process = subprocess.Popen(
-                ["ollama", "serve"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        # Give the server a moment to bind its port.
-        time.sleep(2)
-        if is_ollama_service_running():
-            yield "data: [DONE] Ollama service started.\n\n"
-        else:
-            yield "data: [ERROR] Failed to start Ollama service.\n\n"
+            yield f"data: [DONE] Ollama already running (pid {proc.pid}).\n\n"
+            return
+
+        RealOllamaService._serve_process = subprocess.Popen(
+            ["ollama", "serve"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        _pipe_stdout_to_log(RealOllamaService._serve_process)
+        for _ in range(20):
+            time.sleep(0.5)
+            if is_ollama_service_running():
+                yield "data: [DONE] Ollama service started.\n\n"
+                return
+        yield "data: [ERROR] Failed to start Ollama service.\n\n"
 
     def stream_pull(self, model_tag: str) -> Iterator[str]:
         """Pull an Ollama model and yield SSE-formatted progress lines."""

@@ -2,13 +2,13 @@
  * ManageDashboard — shown after setup completes and on return visits to setup mode.
  *
  * Displays:
- * - Optional success banner (when arriving from SetupWizard via /manage state)
- * - Status cards: service, Ollama version, models count
+ * - Optional success banner (when arriving from SetupWizard)
+ * - Status cards: Ollama version, models count
  * - Prominent LAN URL box with copy button
- * - Management action buttons: restart, update Ollama, pull model, uninstall
+ * - Live log viewer (last 1000 lines, auto-refreshed every 5 s)
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Alert, Button, Card } from 'flowbite-react'
 import { configApi } from '../api/config'
@@ -26,8 +26,10 @@ export default function ManageDashboard() {
   const [lanUrl, setLanUrl] = useState<LanUrl | null>(null)
   const [ollamaVersion, setOllamaVersion] = useState<string>('')
   const [copied, setCopied] = useState(false)
-  const [log, setLog] = useState<string[]>([])
+  const [logLines, setLogLines] = useState<string[]>([])
+  const [actionLog, setActionLog] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
+  const logEndRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     configApi.get().then(c => setLocale(c.locale))
@@ -36,27 +38,39 @@ export default function ManageDashboard() {
     setupApi.ollamaVersion().then(v => setOllamaVersion(v.version))
   }, [])
 
-  /**
-   * Append a single SSE log line, stripping protocol tokens.
-   */
-  function appendLog(line: string) {
+  // Fetch server logs immediately, then every 5 seconds.
+  useEffect(() => {
+    function fetchLogs() {
+      setupApi.logs().then(r => setLogLines(r.lines))
+    }
+    fetchLogs()
+    const id = setInterval(fetchLogs, 5000)
+    return () => clearInterval(id)
+  }, [])
+
+  // Auto-scroll log box when new lines arrive.
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [logLines])
+
+  /** Append a line to the action log strip at the bottom of the page. */
+  function appendActionLog(line: string) {
     if (line.startsWith('[DONE]')) return
-    setLog(prev => [
+    setActionLog(prev => [
       ...prev,
       line.startsWith('[ERROR]') ? `ERROR: ${line.replace('[ERROR] ', '')}` : line,
     ])
   }
 
-  /**
-   * Run a management action that streams SSE output.
-   */
-  async function runAction(_label: string, action: () => Promise<Response>) {
+  /** Run a management action (update Ollama, pull model) that streams SSE output. */
+  async function runAction(action: () => Promise<Response>) {
     setBusy(true)
-    setLog([])
+    setActionLog([])
     const res = await action()
-    await streamLines(res, appendLog, () => {
+    await streamLines(res, appendActionLog, () => {
       setBusy(false)
       setupApi.status().then(setStatus)
+      setupApi.ollamaVersion().then(v => setOllamaVersion(v.version))
     })
   }
 
@@ -71,7 +85,7 @@ export default function ManageDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-2xl mx-auto flex flex-col gap-6">
+      <div className="max-w-3xl mx-auto flex flex-col gap-6">
 
         {justInstalled && (
           <Alert color="success">✓ {t('manage.setup_complete')}</Alert>
@@ -122,36 +136,45 @@ export default function ManageDashboard() {
 
         {/* Management actions */}
         <div>
-          <p className="text-xs text-gray-500 uppercase mb-3">Management</p>
+          <p className="text-xs text-gray-500 uppercase mb-3">{t('manage.actions')}</p>
           <div className="flex gap-3 flex-wrap">
-            <Button color="gray" disabled={busy}              onClick={() => runAction('restart', setupApi.restart)}>
+            <Button color="gray" disabled={busy} onClick={() => runAction(() => setupApi.restart())}>
               {t('manage.restart')}
             </Button>
-            <Button color="gray" disabled={busy}              onClick={() => runAction('update', () => ollamaApi.install())}>
+            <Button color="gray" disabled={busy} onClick={() => runAction(() => ollamaApi.install())}>
               {t('manage.update_ollama')}
             </Button>
-            <Button color="gray" disabled={busy}              onClick={() => {
-                const tag = prompt('Model tag to download (e.g. gemma4:26b):')
-                if (tag) runAction('pull', () => ollamaApi.pull(tag))
-              }}>
+            <Button color="gray" disabled={busy} onClick={() => {
+              const tag = prompt('Model tag to download (e.g. gemma4:26b):')
+              if (tag) runAction(() => ollamaApi.pull(tag))
+            }}>
               {t('manage.pull_model')}
             </Button>
-            <Button color="failure" disabled={busy}              onClick={() => {
-                if (confirm('Are you sure you want to uninstall Trove?')) {
-                  runAction('uninstall', setupApi.uninstall)
-                }
-              }}>
+            <Button color="failure" disabled={busy} onClick={() => {
+              if (confirm('Are you sure you want to uninstall Trove?')) {
+                runAction(() => setupApi.uninstall())
+              }
+            }}>
               {t('manage.uninstall')}
             </Button>
           </div>
         </div>
 
-        {/* SSE log */}
-        {log.length > 0 && (
-          <pre className="bg-gray-900 text-gray-300 rounded-lg p-4 text-xs font-mono max-h-48 overflow-y-auto whitespace-pre-wrap">
-            {log.join('\n')}
+        {/* Action SSE output */}
+        {actionLog.length > 0 && (
+          <pre className="bg-gray-900 text-gray-300 rounded-lg p-4 text-xs font-mono max-h-40 overflow-y-auto whitespace-pre-wrap">
+            {actionLog.join('\n')}
           </pre>
         )}
+
+        {/* Server log viewer */}
+        <div>
+          <p className="text-xs text-gray-500 uppercase mb-2">{t('manage.logs')}</p>
+          <pre className="bg-gray-900 text-gray-300 rounded-lg p-4 text-xs font-mono h-80 overflow-y-auto whitespace-pre-wrap">
+            {logLines.length > 0 ? logLines.join('\n') : '(no log entries yet)'}
+            <div ref={logEndRef} />
+          </pre>
+        </div>
 
       </div>
     </div>

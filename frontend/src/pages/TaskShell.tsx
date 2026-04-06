@@ -9,6 +9,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { Card, Spinner } from 'flowbite-react'
 import { gemsApi, type UserTask } from '../api/tasks'
 import { configApi } from '../api/config'
+import { appApi } from '../api/app'
 import GemIcon from '../components/GemIcon'
 import { useTranslation } from '../i18n'
 
@@ -18,12 +19,15 @@ export default function TaskShell() {
   const [locale, setLocale] = useState('en')
   const { t } = useTranslation(locale)
   const navigate = useNavigate()
+  const [networkUrl, setNetworkUrl] = useState<string | null>(null)
+  const [urlCopied, setUrlCopied] = useState(false)
 
   useEffect(() => {
     configApi.get().then(c => setLocale(c.locale))
     gemsApi.list()
       .then(list => { setGems(list); setLoading(false) })
       .catch(() => setLoading(false))
+    appApi.networkUrl().then(r => setNetworkUrl(r.url))
   }, [])
 
   return (
@@ -37,6 +41,23 @@ export default function TaskShell() {
             </span>
           </Link>
         </div>
+
+        {networkUrl && (
+          <div className="flex items-center gap-2 mb-6 p-3 bg-white border border-gray-200 rounded-lg">
+            <span className="text-xs text-gray-500 shrink-0">{t('app.share_url')}</span>
+            <code className="flex-1 text-sm font-mono text-gray-700 truncate">{networkUrl}</code>
+            <button
+              className="text-xs text-blue-600 hover:text-blue-800 shrink-0"
+              onClick={() => {
+                navigator.clipboard.writeText(networkUrl)
+                setUrlCopied(true)
+                setTimeout(() => setUrlCopied(false), 2000)
+              }}
+            >
+              {urlCopied ? t('manage.access.copied') : t('manage.access.copy')}
+            </button>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-20">

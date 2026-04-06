@@ -18,6 +18,7 @@ from fastapi.responses import StreamingResponse
 from backend.app.auth import require_admin, require_admin_cookie
 from backend.config.models import TroveConfig
 from backend.config.service import save_config
+from backend.log_buffer import get_ollama_log_lines
 from backend.ollama.service import OllamaService, get_ollama_service
 
 router = APIRouter(prefix="/api/app", tags=["app"])
@@ -98,6 +99,17 @@ def build_model(
         service.build_trove_model(),
         media_type="text/event-stream",
     )
+
+
+@router.get("/admin/logs")
+def get_logs() -> dict:
+    """
+    Return the last up to 1000 lines from the in-process log buffer.
+
+    Captures output from FastAPI, uvicorn, and all Trove modules.
+    Requires admin cookie.
+    """
+    return {"lines": get_ollama_log_lines()}
 
 
 from backend.tasks.router import router as gems_router  # noqa: E402

@@ -16,10 +16,15 @@ Controlled via environment variables (set in .env):
 import os
 import shutil
 import subprocess
+import urllib.request
 from functools import lru_cache
 from typing import Protocol, runtime_checkable
 
 import psutil
+
+# Port Trove uses for its own private Ollama instance.
+# Using a non-default port keeps Trove isolated from any system-level Ollama.
+TROVE_OLLAMA_PORT = 11435
 
 # Gemma 4 model catalogue with hardware requirements.
 # min_ram_gb is a conservative estimate for CPU-only inference.
@@ -178,17 +183,19 @@ def _get_viable_models(ram_gb: float, gpu_info: dict) -> list[dict]:
 
 def is_ollama_service_running() -> bool:
     """
-    Check whether the Ollama systemd service is active.
+    Check whether Trove's private Ollama instance is accepting requests.
 
-    Kept as a module-level function because backend/ollama/service.py imports it.
-    Returns False on any error, including systems without systemd.
+    Does a lightweight HTTP GET to the Ollama root endpoint on TROVE_OLLAMA_PORT
+    rather than shelling out — faster and doesn't depend on the PATH.
+    Returns False on any error (connection refused, timeout, etc.).
     """
-    result = subprocess.run(
-        ["ollama", "ls"],
-        capture_output=True,
-        text=True,
-    )
-    return result.returncode == 0
+    try:
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{TROVE_OLLAMA_PORT}", timeout=2
+        ) as resp:
+            return resp.status == 200
+    except Exception:
+        return False
 
 
 # ---------------------------------------------------------------------------

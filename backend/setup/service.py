@@ -10,12 +10,9 @@ root privileges are needed. The service runs under the current user account,
 which is appropriate for a single-user LAN appliance.
 
 Activated by TROVE_FAKE_SERVICE=1 in the environment (.env file).
-
-Also provides get_lan_ip() for detecting the machine's LAN address.
 """
 import os
 import shutil
-import socket
 import subprocess
 from collections.abc import Iterator
 from pathlib import Path
@@ -24,24 +21,6 @@ from typing import Protocol, runtime_checkable
 # User-level systemd unit file path — no sudo required.
 UNIT_FILE_PATH = Path.home() / ".config" / "systemd" / "user" / "trove.service"
 SERVICE_NAME = "trove"
-
-
-def get_lan_ip() -> str:
-    """
-    Detect the machine's LAN IP address.
-
-    Opens a UDP socket toward a public address to determine which
-    local interface would be used — without sending any packets.
-    Falls back to 127.0.0.1 if detection fails.
-    """
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
-    except Exception:
-        return "127.0.0.1"
 
 
 def _build_unit_file(app_port: int) -> str:

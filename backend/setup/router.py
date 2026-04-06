@@ -3,9 +3,10 @@ FastAPI router for the setup domain.
 
 Mounted only in setup mode. Provides endpoints for
 the setup wizard (language, status, admin credentials, service install)
-and the management dashboard (LAN URL, Ollama version, restart, uninstall).
+and the management dashboard (LAN URL, Ollama version, restart, uninstall, logs).
 """
 import shutil
+import socket
 import subprocess
 from typing import Annotated
 
@@ -13,6 +14,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
 from backend.config.service import load_config, save_config
+from backend.log_buffer import get_ollama_log_lines
 from backend.ollama.service import OllamaService, get_ollama_service
 from backend.setup.models import (
     AdminCredentialsRequest,
@@ -22,12 +24,30 @@ from backend.setup.models import (
     OllamaVersionResponse,
     SetupStatus,
 )
-from backend.setup.service import ServiceInstaller, get_lan_ip, get_service_installer
+from backend.setup.service import ServiceInstaller, get_service_installer
 
 # Default port the app mode listens on (used in the LAN URL response).
 _APP_PORT = 7770
 
 router = APIRouter(prefix="/api/setup", tags=["setup"])
+
+
+def _get_lan_ip() -> str:
+    """
+    Detect the machine's LAN IP address.
+
+    Opens a UDP socket toward a public address to determine which local
+    interface would be used — without sending any packets. Falls back to
+    127.0.0.1 if detection fails.
+    """
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
 
 
 @router.get("/status")
@@ -133,7 +153,7 @@ def get_lan_url() -> LanUrlResponse:
 
     Detects the machine's LAN IP and combines it with the default app port.
     """
-    ip = get_lan_ip()
+    ip = _get_lan_ip()
     return LanUrlResponse(ip=ip, port=_APP_PORT, url=f"http://{ip}:{_APP_PORT}")
 
 
@@ -148,3 +168,14 @@ def get_ollama_version() -> OllamaVersionResponse:
     # Output format: "ollama version 0.6.2"
     version = result.stdout.strip().replace("ollama version ", "") or "unknown"
     return OllamaVersionResponse(version=version)
+
+
+@router.get("/logs")
+def get_logs() -> dict:
+    """
+    Return the last up to 1000 lines from the in-process log buffer.
+
+    The buffer is populated from the Python root logger, so it captures
+    output from FastAPI, uvicorn, and all Trove modules.
+    """
+    return {"lines": get_ollama_log_lines()}

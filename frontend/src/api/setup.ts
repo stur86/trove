@@ -56,4 +56,7 @@ export const setupApi = import.meta.env.VITE_MOCK_API ? _mockSetupApi : {
 
   /** Get the installed Ollama version string. */
   ollamaVersion: (): Promise<{ version: string }> => get('/setup/ollama-version'),
+
+  /** Return the last up to 1000 lines from the server log buffer. */
+  logs: (): Promise<{ lines: string[] }> => get('/setup/logs'),
 }

@@ -16,11 +16,13 @@ from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.ollama import OllamaProvider
 
+from backend.system.service import TROVE_OLLAMA_PORT
 from backend.tasks.models import Task
 from backend.tasks.render import render_prompt
 
-# Ollama's OpenAI-compatible endpoint — AsyncOpenAI appends /chat/completions to this.
-_OLLAMA_BASE_URL = "http://localhost:11434/v1"
+# Ollama's OpenAI-compatible endpoint on Trove's private port.
+# AsyncOpenAI appends /chat/completions to this base URL.
+_OLLAMA_BASE_URL = f"http://127.0.0.1:{TROVE_OLLAMA_PORT}/v1"
 
 
 def _default_agent() -> Agent:

@@ -1,5 +1,4 @@
-"""Tests for the setup domain: ServiceInstaller and helper utilities."""
-import os
+"""Tests for the setup domain: ServiceInstaller, router endpoints, and helpers."""
 import pytest
 from fastapi.testclient import TestClient
 
@@ -64,13 +63,16 @@ def test_get_service_installer_returns_real_when_no_flag(monkeypatch):
     assert isinstance(installer, RealServiceInstaller)
 
 
+# ---------------------------------------------------------------------------
+# LAN IP helper
+# ---------------------------------------------------------------------------
+
 def test_get_lan_ip_returns_string():
-    """get_lan_ip() should return a non-empty string (may be 127.0.0.1 in CI)."""
-    from backend.setup.service import get_lan_ip
-    ip = get_lan_ip()
+    """_get_lan_ip() (via router import) should return a non-empty IP string."""
+    from backend.setup.router import _get_lan_ip
+    ip = _get_lan_ip()
     assert isinstance(ip, str)
     assert len(ip) > 0
-    # Should look like an IP address
     parts = ip.split(".")
     assert len(parts) == 4
 
@@ -99,14 +101,14 @@ def test_setup_status_returns_expected_fields(setup_client):
     assert "service_installed" in data
 
 
-def test_setup_status_admin_not_configured_by_default(setup_client):
-    response = setup_client.get("/api/setup/status")
-    assert response.json()["admin_configured"] is False
-
-
 def test_setup_status_service_not_installed_by_default(setup_client):
     response = setup_client.get("/api/setup/status")
     assert response.json()["service_installed"] is False
+
+
+def test_setup_status_admin_not_configured_by_default(setup_client):
+    response = setup_client.get("/api/setup/status")
+    assert response.json()["admin_configured"] is False
 
 
 def test_setup_language_saves_locale(setup_client, config_dir):
@@ -168,6 +170,14 @@ def test_setup_ollama_version_returns_string(setup_client):
     response = setup_client.get("/api/setup/ollama-version")
     assert response.status_code == 200
     assert "version" in response.json()
+
+
+def test_setup_logs_returns_lines(setup_client):
+    response = setup_client.get("/api/setup/logs")
+    assert response.status_code == 200
+    data = response.json()
+    assert "lines" in data
+    assert isinstance(data["lines"], list)
 
 
 def test_setup_not_available_in_app_mode(config_dir):

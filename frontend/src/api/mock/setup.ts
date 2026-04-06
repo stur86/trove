@@ -56,4 +56,16 @@ export const setupApi = {
     await new Promise(r => setTimeout(r, 50))
     return { version: '0.9.0' }
   },
+
+  logs: async (): Promise<{ lines: string[] }> => {
+    await new Promise(r => setTimeout(r, 50))
+    return {
+      lines: [
+        '2026-04-06 12:00:00 INFO     uvicorn.server: Started server process',
+        '2026-04-06 12:00:00 INFO     uvicorn.lifespan.on: Waiting for application startup.',
+        '2026-04-06 12:00:00 INFO     uvicorn.lifespan.on: Application startup complete.',
+        '2026-04-06 12:00:01 INFO     backend.ollama.service: Ollama ready on port 11435.',
+      ],
+    }
+  },
 }

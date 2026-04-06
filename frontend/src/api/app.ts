@@ -44,6 +44,12 @@ const _realAppApi = {
    */
   networkUrl: (): Promise<{ url: string | null }> =>
     get('/app/network-url'),
+
+  /**
+   * Return the last up to 1000 lines from the server log buffer. Requires admin cookie.
+   */
+  logs: (): Promise<{ lines: string[] }> =>
+    get('/app/admin/logs'),
 }
 
 /** API wrapper for app-mode admin operations. Switches to mock when VITE_MOCK_API=1. */

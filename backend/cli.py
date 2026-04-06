@@ -9,6 +9,9 @@ Provides two commands launched via the `trove` script defined in
 
 Each command uses the appropriate factory function to create the FastAPI application.
 """
+import os
+import shutil
+
 import typer
 import uvicorn
 
@@ -17,6 +20,18 @@ cli = typer.Typer(
     help="Trove LLM Platform — local AI for non-technical users.",
     no_args_is_help=True,
 )
+
+
+def _set_ollama_host() -> None:
+    """
+    Point all ollama CLI commands at Trove's private Ollama port.
+
+    Setting OLLAMA_HOST before spawning uvicorn ensures the env var is
+    inherited by every subprocess (model pulls, builds, serve) that the
+    OllamaService starts during the session.
+    """
+    from backend.system.service import TROVE_OLLAMA_PORT
+    os.environ["OLLAMA_HOST"] = f"127.0.0.1:{TROVE_OLLAMA_PORT}"
 
 
 @cli.command()
@@ -31,6 +46,7 @@ def setup(
     No login required. Use this to install Ollama, pull models, configure
     the admin account, and install Trove as a system service.
     """
+    _set_ollama_host()
     uvicorn.run("backend.main:create_app_setup", host=host, port=port, factory=True)
 
 
@@ -45,5 +61,12 @@ def start(
     App mode binds to 0.0.0.0 — accessible from the local network.
     Regular users reach the task runner without login; admins access
     /admin with the credentials set during setup.
+
+    Automatically starts Trove's private Ollama instance (port 11435) if
+    the ollama binary is installed but the server is not yet running.
     """
+    _set_ollama_host()
+    if shutil.which("ollama"):
+        from backend.ollama.service import ensure_ollama_running
+        ensure_ollama_running()
     uvicorn.run("backend.main:create_app_app", host=host, port=port, factory=True)

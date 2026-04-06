@@ -1,13 +1,12 @@
 /**
- * SetupWizard — six-step guided setup flow.
+ * SetupWizard — five-step guided setup flow.
  *
  * Steps:
  *   0. Language   — pick locale, saved to config immediately
  *   1. Welcome    — system info table, begin button
  *   2. Ollama     — install Ollama (skipped if already installed)
  *   3. Models     — multi-select viable models, pull each in sequence
- *   4. Admin      — set admin username + password
- *   5. Service    — install systemd service, then redirect to /manage
+ *   4. Admin      — set admin username + password, then redirect to /
  */
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -151,6 +150,21 @@ function ModelsStep({ t, system, selectedModels, setSelectedModels, busy, onPull
   )
 }
 
+function ServiceStep({ t, busy, onInstall, log, logEndRef }: { t: TranslationFunction; busy: boolean; onInstall: () => Promise<void>; log: string[]; logEndRef: RefObject<HTMLDivElement | null> }) {
+  return (
+    <>
+      <h1 className="text-2xl font-bold">{t('setup.service.title')}</h1>
+      <p className="text-gray-600">{t('setup.service.description')}</p>
+      <div>
+        <Button color="blue" disabled={busy} onClick={onInstall}>
+          {t('setup.service.button')}
+        </Button>
+      </div>
+      <LogBox log={log} logEndRef={logEndRef} />
+    </>
+  )
+}
+
 function AdminStep({ t, adminUser, setAdminUser, adminPass, setAdminPass, busy, onSave, onNext, status }: { t: TranslationFunction; adminUser: string; setAdminUser: Dispatch<SetStateAction<string>>; adminPass: string; setAdminPass: Dispatch<SetStateAction<string>>; busy: boolean; onSave: () => Promise<void>; onNext: () => void; status: SetupStatus }) {
   return (
     <>
@@ -182,20 +196,6 @@ function AdminStep({ t, adminUser, setAdminUser, adminPass, setAdminPass, busy, 
   )
 }
 
-function ServiceStep({ t, busy, onInstall, log, logEndRef }: { t: TranslationFunction; busy: boolean; onInstall: () => Promise<void>; log: string[]; logEndRef: RefObject<HTMLDivElement | null> }) {
-  return (
-    <>
-      <h1 className="text-2xl font-bold">{t('setup.service.title')}</h1>
-      <p className="text-gray-600">{t('setup.service.description')}</p>
-      <div>
-        <Button color="blue" disabled={busy} onClick={onInstall}>
-          {t('setup.service.button')}
-        </Button>
-      </div>
-      <LogBox log={log} logEndRef={logEndRef} />
-    </>
-  )
-}
 
 export default function SetupWizard() {
   const navigate = useNavigate()
@@ -257,14 +257,6 @@ export default function SetupWizard() {
     setupApi.status().then(setStatus)
   }
 
-  async function handleSaveAdmin() {
-    if (!adminUser || !adminPass) return
-    setBusy(true)
-    await setupApi.saveAdminCredentials(adminUser, adminPass)
-    setBusy(false)
-    setupApi.status().then(setStatus)
-  }
-
   async function handleInstallService() {
     setBusy(true)
     setLog([])
@@ -278,7 +270,15 @@ export default function SetupWizard() {
     setBusy(false)
   }
 
-  if (!ready || !status || !system) {
+  async function handleSaveAdmin() {
+    if (!adminUser || !adminPass) return
+    setBusy(true)
+    await setupApi.saveAdminCredentials(adminUser, adminPass)
+    setBusy(false)
+    setupApi.status().then(setStatus)
+  }
+
+if (!ready || !status || !system) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Spinner size="xl" />
