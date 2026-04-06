@@ -39,6 +39,21 @@ class ChoiceArg(BaseModel, frozen=True):
 TaskArg = Annotated[StringArg | ChoiceArg, Field(discriminator="type")]
 """Discriminated union of all argument types."""
 
+AUDIO_CAPABLE_MODELS: frozenset[str] = frozenset({"gemma4:e2b", "gemma4:e4b"})
+"""Ollama model tags that support audio input. Only the E2B and E4B Gemma 4 variants."""
+
+
+def audio_supported(base_model: str) -> bool:
+    """Return True if the given Ollama base model tag supports audio input.
+
+    Args:
+        base_model: The Ollama tag string (e.g. 'gemma4:e4b').
+
+    Returns:
+        True for gemma4:e2b and gemma4:e4b; False for all other tags.
+    """
+    return base_model in AUDIO_CAPABLE_MODELS
+
 
 class OutputMode(str, Enum):
     """Expected output format of a task."""
@@ -113,3 +128,35 @@ class UserTask(Task, frozen=True):
     """Brief explanation of what this Gem does, shown in the card grid."""
     hue: GemHue = GemHue.INDIGO
     """Display colour for the GemIcon. Admin-chosen from 16 preset hues."""
+
+
+class MediaInput(BaseModel, frozen=True):
+    """
+    Runtime multimodal data attached to a single gem run request.
+
+    Carries optional raw bytes for image and/or audio inputs alongside the
+    rendered text prompt. The has_image / has_audio properties let callers
+    check presence without inspecting bytes directly.
+
+    image_mime and audio_mime default to the most common browser formats;
+    callers should always supply the actual MIME type when the bytes are set.
+    """
+
+    image: bytes | None = None
+    """Raw image bytes in any browser-supported format (JPEG, PNG, WebP, …)."""
+    image_mime: str = "image/jpeg"
+    """MIME type of the image bytes (e.g. 'image/jpeg', 'image/png')."""
+    audio: bytes | None = None
+    """Raw audio bytes — typically audio/webm from the browser MediaRecorder API."""
+    audio_mime: str = "audio/webm"
+    """MIME type of the audio bytes (e.g. 'audio/webm', 'audio/mp4')."""
+
+    @property
+    def has_image(self) -> bool:
+        """True when image bytes are present."""
+        return self.image is not None
+
+    @property
+    def has_audio(self) -> bool:
+        """True when audio bytes are present."""
+        return self.audio is not None

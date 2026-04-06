@@ -92,3 +92,62 @@ def test_user_task_is_frozen():
 def test_user_task_custom_hue():
     task = UserTask(id="t1", name="Test", template="Hi", hue=GemHue.EMERALD)
     assert task.hue == GemHue.EMERALD
+
+
+# ── MediaInput ────────────────────────────────────────────────────────────────
+
+from backend.tasks.models import AUDIO_CAPABLE_MODELS, MediaInput, audio_supported  # noqa: E402
+
+
+def test_media_input_defaults_to_no_media():
+    m = MediaInput()
+    assert m.image is None
+    assert m.audio is None
+    assert m.image_mime == "image/jpeg"
+    assert m.audio_mime == "audio/webm"
+
+
+def test_media_input_has_image_false_when_none():
+    assert MediaInput().has_image is False
+
+
+def test_media_input_has_audio_false_when_none():
+    assert MediaInput().has_audio is False
+
+
+def test_media_input_has_image_true_when_set():
+    m = MediaInput(image=b"\xff\xd8\xff", image_mime="image/jpeg")
+    assert m.has_image is True
+
+
+def test_media_input_has_audio_true_when_set():
+    m = MediaInput(audio=b"\x1a\x45\xdf\xa3", audio_mime="audio/webm")
+    assert m.has_audio is True
+
+
+def test_media_input_is_frozen():
+    m = MediaInput(image=b"\xff")
+    with pytest.raises(Exception):
+        m.image = b"\xfe"
+
+
+# ── audio_supported ───────────────────────────────────────────────────────────
+
+def test_audio_supported_e2b():
+    assert audio_supported("gemma4:e2b") is True
+
+
+def test_audio_supported_e4b():
+    assert audio_supported("gemma4:e4b") is True
+
+
+def test_audio_supported_26b():
+    assert audio_supported("gemma4:26b") is False
+
+
+def test_audio_supported_31b():
+    assert audio_supported("gemma4:31b") is False
+
+
+def test_audio_supported_unknown_model():
+    assert audio_supported("llama3:8b") is False
