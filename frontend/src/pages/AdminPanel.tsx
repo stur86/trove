@@ -12,7 +12,7 @@
 
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Alert, Button, Label, Select, Spinner, TabItem, Tabs } from 'flowbite-react'
+import { Alert, Button, Label, Select, Spinner, TabItem, Tabs, RangeSlider } from 'flowbite-react'
 import { appApi } from '../api/app'
 import AdminLogin from '../components/AdminLogin'
 import { type TroveConfig, configApi } from '../api/config'
@@ -178,21 +178,14 @@ export default function AdminPanel() {
                   <div className="mb-2">
                     <Label htmlFor="num-ctx-range">{t('config.num_ctx')}: {config.num_ctx.toLocaleString()}</Label>
                   </div>
-                  {/*
-                    * Plain range input instead of Flowbite RangeSlider: Flowbite's component
-                    * uses `appearance-none` which prevents `accent-color` from applying the
-                    * progress fill. Using a native input with accent-blue-700 lets the browser
-                    * render the filled track natively in all modern browsers.
-                    */}
-                  <input
+                  <RangeSlider
                     id="num-ctx-range"
-                    type="range"
                     min={512}
                     max={maxCtx}
+                    sizing='lg'
                     step={512}
                     value={config.num_ctx}
                     onChange={e => setConfig({ ...config, num_ctx: Number(e.target.value) })}
-                    className="w-full cursor-pointer accent-blue-700"
                   />
                 </div>
 
