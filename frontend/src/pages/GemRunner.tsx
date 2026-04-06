@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Label, Modal, ModalBody, ModalHeader, Select, Spinner, TextInput } from 'flowbite-react'
 import { gemsApi, readSSEStream, type UserTask } from '../api/tasks'
+import { appApi } from '../api/app'
 import GemIcon from '../components/GemIcon'
 import { useLocale, useTranslation } from '../i18n'
 
@@ -33,15 +34,30 @@ export default function GemRunner() {
   const [output, setOutput] = useState('')
   const outputRef = useRef<HTMLDivElement>(null)
 
+  // Capabilities — whether the active model supports audio
+  const [capabilities, setCapabilities] = useState<{ audio: boolean }>({ audio: false })
+
   // Image state
   const [imageBlob, setImageBlob] = useState<Blob | null>(null)
   const [imageMime, setImageMime] = useState<string>('image/jpeg')
   const [showImageModal, setShowImageModal] = useState(false)
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
 
-  // Refs for hidden file inputs (image)
+  // Audio state
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
+  const [audioMime, setAudioMime] = useState<string>('audio/webm')
+  const [showAudioModal, setShowAudioModal] = useState(false)
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null)
+  const [recording, setRecording] = useState(false)
+  const [recordingSeconds, setRecordingSeconds] = useState(0)
+
+  // Refs for hidden file inputs and MediaRecorder
   const imageFileRef = useRef<HTMLInputElement>(null)
   const imageCapRef = useRef<HTMLInputElement>(null)
+  const audioFileRef = useRef<HTMLInputElement>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Load gem on mount
   useEffect(() => {
@@ -59,6 +75,14 @@ export default function GemRunner() {
       .catch(() => setLoadError(true))
   }, [id])
 
+  // Fetch capabilities to know whether to show audio controls
+  useEffect(() => {
+    if (!id) return
+    appApi.capabilities()
+      .then(caps => setCapabilities(caps))
+      .catch(() => {})  // safe default: don't show audio controls if fetch fails
+  }, [id])
+
   // Manage image preview URL — revoke on change to avoid memory leaks
   useEffect(() => {
     if (!imageBlob) { setImagePreviewUrl(null); return }
@@ -66,6 +90,24 @@ export default function GemRunner() {
     setImagePreviewUrl(url)
     return () => URL.revokeObjectURL(url)
   }, [imageBlob])
+
+  // Manage audio preview URL
+  useEffect(() => {
+    if (!audioBlob) { setAudioPreviewUrl(null); return }
+    const url = URL.createObjectURL(audioBlob)
+    setAudioPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [audioBlob])
+
+  // Stop recording and clear timer on unmount (e.g. user navigates away mid-recording)
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+      if (mediaRecorderRef.current?.state === 'recording') {
+        mediaRecorderRef.current.stop()
+      }
+    }
+  }, [])
 
   // Auto-scroll output area as tokens arrive
   useEffect(() => {
@@ -80,7 +122,8 @@ export default function GemRunner() {
     setPhase('running')
     try {
       const imgArg = imageBlob ? { blob: imageBlob, mime: imageMime } : undefined
-      const res = await gemsApi.run(id, values, imgArg)
+      const audArg = audioBlob ? { blob: audioBlob, mime: audioMime } : undefined
+      const res = await gemsApi.run(id, values, imgArg, audArg)
       let firstToken = true
       for await (const token of readSSEStream(res)) {
         if (firstToken) {
@@ -94,6 +137,52 @@ export default function GemRunner() {
       setOutput(t('gem.error.run'))
       setPhase('done')
     }
+  }
+
+  /**
+   * Start recording audio from the default microphone.
+   * Closes the audio modal, starts MediaRecorder, and begins counting elapsed seconds.
+   * On stop, stores the resulting Blob as audioBlob.
+   */
+  async function startRecording() {
+    setShowAudioModal(false)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      chunksRef.current = []
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data)
+      }
+      recorder.onstop = () => {
+        const mime = recorder.mimeType || 'audio/webm'
+        const blob = new Blob(chunksRef.current, { type: mime })
+        setAudioBlob(blob)
+        setAudioMime(mime)
+        // Release microphone
+        stream.getTracks().forEach(t => t.stop())
+        if (timerRef.current) {
+          clearInterval(timerRef.current)
+          timerRef.current = null
+        }
+      }
+      recorder.start()
+      mediaRecorderRef.current = recorder
+      setRecordingSeconds(0)
+      setRecording(true)
+      timerRef.current = setInterval(
+        () => setRecordingSeconds(s => s + 1),
+        1000,
+      )
+    } catch {
+      // Microphone permission denied or unavailable — fail silently.
+      // The audio button remains visible; user can try again or choose a file.
+    }
+  }
+
+  /** Stop an in-progress recording. The onstop handler stores the resulting Blob. */
+  function stopRecording() {
+    mediaRecorderRef.current?.stop()
+    setRecording(false)
   }
 
   if (loadError) {
@@ -116,6 +205,7 @@ export default function GemRunner() {
   const argSummary = [
     ...gem.args.filter(a => values[a.name]).map(a => `${a.name}: ${values[a.name]}`),
     ...(imageBlob ? ['image attached'] : []),
+    ...(audioBlob ? ['audio attached'] : []),
   ].join(' · ')
 
   return (
@@ -146,7 +236,6 @@ export default function GemRunner() {
                 const f = e.target.files?.[0]
                 if (f) { setImageBlob(f); setImageMime(f.type || 'image/jpeg') }
                 setShowImageModal(false)
-                // Reset so same file can be re-selected
                 if (imageFileRef.current) imageFileRef.current.value = ''
               }}
             />
@@ -164,6 +253,22 @@ export default function GemRunner() {
               }}
             />
           </>
+        )}
+
+        {/* Hidden file input for audio picking */}
+        {gem.has_audio && capabilities.audio && (
+          <input
+            type="file"
+            accept="audio/*"
+            className="hidden"
+            ref={audioFileRef}
+            onChange={e => {
+              const f = e.target.files?.[0]
+              if (f) { setAudioBlob(f); setAudioMime(f.type || 'audio/webm') }
+              setShowAudioModal(false)
+              if (audioFileRef.current) audioFileRef.current.value = ''
+            }}
+          />
         )}
 
         {/* Phase 1: Form — shown when phase is 'form' */}
@@ -221,6 +326,41 @@ export default function GemRunner() {
                 ) : (
                   <Button color="light" onClick={() => setShowImageModal(true)}>
                     {t('gem.add_image')}
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Audio picker / inline recorder */}
+            {gem.has_audio && capabilities.audio && (
+              <div className="flex flex-col gap-2">
+                {recording ? (
+                  // Inline recorder — shown while MediaRecorder is active
+                  <div className="flex items-center gap-3 py-1">
+                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0" />
+                    <span className="text-sm text-gray-600 tabular-nums">
+                      {recordingSeconds}s
+                    </span>
+                    <Button color="failure" size="sm" onClick={stopRecording}>
+                      {t('gem.stop_recording')}
+                    </Button>
+                  </div>
+                ) : audioPreviewUrl ? (
+                  // Preview + remove — shown after recording or file pick
+                  <div className="flex items-center gap-2">
+                    <audio controls src={audioPreviewUrl} className="h-9 flex-1 min-w-0" />
+                    <Button
+                      color="light"
+                      size="xs"
+                      className="shrink-0"
+                      onClick={() => setAudioBlob(null)}
+                    >
+                      {t('gem.remove')}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button color="light" onClick={() => setShowAudioModal(true)}>
+                    {t('gem.add_audio')}
                   </Button>
                 )}
               </div>
@@ -289,6 +429,29 @@ export default function GemRunner() {
               onClick={() => imageCapRef.current?.click()}
             >
               {t('gem.image_source.capture')}
+            </Button>
+          </div>
+        </ModalBody>
+      </Modal>
+
+      {/* Audio source picker modal */}
+      <Modal show={showAudioModal} onClose={() => setShowAudioModal(false)} size="sm">
+        <ModalHeader>{t('gem.audio_source.title')}</ModalHeader>
+        <ModalBody>
+          <div className="flex flex-col gap-3">
+            <Button
+              color="light"
+              className="w-full"
+              onClick={() => audioFileRef.current?.click()}
+            >
+              {t('gem.audio_source.file')}
+            </Button>
+            <Button
+              color="light"
+              className="w-full"
+              onClick={startRecording}
+            >
+              {t('gem.audio_source.record')}
             </Button>
           </div>
         </ModalBody>
