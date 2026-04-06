@@ -135,6 +135,7 @@ export const gemsApi = import.meta.env.VITE_MOCK_API ? _mockGemsApi : _realGemsA
 /**
  * Async-iterate SSE tokens from a /run response.
  * Yields each data payload, stops when `[DONE]` is received.
+ * Throws an Error when an `event: error` SSE line is followed by a `data:` line.
  *
  * @example
  * const res = await gemsApi.run(id, values)
@@ -145,6 +146,8 @@ export async function* readSSEStream(response: Response): AsyncGenerator<string>
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  // Track whether the most recent event type was "error"
+  let isError = false
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
@@ -152,9 +155,18 @@ export async function* readSSEStream(response: Response): AsyncGenerator<string>
     const lines = buffer.split('\n')
     buffer = lines.pop() ?? ''
     for (const line of lines) {
-      if (!line.startsWith('data: ')) continue
+      if (line === 'event: error') {
+        isError = true
+        continue
+      }
+      if (!line.startsWith('data: ')) {
+        // Non-data lines (blank lines, other event fields) — reset error flag on blank line
+        if (line === '') isError = false
+        continue
+      }
       const data = line.slice(6)
       if (data === '[DONE]') return
+      if (isError) throw new Error(data)
       yield data
     }
   }

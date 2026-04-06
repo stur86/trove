@@ -220,6 +220,20 @@ def test_run_gem_malformed_base64_returns_422(client, sample_gem):
     assert res.status_code == 422
 
 
+def test_run_gem_streams_error_event_on_exception(client, sample_gem, monkeypatch):
+    """When stream_task raises any exception, the SSE stream emits an event: error line."""
+    async def fake_stream_raises(task, values, **kwargs):
+        yield "first token"
+        raise RuntimeError("unsupported audio format")
+
+    monkeypatch.setattr("backend.tasks.router.stream_task", fake_stream_raises)
+    res = client.post("/api/app/gems/hello/run", json={"values": {"name": "World"}})
+    assert res.status_code == 200
+    assert "event: error" in res.text
+    assert "unsupported audio format" in res.text
+    assert "[DONE]" in res.text
+
+
 def test_run_gem_no_media_passes_none_to_runner(client, sample_gem, monkeypatch):
     """When no image or audio field is sent, media=None is passed to stream_task."""
     captured: list = []

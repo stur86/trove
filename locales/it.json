@@ -92,6 +92,8 @@
   "gem.audio_source.title": "Aggiungi audio",
   "gem.audio_source.file": "Scegli dai file",
   "gem.audio_source.record": "Registra ora",
+  "gem.audio_source.record_unavailable": "La registrazione richiede una connessione sicura (HTTPS). Scegli un file invece.",
+  "gem.error.audio_format": "Formato audio non supportato. Usa WAV, MP3, OGG o WebM.",
   "gem.stop_recording": "Ferma",
   "gem.remove": "Rimuovi",
   "admin.gem.audio_not_supported": "Richiede gemma4:e2b o gemma4:e4b — il modello attuale non supporta l'audio",

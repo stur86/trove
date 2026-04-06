@@ -51,6 +51,12 @@ export default function GemRunner() {
   const [recording, setRecording] = useState(false)
   const [recordingSeconds, setRecordingSeconds] = useState(0)
 
+  // Whether the browser can record audio (requires HTTPS or localhost)
+  const canRecord = window.isSecureContext && typeof navigator.mediaDevices?.getUserMedia === 'function'
+
+  // Audio MIME types supported by Gemma 4 (Ollama). AAC/M4A are not supported.
+  const SUPPORTED_AUDIO_TYPES = new Set(['audio/wav', 'audio/mpeg', 'audio/ogg', 'audio/webm'])
+
   // Refs for hidden file inputs and MediaRecorder
   const imageFileRef = useRef<HTMLInputElement>(null)
   const imageCapRef = useRef<HTMLInputElement>(null)
@@ -255,16 +261,27 @@ export default function GemRunner() {
           </>
         )}
 
-        {/* Hidden file input for audio picking */}
+        {/* Hidden file input for audio picking — restricted to Gemma-supported formats */}
         {gem.has_audio && capabilities.audio && (
           <input
             type="file"
-            accept="audio/*"
+            accept="audio/wav,audio/mpeg,audio/ogg,audio/webm"
             className="hidden"
             ref={audioFileRef}
             onChange={e => {
               const f = e.target.files?.[0]
-              if (f) { setAudioBlob(f); setAudioMime(f.type || 'audio/webm') }
+              if (f) {
+                // Reject formats Gemma can't process (e.g. AAC/M4A from iOS Voice Memos)
+                if (f.type && !SUPPORTED_AUDIO_TYPES.has(f.type)) {
+                  setOutput(t('gem.error.audio_format'))
+                  setPhase('done')
+                  setShowAudioModal(false)
+                  if (audioFileRef.current) audioFileRef.current.value = ''
+                  return
+                }
+                setAudioBlob(f)
+                setAudioMime(f.type || 'audio/webm')
+              }
               setShowAudioModal(false)
               if (audioFileRef.current) audioFileRef.current.value = ''
             }}
@@ -446,13 +463,19 @@ export default function GemRunner() {
             >
               {t('gem.audio_source.file')}
             </Button>
-            <Button
-              color="light"
-              className="w-full"
-              onClick={startRecording}
-            >
-              {t('gem.audio_source.record')}
-            </Button>
+            {canRecord ? (
+              <Button
+                color="light"
+                className="w-full"
+                onClick={startRecording}
+              >
+                {t('gem.audio_source.record')}
+              </Button>
+            ) : (
+              <p className="text-xs text-gray-400 text-center py-1">
+                {t('gem.audio_source.record_unavailable')}
+              </p>
+            )}
           </div>
         </ModalBody>
       </Modal>

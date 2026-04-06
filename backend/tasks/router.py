@@ -155,8 +155,10 @@ async def run_gem(gem_id: str, req: RunRequest) -> StreamingResponse:
         try:
             async for chunk in stream_task(gem, req.values, media=media):
                 yield f"data: {chunk}\n\n"
-        except ValueError as exc:
-            # Missing required argument — emit error event before closing
+        except Exception as exc:
+            # Emit an error event so the client can surface a meaningful message.
+            # Covers missing-argument ValueErrors as well as Ollama model errors
+            # (e.g. unsupported audio format, model unavailable).
             yield f"event: error\ndata: {exc}\n\n"
         yield "data: [DONE]\n\n"
 
