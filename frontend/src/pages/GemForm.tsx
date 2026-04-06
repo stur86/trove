@@ -8,6 +8,9 @@
  * Admin credentials are passed via React Router location.state as
  * { username, password } (set by AdminPanel when navigating here).
  * If state is missing, shows a lightweight re-auth form.
+ *
+ * Arguments are derived automatically from `{{ variable_name }}` placeholders in
+ * the template. All derived args are free-text StringArgs — no manual editing.
  */
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -36,9 +39,31 @@ function blankGem(): UserTask {
   }
 }
 
-/** Blank StringArg for the "Add argument" button. */
-function blankStringArg(): TaskArg {
-  return { type: 'string', name: '', description: '', default: '', _key: crypto.randomUUID() }
+/**
+ * Extract unique variable names from a Jinja2-style template string.
+ * Matches `{{ variable_name }}` placeholders (whitespace-tolerant, word chars only).
+ * Preserves first-occurrence order and deduplicates.
+ */
+function extractTemplateVars(template: string): string[] {
+  const seen = new Set<string>()
+  const vars: string[] = []
+  for (const match of template.matchAll(/{{\s*(\w+)\s*}}/g)) {
+    if (!seen.has(match[1])) { seen.add(match[1]); vars.push(match[1]) }
+  }
+  return vars
+}
+
+/**
+ * Rebuild the args list from the template, keeping free-text StringArgs.
+ * Order follows first appearance in the template.
+ */
+function deriveArgs(template: string): TaskArg[] {
+  return extractTemplateVars(template).map(name => ({
+    type: 'string' as const,
+    name,
+    description: '',
+    default: '',
+  }))
 }
 
 export default function GemForm() {
@@ -59,7 +84,7 @@ export default function GemForm() {
     if (!isEdit || !id) return
     gemsApi.get(id)
       .then(g => {
-        setGem({ ...g, args: g.args.map(a => ({ ...a, _key: crypto.randomUUID() })) })
+        setGem(g)
         setLoading(false)
       })
       .catch(() => { setError('Gem not found.'); setLoading(false) })
@@ -74,12 +99,8 @@ export default function GemForm() {
   async function handleSave() {
     setError(null)
     setSaving(true)
-    // Strip _key from args before sending to the API
-    const cleanGem = {
-      ...gem,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      args: gem.args.map(({ _key: _, ...rest }) => rest as TaskArg),
-    }
+    // Args are always freshly derived from the template at save time
+    const cleanGem: UserTask = { ...gem, args: deriveArgs(gem.template) }
     try {
       if (isEdit && id) {
         await gemsApi.update(id, cleanGem)
@@ -92,22 +113,6 @@ export default function GemForm() {
     } finally {
       setSaving(false)
     }
-  }
-
-  function updateArg(index: number, patch: Partial<TaskArg>) {
-    setGem(g => {
-      const args = [...g.args]
-      args[index] = { ...args[index], ...patch } as TaskArg
-      return { ...g, args }
-    })
-  }
-
-  function removeArg(index: number) {
-    setGem(g => ({ ...g, args: g.args.filter((_, i) => i !== index) }))
-  }
-
-  function addArg() {
-    setGem(g => ({ ...g, args: [...g.args, blankStringArg()] }))
   }
 
   // Re-auth screen if admin cookie is not present
@@ -218,111 +223,31 @@ export default function GemForm() {
             id="gem-template"
             value={gem.template}
             onChange={e => setGem(g => ({ ...g, template: e.target.value }))}
-            placeholder="Jinja2 template — use {{ variable_name }} for arguments"
+            placeholder="Jinja2 template — use {{ variable_name }} for user inputs"
             rows={6}
             className="font-mono text-sm"
           />
         </div>
 
-        {/* Arguments */}
-        <div className="flex flex-col gap-3">
-          <Label>Arguments</Label>
-
-          {gem.args.map((arg, i) => (
-            <div key={arg._key ?? i} className="border border-gray-200 rounded-lg p-4 flex flex-col gap-3 bg-white">
-              <div className="flex gap-3 items-start">
-                {/* Type toggle */}
-                <div className="shrink-0">
-                  <div className="mb-1"><Label htmlFor={`arg-type-${i}`}>Type</Label></div>
-                  <Select
-                    id={`arg-type-${i}`}
-                    value={arg.type}
-                    onChange={e => {
-                      const newType = e.target.value as 'string' | 'choice'
-                      if (newType === 'choice' && arg.type === 'string') {
-                        updateArg(i, { type: 'choice', options: [] } as Partial<TaskArg>)
-                      } else if (newType === 'string' && arg.type === 'choice') {
-                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                        const { options: _, ...rest } = arg as { options: string[] } & Omit<TaskArg, 'type'>
-                        setGem(g => {
-                          const args = [...g.args]
-                          args[i] = { ...rest, type: 'string' } as TaskArg
-                          return { ...g, args }
-                        })
-                      }
-                    }}
-                  >
-                    <option value="string">String</option>
-                    <option value="choice">Choice</option>
-                  </Select>
-                </div>
-                {/* Name */}
-                <div className="flex-1">
-                  <div className="mb-1"><Label htmlFor={`arg-name-${i}`}>Name</Label></div>
-                  <TextInput
-                    id={`arg-name-${i}`}
-                    value={arg.name}
-                    onChange={e => updateArg(i, { name: e.target.value })}
-                    placeholder="variable_name"
-                    sizing="sm"
-                  />
-                </div>
-                {/* Remove button */}
-                <button
-                  onClick={() => removeArg(i)}
-                  className="mt-6 text-gray-400 hover:text-red-500 text-lg leading-none"
-                  title="Remove argument"
+        {/* Detected variables — read-only, derived from template */}
+        {extractTemplateVars(gem.template).length > 0 && (
+          <div>
+            <div className="mb-2"><Label>Detected inputs</Label></div>
+            <div className="flex flex-wrap gap-2">
+              {extractTemplateVars(gem.template).map(v => (
+                <span
+                  key={v}
+                  className="inline-block bg-gray-100 text-gray-700 text-xs font-mono px-2 py-1 rounded"
                 >
-                  ×
-                </button>
-              </div>
-
-              {/* Description + default */}
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <div className="mb-1"><Label htmlFor={`arg-desc-${i}`}>Description</Label></div>
-                  <TextInput
-                    id={`arg-desc-${i}`}
-                    value={arg.description}
-                    onChange={e => updateArg(i, { description: e.target.value })}
-                    placeholder="Shown as field hint"
-                    sizing="sm"
-                  />
-                </div>
-                <div className="w-32">
-                  <div className="mb-1"><Label htmlFor={`arg-default-${i}`}>Default</Label></div>
-                  <TextInput
-                    id={`arg-default-${i}`}
-                    value={arg.default}
-                    onChange={e => updateArg(i, { default: e.target.value })}
-                    sizing="sm"
-                  />
-                </div>
-              </div>
-
-              {/* Choice options (only for choice args) */}
-              {arg.type === 'choice' && (
-                <div>
-                  <div className="mb-1"><Label htmlFor={`arg-choices-${i}`}>Options (one per line)</Label></div>
-                  <Textarea
-                    id={`arg-choices-${i}`}
-                    value={arg.options.join('\n')}
-                    onChange={e =>
-                      updateArg(i, {
-                        options: e.target.value.split('\n').map(s => s.trim()).filter(Boolean),
-                      })
-                    }
-                    rows={3}
-                  />
-                </div>
-              )}
+                  {v}
+                </span>
+              ))}
             </div>
-          ))}
-
-          <Button color="light" size="sm" onClick={addArg}>
-            + Add argument
-          </Button>
-        </div>
+            <p className="mt-1 text-xs text-gray-400">
+              Each placeholder becomes a free-text field for the user.
+            </p>
+          </div>
+        )}
 
         {/* Capability flags */}
         <div className="flex flex-col gap-2">
