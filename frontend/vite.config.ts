@@ -35,6 +35,18 @@ export default defineConfig({
             next()
           }
         })
+        // Add API endpoints for mode and health
+        server.middlewares.use((req, res, next) => {
+          if (req.url === '/api/mode') {
+            res.setHeader('Content-Type', 'application/json; charset=utf-8')
+            res.end(JSON.stringify({ mode: 'app' }))
+          } else if (req.url === '/api/health') {
+            res.setHeader('Content-Type', 'application/json; charset=utf-8')
+            res.end(JSON.stringify({ status: 'ok' }))
+          } else {
+            next()
+          }
+        })
       },
     },
   ],
