@@ -22,9 +22,21 @@ from typing import Protocol, runtime_checkable
 
 import psutil
 
-# Port Trove uses for its own private Ollama instance.
-# Using a non-default port keeps Trove isolated from any system-level Ollama.
-TROVE_OLLAMA_PORT = 11435
+# Port used to reach the Ollama instance Trove talks to.
+#
+# By default Trove spawns its own private Ollama process on port 11435 so it
+# is fully isolated from any system-wide Ollama installation.  Set
+# TROVE_USE_GLOBAL_OLLAMA=1 in .env to reuse the system Ollama on its default
+# port (11434) instead — useful when you want to share already-pulled models.
+# In that mode Trove never spawns its own ``ollama serve`` process.
+_OLLAMA_GLOBAL_PORT = 11434   # default system-level Ollama port
+_OLLAMA_PRIVATE_PORT = 11435  # Trove's private Ollama port
+
+TROVE_OLLAMA_PORT = (
+    _OLLAMA_GLOBAL_PORT
+    if os.getenv("TROVE_USE_GLOBAL_OLLAMA") == "1"
+    else _OLLAMA_PRIVATE_PORT
+)
 
 # Gemma 4 model catalogue with hardware requirements.
 # min_ram_gb is a conservative estimate for CPU-only inference.

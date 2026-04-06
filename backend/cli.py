@@ -14,6 +14,11 @@ import shutil
 
 import typer
 import uvicorn
+from dotenv import load_dotenv
+
+# Load .env before any backend imports so env-var-driven constants (e.g.
+# TROVE_USE_GLOBAL_OLLAMA, TROVE_OLLAMA_PORT) are resolved from the file.
+load_dotenv()
 
 cli = typer.Typer(
     name="trove",
@@ -64,6 +69,8 @@ def start(
 
     Automatically starts Trove's private Ollama instance (port 11435) if
     the ollama binary is installed but the server is not yet running.
+    Set TROVE_USE_GLOBAL_OLLAMA=1 in .env to use the system-wide Ollama
+    instance (port 11434) instead and share already-pulled models.
     """
     _set_ollama_host()
     if shutil.which("ollama"):

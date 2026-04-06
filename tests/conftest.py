@@ -48,3 +48,9 @@ def clear_caches():
     _clear_lru_caches()
     yield
     _clear_lru_caches()
+
+
+@pytest.fixture(autouse=True)
+def disable_global_ollama(monkeypatch):
+    """Force TROVE_USE_GLOBAL_OLLAMA=0 for all tests regardless of .env."""
+    monkeypatch.setenv("TROVE_USE_GLOBAL_OLLAMA", "0")

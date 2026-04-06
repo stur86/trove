@@ -89,6 +89,7 @@ def ensure_ollama_running() -> None:
     on shutdown.
 
     Silently does nothing if:
+    - TROVE_USE_GLOBAL_OLLAMA=1 (defer to the system-wide service)
     - the ollama binary is not installed (setup not yet complete)
     - a live process handle already exists
     - the server responds within 2 s (already running)
@@ -96,6 +97,8 @@ def ensure_ollama_running() -> None:
     Logs a warning if the process is spawned but doesn't become ready within
     10 seconds (e.g. blocked by a slow disk).
     """
+    if os.getenv("TROVE_USE_GLOBAL_OLLAMA") == "1":
+        return  # global service mode — never spawn our own process
     if not shutil.which("ollama"):
         return  # not installed yet — setup will handle it
     if is_ollama_service_running():
@@ -244,23 +247,38 @@ class RealOllamaService:
         process.wait()
         if process.returncode == 0:
             yield "data: [DONE] Ollama installed successfully.\n\n"
-            # Immediately start our private Ollama instance so the next setup
-            # step (model pull) can proceed without a separate "Start" click.
-            yield "data: Starting Ollama service...\n\n"
-            ensure_ollama_running()
-            if is_ollama_service_running():
-                yield f"data: Ollama is running on port {TROVE_OLLAMA_PORT}.\n\n"
+            if os.getenv("TROVE_USE_GLOBAL_OLLAMA") != "1":
+                # Immediately start our private Ollama instance so the next setup
+                # step (model pull) can proceed without a separate "Start" click.
+                yield "data: Starting Ollama service...\n\n"
+                ensure_ollama_running()
+                if is_ollama_service_running():
+                    yield f"data: Ollama is running on port {TROVE_OLLAMA_PORT}.\n\n"
         else:
             yield f"data: [ERROR] Installation failed (exit {process.returncode}).\n\n"
 
     def start_service(self) -> Iterator[str]:
         """
-        Start Trove's private Ollama instance and yield SSE-formatted progress lines.
+        Start Trove's Ollama instance and yield SSE-formatted progress lines.
 
-        Always spawns ``ollama serve`` as a managed subprocess rather than using
-        systemctl, because the system service ignores OLLAMA_HOST and would listen
-        on the default port (11434) instead of Trove's private port (11435).
+        When TROVE_USE_GLOBAL_OLLAMA=1, Trove defers to the system-wide Ollama
+        service (port 11434) and skips spawning its own process — it just checks
+        that the global service is reachable.
+
+        Otherwise, spawns ``ollama serve`` as a managed subprocess on Trove's
+        private port (11435), so it doesn't conflict with any system service.
         """
+        if os.getenv("TROVE_USE_GLOBAL_OLLAMA") == "1":
+            yield f"data: Using global Ollama instance on port {TROVE_OLLAMA_PORT}...\n\n"
+            if is_ollama_service_running():
+                yield "data: [DONE] Global Ollama is running.\n\n"
+            else:
+                yield (
+                    f"data: [ERROR] Global Ollama is not reachable on port "
+                    f"{TROVE_OLLAMA_PORT}. Make sure the ollama service is running.\n\n"
+                )
+            return
+
         yield f"data: Starting Ollama on port {TROVE_OLLAMA_PORT}...\n\n"
 
         if is_ollama_service_running():
