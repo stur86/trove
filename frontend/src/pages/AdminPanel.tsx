@@ -150,6 +150,12 @@ export default function AdminPanel() {
   // Whether to open on the Gems tab (set by GemForm after create/update)
   const startOnGems = (location.state as { tab?: string } | null)?.tab === 'gems'
 
+  // True when the selected model lacks audio AND at least one saved gem uses audio.
+  // Shown as a warning so the admin knows those gems will be hidden from users.
+  const audioGemsExist = gems.some(g => g.has_audio)
+  const selectedModelSupportsAudio = ["gemma4:e2b", "gemma4:e4b"].includes(config?.base_model ?? '')
+  const showAudioWarning = audioGemsExist && !selectedModelSupportsAudio
+
   // ── Admin panel ───────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -190,6 +196,12 @@ export default function AdminPanel() {
                     ))}
                   </Select>
                 </div>
+
+                {showAudioWarning && (
+                  <Alert color="warning">
+                    {t('admin.settings.audio_warning')}
+                  </Alert>
+                )}
 
                 <div>
                   <div className="mb-2">
