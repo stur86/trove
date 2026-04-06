@@ -2,15 +2,18 @@
  * GemRunner — run a gem by filling its arguments and streaming the output.
  *
  * Phase 1 (form): Dynamic form built from UserTask.args. StringArg → TextInput.
- * ChoiceArg → Select. has_image / has_audio → disabled upload buttons.
+ * ChoiceArg → Select. has_image → image picker button (modal: choose file / take
+ * photo). has_audio → audio picker button (modal: choose file / record) — only
+ * shown when the active model supports audio (capabilities.audio).
  *
- * Phase 2 (output): Form collapses to a summary bar showing arg values.
- * Clicking the bar re-expands the form. Spinner shown until first token arrives.
- * Output streams into a scrolling text area. "Run again" re-submits.
+ * Phase 2 (output): Form collapses to a summary bar showing arg values and any
+ * media attachments. Clicking the bar re-expands the form. Spinner shown until
+ * first token arrives. Output streams into a scrolling text area. "Run again"
+ * re-submits.
  */
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Button, Label, Select, Spinner, TextInput, Tooltip } from 'flowbite-react'
+import { Button, Label, Modal, ModalBody, ModalHeader, Select, Spinner, TextInput } from 'flowbite-react'
 import { gemsApi, readSSEStream, type UserTask } from '../api/tasks'
 import GemIcon from '../components/GemIcon'
 import { useLocale, useTranslation } from '../i18n'
@@ -30,6 +33,16 @@ export default function GemRunner() {
   const [output, setOutput] = useState('')
   const outputRef = useRef<HTMLDivElement>(null)
 
+  // Image state
+  const [imageBlob, setImageBlob] = useState<Blob | null>(null)
+  const [imageMime, setImageMime] = useState<string>('image/jpeg')
+  const [showImageModal, setShowImageModal] = useState(false)
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
+
+  // Refs for hidden file inputs (image)
+  const imageFileRef = useRef<HTMLInputElement>(null)
+  const imageCapRef = useRef<HTMLInputElement>(null)
+
   // Load gem on mount
   useEffect(() => {
     if (!id) return
@@ -46,6 +59,14 @@ export default function GemRunner() {
       .catch(() => setLoadError(true))
   }, [id])
 
+  // Manage image preview URL — revoke on change to avoid memory leaks
+  useEffect(() => {
+    if (!imageBlob) { setImagePreviewUrl(null); return }
+    const url = URL.createObjectURL(imageBlob)
+    setImagePreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [imageBlob])
+
   // Auto-scroll output area as tokens arrive
   useEffect(() => {
     if (outputRef.current) {
@@ -58,7 +79,8 @@ export default function GemRunner() {
     setOutput('')
     setPhase('running')
     try {
-      const res = await gemsApi.run(id, values)
+      const imgArg = imageBlob ? { blob: imageBlob, mime: imageMime } : undefined
+      const res = await gemsApi.run(id, values, imgArg)
       let firstToken = true
       for await (const token of readSSEStream(res)) {
         if (firstToken) {
@@ -90,11 +112,11 @@ export default function GemRunner() {
     )
   }
 
-  /** Human-readable summary of current arg values for the collapsed bar. */
-  const argSummary = gem.args
-    .filter(a => values[a.name])
-    .map(a => `${a.name}: ${values[a.name]}`)
-    .join(' · ')
+  /** Human-readable summary of current arg values and attachments for the collapsed bar. */
+  const argSummary = [
+    ...gem.args.filter(a => values[a.name]).map(a => `${a.name}: ${values[a.name]}`),
+    ...(imageBlob ? ['image attached'] : []),
+  ].join(' · ')
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -111,6 +133,38 @@ export default function GemRunner() {
           <GemIcon hue={gem.hue} size={28} />
           <h1 className="text-xl font-bold text-gray-900">{gem.name}</h1>
         </div>
+
+        {/* Hidden file inputs for image picking */}
+        {gem.has_image && (
+          <>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              ref={imageFileRef}
+              onChange={e => {
+                const f = e.target.files?.[0]
+                if (f) { setImageBlob(f); setImageMime(f.type || 'image/jpeg') }
+                setShowImageModal(false)
+                // Reset so same file can be re-selected
+                if (imageFileRef.current) imageFileRef.current.value = ''
+              }}
+            />
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              ref={imageCapRef}
+              onChange={e => {
+                const f = e.target.files?.[0]
+                if (f) { setImageBlob(f); setImageMime(f.type || 'image/jpeg') }
+                setShowImageModal(false)
+                if (imageCapRef.current) imageCapRef.current.value = ''
+              }}
+            />
+          </>
+        )}
 
         {/* Phase 1: Form — shown when phase is 'form' */}
         {phase === 'form' && (
@@ -150,16 +204,26 @@ export default function GemRunner() {
               </div>
             ))}
 
-            {/* Image / audio upload stubs */}
+            {/* Image picker */}
             {gem.has_image && (
-              <Tooltip content={t('gem.upload_image_soon')}>
-                <Button color="light" disabled>{t('gem.upload_image')}</Button>
-              </Tooltip>
-            )}
-            {gem.has_audio && (
-              <Tooltip content={t('gem.upload_audio_soon')}>
-                <Button color="light" disabled>{t('gem.upload_audio')}</Button>
-              </Tooltip>
+              <div className="flex flex-col gap-2">
+                {imagePreviewUrl ? (
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={imagePreviewUrl}
+                      alt="Selected image"
+                      className="h-16 w-16 object-cover rounded border border-gray-200"
+                    />
+                    <Button color="light" size="xs" onClick={() => setImageBlob(null)}>
+                      {t('gem.remove')}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button color="light" onClick={() => setShowImageModal(true)}>
+                    {t('gem.add_image')}
+                  </Button>
+                )}
+              </div>
             )}
 
             <Button color="blue" onClick={handleRun}>
@@ -206,6 +270,30 @@ export default function GemRunner() {
         )}
 
       </div>
+
+      {/* Image source picker modal */}
+      <Modal show={showImageModal} onClose={() => setShowImageModal(false)} size="sm">
+        <ModalHeader>{t('gem.image_source.title')}</ModalHeader>
+        <ModalBody>
+          <div className="flex flex-col gap-3">
+            <Button
+              color="light"
+              className="w-full"
+              onClick={() => imageFileRef.current?.click()}
+            >
+              {t('gem.image_source.file')}
+            </Button>
+            <Button
+              color="light"
+              className="w-full"
+              onClick={() => imageCapRef.current?.click()}
+            >
+              {t('gem.image_source.capture')}
+            </Button>
+          </div>
+        </ModalBody>
+      </Modal>
+
     </div>
   )
 }
