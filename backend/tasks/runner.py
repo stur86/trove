@@ -5,19 +5,19 @@ Provides two execution functions:
   stream_task — streams text tokens, filtering <think>…</think> blocks
   run_task    — returns full response string (for structured output + internal use)
 
-Both accept a plain Task (or UserTask subclass) and a values dict, making
-them reusable from any context — HTTP handler, scheduled job, internal pipeline.
-Neither function is aware of HTTP or SSE; formatting is the caller's concern.
+Both accept a plain Task (or UserTask subclass), a values dict, and an optional
+MediaInput for image/audio data. Neither function is aware of HTTP or SSE;
+formatting is the caller's concern.
 """
 import re
 from collections.abc import AsyncIterator
 
-from pydantic_ai import Agent
+from pydantic_ai import Agent, BinaryContent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.ollama import OllamaProvider
 
 from backend.system.service import TROVE_OLLAMA_PORT
-from backend.tasks.models import Task
+from backend.tasks.models import MediaInput, Task
 from backend.tasks.render import render_prompt
 
 # Ollama's OpenAI-compatible endpoint on Trove's private port.
@@ -32,6 +32,35 @@ def _default_agent() -> Agent:
         provider=OllamaProvider(base_url=_OLLAMA_BASE_URL),
     )
     return Agent(model)
+
+
+def _build_parts(prompt: str, media: MediaInput | None) -> str | list:
+    """Build the user content for a Pydantic AI agent run.
+
+    Returns the prompt string directly when there is no media, preserving
+    the existing text-only behaviour. Returns a list of BinaryContent parts
+    followed by the prompt string when media is present.
+
+    Ordering: image first, then audio, then the text prompt. An empty
+    MediaInput (no bytes set) is treated the same as None.
+
+    Args:
+        prompt: The rendered Jinja2 prompt string.
+        media: Optional MediaInput carrying raw image and/or audio bytes.
+
+    Returns:
+        str when no media bytes are present, list[BinaryContent | str] otherwise.
+    """
+    if media is None or (not media.has_image and not media.has_audio):
+        return prompt
+    parts: list = []
+    if media.has_image:
+        # image is guaranteed non-None when has_image is True
+        parts.append(BinaryContent(data=media.image, media_type=media.image_mime))  # type: ignore[arg-type]
+    if media.has_audio:
+        parts.append(BinaryContent(data=media.audio, media_type=media.audio_mime))  # type: ignore[arg-type]
+    parts.append(prompt)
+    return parts
 
 
 class _ThinkFilter:
@@ -101,6 +130,7 @@ async def stream_task(
     task: Task,
     values: dict[str, str],
     *,
+    media: MediaInput | None = None,
     _agent: Agent | None = None,
 ) -> AsyncIterator[str]:
     """
@@ -109,16 +139,18 @@ async def stream_task(
     Args:
         task: The task to run (Task or UserTask).
         values: Argument values keyed by arg name.
+        media: Optional image and/or audio bytes to include in the message.
         _agent: Optional Agent override for testing without a real Ollama instance.
 
     Yields:
         Filtered text chunks suitable for streaming to the client.
     """
     prompt = render_prompt(task, values)
+    parts = _build_parts(prompt, media)
     agent = _agent or _default_agent()
     filt = _ThinkFilter()
 
-    async with agent.run_stream(prompt) as response:
+    async with agent.run_stream(parts) as response:
         async for chunk in response.stream_text(delta=True):
             filtered = filt.feed(chunk)
             if filtered:
@@ -133,6 +165,7 @@ async def run_task(
     task: Task,
     values: dict[str, str],
     *,
+    media: MediaInput | None = None,
     _agent: Agent | None = None,
 ) -> str:
     """
@@ -145,13 +178,15 @@ async def run_task(
     Args:
         task: The task to run (Task or UserTask).
         values: Argument values keyed by arg name.
+        media: Optional image and/or audio bytes to include in the message.
         _agent: Optional Agent override for testing.
 
     Returns:
         The complete response with thinking tokens removed and whitespace stripped.
     """
     prompt = render_prompt(task, values)
+    parts = _build_parts(prompt, media)
     agent = _agent or _default_agent()
-    result = await agent.run(prompt)
+    result = await agent.run(parts)
     text: str = result.output
     return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()

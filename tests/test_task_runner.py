@@ -100,3 +100,77 @@ async def test_run_task_renders_template_before_running():
     # render_prompt is called internally; passing values works
     result = await run_task(task, {"text": "Hello"}, _agent=agent)
     assert result == "Bonjour"
+
+
+# ── _build_parts ──────────────────────────────────────────────────────────────
+
+from pydantic_ai import BinaryContent  # noqa: E402
+from backend.tasks.models import MediaInput  # noqa: E402
+from backend.tasks.runner import _build_parts  # noqa: E402
+
+
+def test_build_parts_text_only_returns_string():
+    result = _build_parts("Hello", None)
+    assert result == "Hello"
+
+
+def test_build_parts_empty_media_returns_string():
+    """MediaInput with no bytes set behaves the same as None."""
+    result = _build_parts("Hello", MediaInput())
+    assert result == "Hello"
+
+
+def test_build_parts_with_image_returns_list():
+    media = MediaInput(image=b"\xff\xd8\xff", image_mime="image/jpeg")
+    result = _build_parts("Describe this", media)
+    assert isinstance(result, list)
+    assert len(result) == 2
+    assert isinstance(result[0], BinaryContent)
+    assert result[0].data == b"\xff\xd8\xff"
+    assert result[0].media_type == "image/jpeg"
+    assert result[1] == "Describe this"
+
+
+def test_build_parts_with_audio_returns_list():
+    media = MediaInput(audio=b"\x1a\x45\xdf\xa3", audio_mime="audio/webm")
+    result = _build_parts("Transcribe", media)
+    assert isinstance(result, list)
+    assert len(result) == 2
+    assert isinstance(result[0], BinaryContent)
+    assert result[0].media_type == "audio/webm"
+    assert result[1] == "Transcribe"
+
+
+def test_build_parts_with_image_and_audio_returns_three_parts():
+    media = MediaInput(
+        image=b"\xff\xd8\xff", image_mime="image/jpeg",
+        audio=b"\x1a\x45", audio_mime="audio/webm",
+    )
+    result = _build_parts("Describe", media)
+    assert isinstance(result, list)
+    assert len(result) == 3
+    assert result[0].media_type == "image/jpeg"
+    assert result[1].media_type == "audio/webm"
+    assert result[2] == "Describe"
+
+
+# ── stream_task / run_task with MediaInput ────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_stream_task_with_image_media_yields_content():
+    task = Task(template="Describe this image", has_image=True)
+    agent = Agent(TestModel(custom_output_text="A red apple"))
+    media = MediaInput(image=b"\xff\xd8\xff", image_mime="image/jpeg")
+    chunks = []
+    async for chunk in stream_task(task, {}, media=media, _agent=agent):
+        chunks.append(chunk)
+    assert "A red apple" in "".join(chunks)
+
+
+@pytest.mark.asyncio
+async def test_run_task_with_audio_media_returns_response():
+    task = Task(template="Transcribe this audio", has_audio=True)
+    agent = Agent(TestModel(custom_output_text="Hello world"))
+    media = MediaInput(audio=b"\x1a\x45\xdf\xa3", audio_mime="audio/webm")
+    result = await run_task(task, {}, media=media, _agent=agent)
+    assert result == "Hello world"
