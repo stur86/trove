@@ -37,4 +37,10 @@ export const appApi = {
    */
   buildModel: (): Promise<Response> =>
     post('/app/admin/build-model'),
+
+  /**
+   * Return the LAN URL other devices can use to reach this Trove instance.
+   */
+  networkUrl: (): Promise<{ url: string | null }> =>
+    get('/app/network-url'),
 }

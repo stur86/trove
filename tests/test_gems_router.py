@@ -1,5 +1,4 @@
 """Tests for the Gems REST API endpoints."""
-import base64
 import pytest
 from fastapi.testclient import TestClient
 
@@ -7,13 +6,9 @@ from backend.tasks.models import GemHue, StringArg, UserTask
 from backend.tasks.repository import save_task
 
 
-def _auth(username: str = "admin", password: str = "testpass") -> str:
-    return f"Basic {base64.b64encode(f'{username}:{password}'.encode()).decode()}"
-
-
 @pytest.fixture
 def client(config_dir, data_dir, monkeypatch):
-    """App-mode TestClient with admin credentials and fake services."""
+    """App-mode TestClient without admin cookie (for testing unauthenticated access)."""
     monkeypatch.setenv("TROVE_FAKE_OLLAMA", "1")
     monkeypatch.setenv("TROVE_FAKE_SYSTEM", "1")
     from backend.config.service import load_config, save_config
@@ -22,6 +17,13 @@ def client(config_dir, data_dir, monkeypatch):
     save_config(cfg)
     from backend.main import create_app_app
     return TestClient(create_app_app())
+
+
+@pytest.fixture
+def authed_client(client):
+    """TestClient with the admin_auth cookie pre-set (for testing authenticated access)."""
+    client.cookies.set("admin_auth", "true")
+    return client
 
 
 @pytest.fixture
@@ -77,13 +79,12 @@ def test_create_gem_requires_auth(client):
     assert res.status_code == 401
 
 
-def test_create_gem_with_auth(client):
+def test_create_gem_with_auth(authed_client):
     payload = {"id": "new-gem", "name": "New Gem", "template": "Hi {{ name }}",
                "args": [{"type": "string", "name": "name", "description": "", "default": ""}],
                "has_image": False, "has_audio": False, "output_mode": "text",
                "description": "A new gem", "hue": "rose"}
-    res = client.post("/api/app/admin/gems", json=payload,
-                      headers={"Authorization": _auth()})
+    res = authed_client.post("/api/app/admin/gems", json=payload)
     assert res.status_code == 201
     assert res.json()["id"] == "new-gem"
 
@@ -98,30 +99,27 @@ def test_update_gem_requires_auth(client, sample_gem):
     assert res.status_code == 401
 
 
-def test_update_gem_not_found(client):
+def test_update_gem_not_found(authed_client):
     payload = {"id": "ghost", "name": "Ghost", "template": "Boo",
                "args": [], "has_image": False, "has_audio": False,
                "output_mode": "text", "description": "", "hue": "indigo"}
-    res = client.put("/api/app/admin/gems/ghost", json=payload,
-                     headers={"Authorization": _auth()})
+    res = authed_client.put("/api/app/admin/gems/ghost", json=payload)
     assert res.status_code == 404
 
 
-def test_update_gem_id_mismatch(client, sample_gem):
+def test_update_gem_id_mismatch(authed_client, sample_gem):
     payload = {"id": "different-id", "name": "Updated", "template": "Hi",
                "args": [], "has_image": False, "has_audio": False,
                "output_mode": "text", "description": "", "hue": "indigo"}
-    res = client.put("/api/app/admin/gems/hello", json=payload,
-                     headers={"Authorization": _auth()})
+    res = authed_client.put("/api/app/admin/gems/hello", json=payload)
     assert res.status_code == 422
 
 
-def test_update_gem_success(client, sample_gem):
+def test_update_gem_success(authed_client, sample_gem):
     payload = {"id": "hello", "name": "Updated Hello", "template": "Hi {{ name }}",
                "args": [], "has_image": False, "has_audio": False,
                "output_mode": "text", "description": "", "hue": "sky"}
-    res = client.put("/api/app/admin/gems/hello", json=payload,
-                     headers={"Authorization": _auth()})
+    res = authed_client.put("/api/app/admin/gems/hello", json=payload)
     assert res.status_code == 200
     assert res.json()["name"] == "Updated Hello"
 
@@ -133,16 +131,14 @@ def test_delete_gem_requires_auth(client, sample_gem):
     assert res.status_code == 401
 
 
-def test_delete_gem_success(client, sample_gem):
-    res = client.delete("/api/app/admin/gems/hello",
-                        headers={"Authorization": _auth()})
+def test_delete_gem_success(authed_client, sample_gem):
+    res = authed_client.delete("/api/app/admin/gems/hello")
     assert res.status_code == 204
-    assert client.get("/api/app/gems/hello").status_code == 404
+    assert authed_client.get("/api/app/gems/hello").status_code == 404
 
 
-def test_delete_gem_not_found(client):
-    res = client.delete("/api/app/admin/gems/ghost",
-                        headers={"Authorization": _auth()})
+def test_delete_gem_not_found(authed_client):
+    res = authed_client.delete("/api/app/admin/gems/ghost")
     assert res.status_code == 404
 
 

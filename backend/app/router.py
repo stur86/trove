@@ -9,6 +9,7 @@ Mounted only in app mode. Provides:
 The require_admin dependency is defined in backend.app.auth and shared
 with other domain routers that need admin-gated endpoints.
 """
+import socket
 from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Depends, Response
@@ -26,6 +27,32 @@ router = APIRouter(prefix="/api/app", tags=["app"])
 def app_status() -> dict:
     """Confirm app mode is active. Used by the frontend as a health check."""
     return {"mode": "app", "status": "ok"}
+
+
+def _lan_ip() -> str | None:
+    """Return the machine's outbound LAN IP, or None if detection fails."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            # Connecting to a public address reveals which local interface is used
+            # for outbound traffic — no actual packet is sent.
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+    except OSError:
+        return None
+
+
+@router.get("/network-url")
+def network_url() -> dict:
+    """
+    Return the URL other LAN devices can use to reach this Trove instance.
+
+    Detects the machine's outbound LAN IP via a UDP connect trick.
+    The port matches the default `trove start` port (7770).
+    """
+    ip = _lan_ip()
+    if ip:
+        return {"url": f"http://{ip}:7770"}
+    return {"url": None}
 
 @router.post("/admin/login", dependencies=[Depends(require_admin)])
 def admin_login(response: Response):

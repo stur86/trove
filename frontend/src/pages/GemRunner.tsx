@@ -13,12 +13,14 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Label, Select, Spinner, TextInput, Tooltip } from 'flowbite-react'
 import { gemsApi, readSSEStream, type UserTask } from '../api/tasks'
 import GemIcon from '../components/GemIcon'
+import { useLocale, useTranslation } from '../i18n'
 
 type Phase = 'form' | 'running' | 'done'
 
 export default function GemRunner() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { t } = useTranslation(useLocale())
   const [gem, setGem] = useState<UserTask | null>(null)
   const [loadError, setLoadError] = useState(false)
 
@@ -67,7 +69,7 @@ export default function GemRunner() {
       }
       setPhase('done')
     } catch {
-      setOutput('An error occurred while running this gem.')
+      setOutput(t('gem.error.run'))
       setPhase('done')
     }
   }
@@ -75,7 +77,7 @@ export default function GemRunner() {
   if (loadError) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-500">Gem not found.</p>
+        <p className="text-gray-500">{t('gem.error.not_found')}</p>
       </div>
     )
   }
@@ -104,7 +106,7 @@ export default function GemRunner() {
             onClick={() => navigate('/')}
             className="text-gray-400 hover:text-gray-600 text-sm"
           >
-            ← Back
+            {t('gem.back')}
           </button>
           <GemIcon hue={gem.hue} size={28} />
           <h1 className="text-xl font-bold text-gray-900">{gem.name}</h1>
@@ -150,18 +152,18 @@ export default function GemRunner() {
 
             {/* Image / audio upload stubs */}
             {gem.has_image && (
-              <Tooltip content="Image upload coming soon">
-                <Button color="light" disabled>Upload image</Button>
+              <Tooltip content={t('gem.upload_image_soon')}>
+                <Button color="light" disabled>{t('gem.upload_image')}</Button>
               </Tooltip>
             )}
             {gem.has_audio && (
-              <Tooltip content="Audio upload coming soon">
-                <Button color="light" disabled>Upload audio</Button>
+              <Tooltip content={t('gem.upload_audio_soon')}>
+                <Button color="light" disabled>{t('gem.upload_audio')}</Button>
               </Tooltip>
             )}
 
             <Button color="blue" onClick={handleRun}>
-              Run
+              {t('gem.run')}
             </Button>
           </div>
         )}
@@ -173,7 +175,7 @@ export default function GemRunner() {
             className="w-full text-left bg-white border border-gray-200 rounded-lg px-4 py-3 flex justify-between items-center hover:bg-gray-50 transition-colors"
           >
             <span className="text-sm text-gray-600 truncate">{argSummary || gem.name}</span>
-            <span className="text-xs text-indigo-500 ml-3 shrink-0">Edit ✎</span>
+            <span className="text-xs text-indigo-500 ml-3 shrink-0">{t('gem.edit_inputs')}</span>
           </button>
         )}
 
@@ -198,7 +200,7 @@ export default function GemRunner() {
               />
             </div>
             <Button color="light" onClick={handleRun}>
-              Run again ↺
+              {t('gem.run_again')}
             </Button>
           </div>
         )}

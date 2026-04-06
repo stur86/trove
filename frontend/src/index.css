@@ -1,3 +1,37 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * Flowbite v4 uses CSS custom properties defined via Tailwind v4's @theme{} directive,
+ * which Tailwind v3 does not process. Define the variables here so flowbite plugin
+ * rules (slider thumb, focus rings, etc.) resolve correctly.
+ */
+:root {
+  /* Brand — mapped to Tailwind blue-700 */
+  --color-brand:              #1d4ed8;
+  --color-brand-soft:         #dbeafe; /* blue-100 */
+  --color-brand-medium:       #bfdbfe; /* blue-200 */
+  --color-brand-strong:       #1e40af; /* blue-800 */
+
+  /* Semantic foreground */
+  --color-fg-brand:           #1d4ed8; /* blue-700 */
+  --color-heading:            #111827; /* gray-900 */
+  --color-body:               #4b5563; /* gray-600 */
+
+  /* Neutral scale */
+  --color-white:              #ffffff;
+  --color-neutral-primary:    #ffffff;
+  --color-neutral-primary-medium: #ffffff;
+  --color-neutral-quaternary: #e5e7eb; /* gray-200 */
+  --color-neutral-secondary:  #f9fafb; /* gray-50  */
+  --color-neutral-secondary-medium: #f9fafb;
+  --color-neutral-secondary-soft:   #f9fafb;
+  --color-neutral-tertiary:   #f3f4f6; /* gray-100 */
+  --color-neutral-tertiary-medium:  #f3f4f6;
+
+  /* Surface / default */
+  --color-dark:               #111827; /* gray-900 */
+  --color-default:            #374151; /* gray-700 */
+  --color-light:              #f3f4f6; /* gray-100 */
+}

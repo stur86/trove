@@ -11,8 +11,8 @@
  */
 
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Alert, Button, Label, RangeSlider, Select, Spinner, TabItem, Tabs } from 'flowbite-react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { Alert, Button, Label, Select, Spinner, TabItem, Tabs } from 'flowbite-react'
 import { appApi } from '../api/app'
 import AdminLogin from '../components/AdminLogin'
 import { type TroveConfig, configApi } from '../api/config'
@@ -36,11 +36,14 @@ const MODEL_LABELS: Record<string, string> = {
 export default function AdminPanel() {
   const [authed, setAuthed] = useState(false)
   const [loginError, setLoginError] = useState(false)
+  const location = useLocation()
 
   const [config, setConfig] = useState<TroveConfig | null>(null)
   const [viableModels, setViableModels] = useState<ModelInfo[]>([])
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [buildLog, setBuildLog] = useState<string[]>([])
+  const [networkUrl, setNetworkUrl] = useState<string | null>(null)
+  const [urlCopied, setUrlCopied] = useState(false)
   const { t } = useTranslation(config?.locale ?? 'en')
   const navigate = useNavigate()
   const [gems, setGems] = useState<UserTask[]>([])
@@ -49,9 +52,10 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (!authed) return
-    Promise.all([configApi.get(), systemApi.check()]).then(([c, sys]) => {
+    Promise.all([configApi.get(), systemApi.check(), appApi.networkUrl()]).then(([c, sys, net]) => {
       setConfig(c)
       setViableModels(sys.viable_models)
+      setNetworkUrl(net.url)
     })
   }, [authed])
 
@@ -82,6 +86,11 @@ export default function AdminPanel() {
     } catch {
       setLoginError(true)
     }
+  }
+
+  async function handleLogout() {
+    await appApi.logout().catch(() => {})
+    setAuthed(false)
   }
 
   /**
@@ -121,10 +130,24 @@ export default function AdminPanel() {
   const selectedModel = viableModels.find(m => m.tag === config?.base_model)
   const maxCtx = selectedModel?.max_ctx ?? 131072
 
+  // Whether to open on the Gems tab (set by GemForm after create/update)
+  const startOnGems = (location.state as { tab?: string } | null)?.tab === 'gems'
+
   // ── Admin panel ───────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-2xl mx-auto">
+        <div className="flex justify-between items-center mb-2">
+          <button
+            onClick={() => navigate('/')}
+            className="text-gray-400 hover:text-gray-600 text-sm"
+          >
+            {t('admin.back')}
+          </button>
+          <Button color="light" size="xs" onClick={handleLogout}>
+            {t('admin.logout')}
+          </Button>
+        </div>
         <Tabs variant="underline">
 
           <TabItem title={t('admin.tab.settings')}>
@@ -155,13 +178,21 @@ export default function AdminPanel() {
                   <div className="mb-2">
                     <Label htmlFor="num-ctx-range">{t('config.num_ctx')}: {config.num_ctx.toLocaleString()}</Label>
                   </div>
-                  <RangeSlider
+                  {/*
+                    * Plain range input instead of Flowbite RangeSlider: Flowbite's component
+                    * uses `appearance-none` which prevents `accent-color` from applying the
+                    * progress fill. Using a native input with accent-blue-700 lets the browser
+                    * render the filled track natively in all modern browsers.
+                    */}
+                  <input
                     id="num-ctx-range"
+                    type="range"
                     min={512}
                     max={maxCtx}
                     step={512}
                     value={config.num_ctx}
                     onChange={e => setConfig({ ...config, num_ctx: Number(e.target.value) })}
+                    className="w-full cursor-pointer accent-blue-700"
                   />
                 </div>
 
@@ -172,6 +203,29 @@ export default function AdminPanel() {
                     <option value="it">Italiano</option>
                   </Select>
                 </div>
+
+                {/* LAN URL */}
+                {networkUrl && (
+                  <div>
+                    <div className="mb-2"><Label>{t('admin.network_url.label')}</Label></div>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 bg-gray-100 text-gray-800 text-sm font-mono px-3 py-2 rounded-lg truncate">
+                        {networkUrl}
+                      </code>
+                      <Button
+                        color="light"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(networkUrl)
+                          setUrlCopied(true)
+                          setTimeout(() => setUrlCopied(false), 2000)
+                        }}
+                      >
+                        {urlCopied ? t('admin.network_url.copied') : t('admin.network_url.copy')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <Button
@@ -199,7 +253,7 @@ export default function AdminPanel() {
             <p className="pt-4 text-gray-500">{t('admin.documents.placeholder')}</p>
           </TabItem>
 
-          <TabItem title={t('admin.tab.tasks', 'Gems')}>
+          <TabItem title={t('admin.tab.tasks', 'Gems')} active={startOnGems}>
             <div className="pt-4 flex flex-col gap-4">
               <div className="flex justify-end">
                 <Button
@@ -207,14 +261,14 @@ export default function AdminPanel() {
                   size="sm"
                   onClick={() => navigate('/admin/gems/new')}
                 >
-                  + New Gem
+                  {t('admin.gems.new')}
                 </Button>
               </div>
 
               {gemsLoading ? (
                 <div className="flex justify-center py-8"><Spinner /></div>
               ) : gems.length === 0 ? (
-                <p className="text-gray-400 text-sm">No gems yet.</p>
+                <p className="text-gray-400 text-sm">{t('admin.gems.empty')}</p>
               ) : (
                 <div className="flex flex-col gap-2">
                   {gems.map(gem => (
@@ -235,7 +289,7 @@ export default function AdminPanel() {
                           size="xs"
                           onClick={() => navigate(`/admin/gems/${gem.id}/edit`)}
                         >
-                          Edit
+                          {t('admin.gems.edit')}
                         </Button>
                         <Button
                           color="failure"
@@ -251,7 +305,7 @@ export default function AdminPanel() {
                             }
                           }}
                         >
-                          {gemDeleteId === gem.id ? <Spinner size="xs" /> : 'Delete'}
+                          {gemDeleteId === gem.id ? <Spinner size="xs" /> : t('admin.gems.delete')}
                         </Button>
                       </div>
                     </div>

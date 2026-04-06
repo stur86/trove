@@ -19,8 +19,8 @@ from pydantic_ai.providers.ollama import OllamaProvider
 from backend.tasks.models import Task
 from backend.tasks.render import render_prompt
 
-# Default Ollama base URL — matches the standard Ollama installation.
-_OLLAMA_BASE_URL = "http://localhost:11434"
+# Ollama's OpenAI-compatible endpoint — AsyncOpenAI appends /chat/completions to this.
+_OLLAMA_BASE_URL = "http://localhost:11434/v1"
 
 
 def _default_agent() -> Agent:

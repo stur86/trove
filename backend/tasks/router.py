@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from backend.app.auth import require_admin
+from backend.app.auth import require_admin_cookie
 from backend.tasks.models import OutputMode, UserTask
 from backend.tasks.repository import delete_task, list_tasks, load_task, save_task
 from backend.tasks.runner import stream_task
@@ -48,7 +48,7 @@ def get_gem(gem_id: str) -> UserTask:
         raise HTTPException(status_code=404, detail=f"Gem '{gem_id}' not found")
 
 
-@router.post("/admin/gems", dependencies=[Depends(require_admin)], status_code=201)
+@router.post("/admin/gems", dependencies=[Depends(require_admin_cookie)], status_code=201)
 def create_gem(gem: UserTask) -> UserTask:
     """
     Create a new Gem. Requires admin credentials.
@@ -59,7 +59,7 @@ def create_gem(gem: UserTask) -> UserTask:
     return gem
 
 
-@router.put("/admin/gems/{gem_id}", dependencies=[Depends(require_admin)])
+@router.put("/admin/gems/{gem_id}", dependencies=[Depends(require_admin_cookie)])
 def update_gem(gem_id: str, gem: UserTask) -> UserTask:
     """
     Update an existing Gem. Requires admin credentials.
@@ -80,7 +80,7 @@ def update_gem(gem_id: str, gem: UserTask) -> UserTask:
     return gem
 
 
-@router.delete("/admin/gems/{gem_id}", dependencies=[Depends(require_admin)],
+@router.delete("/admin/gems/{gem_id}", dependencies=[Depends(require_admin_cookie)],
                status_code=204)
 def delete_gem(gem_id: str) -> None:
     """

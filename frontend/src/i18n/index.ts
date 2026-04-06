@@ -54,6 +54,32 @@ type UseTranslationResult = {
  * const { t } = useTranslation('en')
  * return <button>{t('setup.install_button')}</button>
  */
+/**
+ * Fetch and cache the active locale code from the server config.
+ * Returns 'en' immediately while the request is in flight.
+ * Subsequent calls within the same session resolve from the cache.
+ */
+let _localeCache: string | null = null
+let _localeFetch: Promise<string> | null = null
+
+export function useLocale(): string {
+  const [locale, setLocale] = useState<string>(_localeCache ?? 'en')
+  useEffect(() => {
+    if (_localeCache) { setLocale(_localeCache); return }
+    if (!_localeFetch) {
+      _localeFetch = fetch('/api/config')
+        .then(r => r.json())
+        .then((cfg: { locale?: string }) => {
+          _localeCache = cfg.locale ?? 'en'
+          return _localeCache
+        })
+        .catch(() => { _localeCache = 'en'; return 'en' })
+    }
+    _localeFetch.then(setLocale)
+  }, [])
+  return locale
+}
+
 export function useTranslation(locale: string = 'en'): UseTranslationResult {
   const [strings, setStrings] = useState<Strings>(cache[locale] ?? {})
 

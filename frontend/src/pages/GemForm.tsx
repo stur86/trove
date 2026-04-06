@@ -23,6 +23,8 @@ import {
 import { appApi } from '../api/app'
 import AdminLogin from '../components/AdminLogin'
 import GemIcon from '../components/GemIcon'
+import InfoButton from '../components/InfoButton'
+import { useLocale, useTranslation } from '../i18n'
 
 /** Blank UserTask used as a starting point for the create form. */
 function blankGem(): UserTask {
@@ -54,6 +56,14 @@ function extractTemplateVars(template: string): string[] {
 }
 
 /**
+ * Convert a gem name to a URL-safe slug id.
+ * Lowercases, replaces whitespace runs with hyphens, strips non-alphanumeric chars.
+ */
+function nameToSlug(name: string): string {
+  return name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+}
+
+/**
  * Rebuild the args list from the template, keeping free-text StringArgs.
  * Order follows first appearance in the template.
  */
@@ -70,6 +80,7 @@ export default function GemForm() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const isEdit = Boolean(id)
+  const { t } = useTranslation(useLocale())
 
   // Admin cookie state — check whether admin cookie is present
   const [authReady, setAuthReady] = useState(false)
@@ -87,7 +98,7 @@ export default function GemForm() {
         setGem(g)
         setLoading(false)
       })
-      .catch(() => { setError('Gem not found.'); setLoading(false) })
+      .catch(() => { setError(t('admin.gem.error.not_found')); setLoading(false) })
   }, [id, isEdit])
 
   useEffect(() => {
@@ -107,9 +118,9 @@ export default function GemForm() {
       } else {
         await gemsApi.create(cleanGem)
       }
-      navigate('/admin')
+      navigate('/admin', { state: { tab: 'gems' } })
     } catch {
-      setError('Save failed. Check your credentials and try again.')
+      setError(t('admin.gem.error.save_failed'))
     } finally {
       setSaving(false)
     }
@@ -124,7 +135,7 @@ export default function GemForm() {
             await appApi.login(u, p)
             setAuthReady(true)
           } catch {
-            setError('Login failed')
+            setError(t('admin.gem.error.login_failed'))
           }
         }}
         loginError={false}
@@ -151,38 +162,37 @@ export default function GemForm() {
             onClick={() => navigate('/admin')}
             className="text-gray-400 hover:text-gray-600 text-sm"
           >
-            ← Back
+            {t('admin.gem.back')}
           </button>
           <h1 className="text-xl font-bold text-gray-900">
-            {isEdit ? 'Edit gem' : 'New gem'}
+            {isEdit ? t('admin.gem.title.edit') : t('admin.gem.title.new')}
           </h1>
         </div>
 
         {error && <Alert color="failure">{error}</Alert>}
 
-        {/* Name */}
+        {/* Name — in create mode, also derives the id slug automatically */}
         <div>
           <div className="mb-1"><Label htmlFor="gem-name">Name</Label></div>
           <TextInput
             id="gem-name"
             value={gem.name}
-            onChange={e => setGem(g => ({ ...g, name: e.target.value }))}
+            onChange={e => {
+              const name = e.target.value
+              setGem(g => ({
+                ...g,
+                name,
+                // Only auto-derive the id in create mode; in edit mode the id is fixed
+                ...(isEdit ? {} : { id: nameToSlug(name) }),
+              }))
+            }}
             placeholder="e.g. Summarise Text"
           />
+          {/* Show the derived slug in create mode so admins know what id will be used */}
+          {!isEdit && gem.id && (
+            <p className="mt-1 text-xs text-gray-400">ID: <span className="font-mono">{gem.id}</span></p>
+          )}
         </div>
-
-        {/* ID (slug) — only shown in create mode */}
-        {!isEdit && (
-          <div>
-            <div className="mb-1"><Label htmlFor="gem-id">ID (slug)</Label></div>
-            <TextInput
-              id="gem-id"
-              value={gem.id}
-              onChange={e => setGem(g => ({ ...g, id: e.target.value }))}
-              placeholder="e.g. summarise-text"
-            />
-          </div>
-        )}
 
         {/* Description */}
         <div>
@@ -218,12 +228,28 @@ export default function GemForm() {
 
         {/* Template */}
         <div>
-          <div className="mb-1"><Label htmlFor="gem-template">Template</Label></div>
+          <div className="mb-1 flex items-center">
+            <Label htmlFor="gem-template">Prompt template</Label>
+            <InfoButton title="Writing a good prompt template">
+              <p>
+                Use <code className="bg-gray-100 px-1 rounded font-mono text-xs">{'{{ variable_name }}'}</code> anywhere
+                in the text to create a field the user fills in before running the gem.
+                For example: <code className="bg-gray-100 px-1 rounded font-mono text-xs">Summarise the following in {'{{ language }}'}: {'{{ text }}'}</code>
+              </p>
+              <p><strong>Tips for a great prompt:</strong></p>
+              <ul className="list-disc list-inside flex flex-col gap-1">
+                <li>Be specific — tell the model exactly what you want it to do.</li>
+                <li>State the output format (bullet list, short paragraph, table…).</li>
+                <li>Give an example of a good answer if the task is tricky.</li>
+                <li>Keep it short — the model works best with clear, concise instructions.</li>
+              </ul>
+            </InfoButton>
+          </div>
           <Textarea
             id="gem-template"
             value={gem.template}
             onChange={e => setGem(g => ({ ...g, template: e.target.value }))}
-            placeholder="Jinja2 template — use {{ variable_name }} for user inputs"
+            placeholder="e.g. Summarise the following in {{ language }}: {{ text }}"
             rows={6}
             className="font-mono text-sm"
           />
@@ -287,10 +313,10 @@ export default function GemForm() {
         {/* Actions */}
         <div className="flex gap-3 pb-8">
           <Button color="blue" disabled={saving} onClick={handleSave}>
-            {saving ? <Spinner size="sm" /> : (isEdit ? 'Save changes' : 'Create gem')}
+            {saving ? <Spinner size="sm" /> : (isEdit ? t('admin.gem.save') : t('admin.gem.create'))}
           </Button>
           <Button color="light" onClick={() => navigate('/admin')}>
-            Cancel
+            {t('admin.gem.cancel')}
           </Button>
         </div>
 
