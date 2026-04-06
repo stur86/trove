@@ -2,7 +2,8 @@
  * TaskShell — user-facing landing page in app mode.
  *
  * Displays all gems as a card grid. Clicking a card navigates to the
- * GemRunner page for that gem.
+ * GemRunner page for that gem. Audio gems are hidden when the active
+ * model does not support audio input.
  */
 import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
@@ -21,6 +22,7 @@ export default function TaskShell() {
   const navigate = useNavigate()
   const [networkUrl, setNetworkUrl] = useState<string | null>(null)
   const [urlCopied, setUrlCopied] = useState(false)
+  const [capabilities, setCapabilities] = useState<{ audio: boolean }>({ audio: false })
 
   useEffect(() => {
     configApi.get().then(c => setLocale(c.locale))
@@ -28,7 +30,14 @@ export default function TaskShell() {
       .then(list => { setGems(list); setLoading(false) })
       .catch(() => setLoading(false))
     appApi.networkUrl().then(r => setNetworkUrl(r.url))
+    appApi.capabilities()
+      .then(caps => setCapabilities(caps))
+      .catch(() => {})  // safe default: treat audio as unsupported if fetch fails
   }, [])
+
+  // Filter out audio gems when the active model doesn't support audio.
+  // Users should never see gems their model can't run.
+  const visibleGems = gems.filter(gem => !gem.has_audio || capabilities.audio)
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -63,13 +72,13 @@ export default function TaskShell() {
           <div className="flex justify-center py-20">
             <Spinner size="lg" />
           </div>
-        ) : gems.length === 0 ? (
+        ) : visibleGems.length === 0 ? (
           <p className="text-center text-gray-400 py-20">
             {t('app.tasks.placeholder', 'No gems yet. Ask an admin to create some.')}
           </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {gems.map(gem => (
+            {visibleGems.map(gem => (
               <Card
                 key={gem.id}
                 className="cursor-pointer hover:shadow-md transition-shadow"
