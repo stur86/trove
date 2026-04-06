@@ -25,3 +25,6 @@ frontend/dist/
 # Visual brainstorming sessions
 .superpowers/
 .worktrees/
+
+# Experiments and debug code
+stubs/

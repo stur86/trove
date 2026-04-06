@@ -8,10 +8,11 @@ Defines the OllamaService Protocol and two implementations:
 Which implementation is used is controlled by the TROVE_FAKE_OLLAMA
 environment variable (set to 1 to use the fake). Load via python-dotenv.
 """
+
 import logging
 import os
 import shutil
-import subprocess
+import subprocess as sp
 import threading
 import time
 from functools import lru_cache
@@ -27,25 +28,55 @@ from backend.log_buffer import OLLAMA_LOGGER_NAME
 _ollama_logger = logging.getLogger(OLLAMA_LOGGER_NAME)
 
 
-def _pipe_stdout_to_log(proc: subprocess.Popen) -> None:
-    """
-    Start a daemon thread that reads proc.stdout line by line and emits each
-    line via _ollama_logger.info so it appears in the in-memory log buffer.
+class OllamaProcess:
 
-    Assumes the process was opened with stdout=PIPE, stderr=STDOUT, text=True.
-    The thread is a daemon so it never blocks application shutdown.
-    """
-    def _reader() -> None:
-        while proc.poll() is None:  # while process is still running
-            line = proc.stdout.readline()  # type: ignore[union-attr]
-            _ollama_logger.info(line.rstrip())
+    def __init__(self, command: list[str], port: int = TROVE_OLLAMA_PORT):
+        proc_env = os.environ.copy()
+        proc_env["OLLAMA_HOST"] = f"localhost:{port}"
+        self.proc = sp.Popen(
+            ["ollama"] + command,
+            stdout=sp.PIPE,
+            stderr=sp.STDOUT,
+            text=True,
+            env=proc_env,
+        )
 
-    threading.Thread(target=_reader, daemon=True).start()
+    def pipe_output_to_log(self, logger: logging.Logger) -> None:
+        """
+        Start a daemon thread that reads proc.stdout line by line and emits each
+        line via the provided logger.
+
+        Args:
+            logger: The logging.Logger instance to emit lines to.
+        """
+
+        def _reader() -> None:
+            while self.proc.poll() is None:  # while process is still running
+                line = self.proc.stdout.readline()  # type: ignore[union-attr]
+                logger.info(line.rstrip())
+
+        threading.Thread(target=_reader, daemon=True).start()
+
+    @property
+    def is_running(self) -> bool:
+        """Return True if the process is still running."""
+        return self.proc.poll() is None
+
+    @property
+    def pid(self) -> int:
+        """Return the process ID."""
+        return self.proc.pid
+
+    def wait(self) -> int:
+        """Wait for the process to finish and return the exit code."""
+        self.proc.wait()
+        return self.proc.returncode
 
 
 # ---------------------------------------------------------------------------
 # Ollama lifecycle helpers
 # ---------------------------------------------------------------------------
+
 
 def ensure_ollama_running() -> None:
     """
@@ -70,29 +101,27 @@ def ensure_ollama_running() -> None:
     if is_ollama_service_running():
         return  # already accepting requests on our port
     proc = RealOllamaService._serve_process
-    if proc is not None and proc.poll() is None:
+    if proc is not None and proc.is_running:
         return  # our process is still alive
 
     _ollama_logger.info("Starting Ollama on port %d…", TROVE_OLLAMA_PORT)
-    RealOllamaService._serve_process = subprocess.Popen(
-        ["ollama", "serve"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
-    _pipe_stdout_to_log(RealOllamaService._serve_process)
+    RealOllamaService._serve_process = OllamaProcess(["serve"], port=TROVE_OLLAMA_PORT)
+    RealOllamaService._serve_process.pipe_output_to_log(_ollama_logger)
     # Wait up to 10 s for the server to become ready
     for _ in range(20):
         time.sleep(0.5)
         if is_ollama_service_running():
             _ollama_logger.info("Ollama ready on port %d.", TROVE_OLLAMA_PORT)
             return
-    _ollama_logger.warning("Ollama did not become ready on port %d within 10 s.", TROVE_OLLAMA_PORT)
+    _ollama_logger.warning(
+        "Ollama did not become ready on port %d within 10 s.", TROVE_OLLAMA_PORT
+    )
 
 
 # ---------------------------------------------------------------------------
 # Shared utility (used by both implementations)
 # ---------------------------------------------------------------------------
+
 
 def generate_modelfile(config: TroveConfig) -> Path:
     """
@@ -114,6 +143,7 @@ def generate_modelfile(config: TroveConfig) -> Path:
 # ---------------------------------------------------------------------------
 # Protocol (interface)
 # ---------------------------------------------------------------------------
+
 
 @runtime_checkable
 class OllamaService(Protocol):
@@ -148,6 +178,7 @@ class OllamaService(Protocol):
 # Real implementation
 # ---------------------------------------------------------------------------
 
+
 class RealOllamaService:
     """
     Production Ollama service that shells out to the real ollama binary.
@@ -160,7 +191,7 @@ class RealOllamaService:
     terminate it cleanly on application shutdown.
     """
 
-    _serve_process: ClassVar[subprocess.Popen | None] = None
+    _serve_process: ClassVar[OllamaProcess | None] = None
 
     def get_status(self) -> dict:
         """
@@ -186,12 +217,12 @@ class RealOllamaService:
 
     def _is_model_pulled(self, model_tag: str) -> bool:
         """Return True if model_tag appears in `ollama list` output."""
-        result = subprocess.run(["ollama", "list"], capture_output=True, text=True)
+        result = sp.run(["ollama", "list"], capture_output=True, text=True)
         return model_tag in result.stdout
 
     def _is_trove_model_built(self) -> bool:
         """Return True if trove_model appears in `ollama list` output."""
-        result = subprocess.run(["ollama", "list"], capture_output=True, text=True)
+        result = sp.run(["ollama", "list"], capture_output=True, text=True)
         return "trove_model" in result.stdout
 
     def stream_install(self) -> Iterator[str]:
@@ -201,10 +232,10 @@ class RealOllamaService:
         Streams stdout+stderr line by line. Final event is [DONE] or [ERROR].
         """
         yield "data: Starting Ollama installation...\n\n"
-        process = subprocess.Popen(
+        process = sp.Popen(
             ["bash", "-c", "curl -fsSL https://ollama.com/install.sh | sh"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
+            stdout=sp.PIPE,
+            stderr=sp.STDOUT,
             text=True,
         )
         stdout = process.stdout or []
@@ -237,17 +268,16 @@ class RealOllamaService:
             return
 
         proc = RealOllamaService._serve_process
-        if proc is not None and proc.poll() is None:
+        if proc is not None and proc.is_running:
             yield f"data: [DONE] Ollama already running (pid {proc.pid}).\n\n"
             return
 
-        RealOllamaService._serve_process = subprocess.Popen(
-            ["ollama", "serve"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
+        proc_env = os.environ.copy()
+        proc_env["OLLAMA_HOST"] = f"localhost:{TROVE_OLLAMA_PORT}"
+        RealOllamaService._serve_process = OllamaProcess(
+            ["serve"], port=TROVE_OLLAMA_PORT
         )
-        _pipe_stdout_to_log(RealOllamaService._serve_process)
+        RealOllamaService._serve_process.pipe_output_to_log(_ollama_logger)
         for _ in range(20):
             time.sleep(0.5)
             if is_ollama_service_running():
@@ -258,20 +288,15 @@ class RealOllamaService:
     def stream_pull(self, model_tag: str) -> Iterator[str]:
         """Pull an Ollama model and yield SSE-formatted progress lines."""
         yield f"data: Pulling {model_tag}...\n\n"
-        process = subprocess.Popen(
-            ["ollama", "pull", model_tag],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
-        stdout = process.stdout or []
+        pull_proc = OllamaProcess(["pull", model_tag], port=TROVE_OLLAMA_PORT)
+        stdout = pull_proc.proc.stdout or []
         for line in stdout:
             yield f"data: {line.rstrip()}\n\n"
-        process.wait()
-        if process.returncode == 0:
+        ret = pull_proc.wait()
+        if ret == 0:
             yield "data: [DONE] Model pulled successfully.\n\n"
         else:
-            yield f"data: [ERROR] Pull failed (exit {process.returncode}).\n\n"
+            yield f"data: [ERROR] Pull failed (exit {ret}).\n\n"
 
     def build_trove_model(self) -> Iterator[str]:
         """
@@ -282,25 +307,23 @@ class RealOllamaService:
         config = load_config()
         modelfile_path = generate_modelfile(config)
         yield f"data: Building trove_model from {config.base_model}...\n\n"
-        process = subprocess.Popen(
-            ["ollama", "create", "trove_model", "-f", str(modelfile_path)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
+        create_process = OllamaProcess(
+            ["create", "trove_model", "-f", str(modelfile_path)], port=TROVE_OLLAMA_PORT
         )
-        stdout = process.stdout or []
+        stdout = create_process.proc.stdout or []
         for line in stdout:
             yield f"data: {line.rstrip()}\n\n"
-        process.wait()
-        if process.returncode == 0:
+        ret = create_process.wait()
+        if ret == 0:
             yield "data: [DONE] trove_model built successfully.\n\n"
         else:
-            yield f"data: [ERROR] Build failed (exit {process.returncode}).\n\n"
+            yield f"data: [ERROR] Build failed (exit {ret}).\n\n"
 
 
 # ---------------------------------------------------------------------------
 # Fake implementation (dev mode + testing)
 # ---------------------------------------------------------------------------
+
 
 class FakeOllamaService:
     """
@@ -313,7 +336,12 @@ class FakeOllamaService:
 
     def get_status(self) -> dict:
         """Return a fully-installed status — as if Ollama is set up and running."""
-        return {"installed": True, "running": True, "model_pulled": True, "model_built": True}
+        return {
+            "installed": True,
+            "running": True,
+            "model_pulled": True,
+            "model_built": True,
+        }
 
     def stream_install(self) -> Iterator[str]:
         """Yield fake install output that looks like the real Ollama installer."""
@@ -373,6 +401,7 @@ class FakeOllamaService:
 # ---------------------------------------------------------------------------
 # Service factory (used by FastAPI Depends)
 # ---------------------------------------------------------------------------
+
 
 @lru_cache
 def get_ollama_service() -> OllamaService:

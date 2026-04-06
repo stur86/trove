@@ -13,6 +13,7 @@ from backend.ollama.service import (
     RealOllamaService,
     generate_modelfile,
     get_ollama_service,
+    OllamaProcess,
 )
 
 
@@ -49,7 +50,8 @@ def test_real_get_status_installed_and_running():
     mock_list = MagicMock(returncode=0, stdout="NAME\ngemma4:e4b:latest\ntrove_model:latest\n")
     mock_config = TroveConfig()  # defaults: base_model="gemma4:e4b"
     with patch("backend.ollama.service.shutil.which", return_value="/usr/bin/ollama"):
-        with patch("backend.ollama.service.subprocess.run", return_value=mock_list):
+        with patch("backend.ollama.service.sp", autospec=True) as mock_sp:
+            mock_sp.run.return_value = mock_list
             with patch("backend.ollama.service.is_ollama_service_running", return_value=True):
                 with patch("backend.ollama.service.load_config", return_value=mock_config):
                     status = svc.get_status()
@@ -67,8 +69,10 @@ def test_real_stream_install_yields_done():
     mock_proc.stdout = iter(["Installing...\n"])
     mock_proc.returncode = 0
     mock_proc.wait = lambda: None
-    with patch("backend.ollama.service.subprocess.Popen", return_value=mock_proc):
-        events = list(svc.stream_install())
+    with patch("backend.ollama.service.sp", autospec=True) as mock_sp:
+        mock_sp.Popen.return_value = mock_proc
+        with patch("backend.ollama.service.ensure_ollama_running", return_value=True):
+            events = list(svc.stream_install())
     assert any("[DONE]" in e for e in events)
 
 
@@ -78,8 +82,10 @@ def test_real_stream_install_yields_error_on_failure():
     mock_proc.stdout = iter([])
     mock_proc.returncode = 1
     mock_proc.wait = lambda: None
-    with patch("backend.ollama.service.subprocess.Popen", return_value=mock_proc):
-        events = list(svc.stream_install())
+    with patch("backend.ollama.service.sp", autospec=True) as mock_sp:
+        mock_sp.Popen.return_value = mock_proc
+        with patch("backend.ollama.service.ensure_ollama_running", return_value=False):
+            events = list(svc.stream_install())
     assert any("[ERROR]" in e for e in events)
 
 
@@ -99,19 +105,25 @@ def test_real_start_service_spawns_and_stores_process():
     mock_proc.poll.return_value = None
     # is_ollama_service_running: False on first call (so we spawn), True after
     side_effects = [False] + [True] * 20
-    with patch("backend.ollama.service.subprocess.Popen", return_value=mock_proc):
+    # Mock OllamaProcess to return a wrapper whose `.proc` is our subprocess mock
+    wrapper = MagicMock()
+    wrapper.proc = mock_proc
+    wrapper.pipe_output_to_log = MagicMock()
+    with patch("backend.ollama.service.OllamaProcess", return_value=wrapper):
         with patch("backend.ollama.service.is_ollama_service_running", side_effect=side_effects):
             with patch("backend.ollama.service.time.sleep"):
                 events = list(svc.start_service())
     assert any("[DONE]" in e for e in events)
-    assert RealOllamaService._serve_process is mock_proc
+    assert RealOllamaService._serve_process.proc is mock_proc
 
 
 def test_real_start_service_failure():
     """start_service yields [ERROR] when ollama serve never becomes ready."""
     RealOllamaService._serve_process = None
     svc = RealOllamaService()
-    with patch("backend.ollama.service.subprocess.Popen"):
+    wrapper = MagicMock()
+    wrapper.pipe_output_to_log = MagicMock()
+    with patch("backend.ollama.service.OllamaProcess", return_value=wrapper):
         with patch("backend.ollama.service.is_ollama_service_running", return_value=False):
             with patch("backend.ollama.service.time.sleep"):
                 events = list(svc.start_service())
@@ -124,9 +136,22 @@ def test_real_stream_pull_yields_done():
     mock_proc.stdout = iter(["pulling manifest\n"])
     mock_proc.returncode = 0
     mock_proc.wait = lambda: None
-    with patch("backend.ollama.service.subprocess.Popen", return_value=mock_proc):
+    # Mock OllamaProcess to return a wrapper whose `.proc` is our subprocess mock
+    wrapper = MagicMock()
+    wrapper.proc = mock_proc
+    wrapper.wait = MagicMock(return_value=0)
+    with patch("backend.ollama.service.OllamaProcess", return_value=wrapper):
         events = list(svc.stream_pull("gemma4:e4b"))
     assert any("[DONE]" in e for e in events)
+
+
+def test_ollamaprocess_uses_sp_popen(monkeypatch):
+    # Ensure OllamaProcess delegates to sp.Popen internally
+    mock_sub = MagicMock()
+    mock_sub.stdout = iter(["line1\n"])
+    monkeypatch.setattr("backend.ollama.service.sp.Popen", lambda *args, **kwargs: mock_sub)
+    proc = OllamaProcess(["pull", "gemma4:e4b"], port=11435)
+    assert proc.proc is mock_sub
 
 
 # --- FakeOllamaService ---
