@@ -6,8 +6,9 @@
  */
 import { type TroveConfig } from './config'
 import { basicAuth, post, put, get } from './client'
+import { appApi as _mockAppApi } from './mock/app'
 
-export const appApi = {
+const _realAppApi = {
   /**
    * Cookie-based login: exchange Basic creds for an admin cookie.
    */
@@ -44,3 +45,6 @@ export const appApi = {
   networkUrl: (): Promise<{ url: string | null }> =>
     get('/app/network-url'),
 }
+
+/** API wrapper for app-mode admin operations. Switches to mock when VITE_MOCK_API=1. */
+export const appApi = import.meta.env.VITE_MOCK_API ? _mockAppApi : _realAppApi

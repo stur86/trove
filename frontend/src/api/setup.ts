@@ -5,6 +5,7 @@
  * (trove setup). Calling them in app mode returns 404.
  */
 import { get, post } from './client'
+import { setupApi as _mockSetupApi } from './mock/setup'
 
 /** POST and parse the JSON response body into the given type. */
 async function postJson<T>(path: string, body?: unknown): Promise<T> {
@@ -27,7 +28,8 @@ export interface LanUrl {
   url: string
 }
 
-export const setupApi = {
+/** API wrapper for setup-mode operations. Switches to mock when VITE_MOCK_API=1. */
+export const setupApi = import.meta.env.VITE_MOCK_API ? _mockSetupApi : {
   /** Return which setup steps are complete. */
   status: (): Promise<SetupStatus> => get('/setup/status'),
 

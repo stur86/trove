@@ -7,6 +7,7 @@
  */
 
 import { get, post } from './client'
+import { ollamaApi as _mockOllamaApi } from './mock/ollama'
 
 /** Current Ollama installation status. */
 export interface OllamaStatus {
@@ -57,8 +58,8 @@ export function streamLines(
   read()
 }
 
-/** API wrapper for the Ollama domain. */
-export const ollamaApi = {
+/** API wrapper for the Ollama domain. Switches to mock when VITE_MOCK_API=1. */
+export const ollamaApi = import.meta.env.VITE_MOCK_API ? _mockOllamaApi : {
   /** Get current Ollama installation status. */
   status: () => get<OllamaStatus>('/ollama/status'),
   /** Start Ollama install; returns a streaming Response. */
