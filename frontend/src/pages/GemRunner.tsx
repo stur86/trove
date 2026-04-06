@@ -48,22 +48,22 @@ export default function GemRunner() {
   const [audioMime, setAudioMime] = useState<string>('audio/webm')
   const [showAudioModal, setShowAudioModal] = useState(false)
   const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null)
-  const [recording, setRecording] = useState(false)
-  const [recordingSeconds, setRecordingSeconds] = useState(0)
-
-  // Whether the browser can record audio (requires HTTPS or localhost)
-  const canRecord = window.isSecureContext && typeof navigator.mediaDevices?.getUserMedia === 'function'
+  // NOTE: recording state commented out — MediaRecorder requires HTTPS (secure context),
+  // which Trove does not currently provide over LAN. Re-enable if HTTPS support is added.
+  // const [recording, setRecording] = useState(false)
+  // const [recordingSeconds, setRecordingSeconds] = useState(0)
 
   // Audio MIME types supported by Gemma 4 (Ollama). AAC/M4A are not supported.
   const SUPPORTED_AUDIO_TYPES = new Set(['audio/wav', 'audio/mpeg', 'audio/ogg', 'audio/webm'])
 
-  // Refs for hidden file inputs and MediaRecorder
+  // Refs for hidden file inputs
+  // NOTE: mediaRecorderRef, chunksRef, timerRef commented out — recording disabled (see above)
   const imageFileRef = useRef<HTMLInputElement>(null)
   const imageCapRef = useRef<HTMLInputElement>(null)
   const audioFileRef = useRef<HTMLInputElement>(null)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const chunksRef = useRef<Blob[]>([])
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  // const chunksRef = useRef<Blob[]>([])
+  // const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Load gem on mount
   useEffect(() => {
@@ -105,15 +105,15 @@ export default function GemRunner() {
     return () => URL.revokeObjectURL(url)
   }, [audioBlob])
 
-  // Stop recording and clear timer on unmount (e.g. user navigates away mid-recording)
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
-      if (mediaRecorderRef.current?.state === 'recording') {
-        mediaRecorderRef.current.stop()
-      }
-    }
-  }, [])
+  // NOTE: recording cleanup useEffect commented out — recording disabled (see above)
+  // useEffect(() => {
+  //   return () => {
+  //     if (timerRef.current) clearInterval(timerRef.current)
+  //     if (mediaRecorderRef.current?.state === 'recording') {
+  //       mediaRecorderRef.current.stop()
+  //     }
+  //   }
+  // }, [])
 
   // Auto-scroll output area as tokens arrive
   useEffect(() => {
@@ -145,51 +145,40 @@ export default function GemRunner() {
     }
   }
 
-  /**
-   * Start recording audio from the default microphone.
-   * Closes the audio modal, starts MediaRecorder, and begins counting elapsed seconds.
-   * On stop, stores the resulting Blob as audioBlob.
-   */
-  async function startRecording() {
-    setShowAudioModal(false)
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream)
-      chunksRef.current = []
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data)
-      }
-      recorder.onstop = () => {
-        const mime = recorder.mimeType || 'audio/webm'
-        const blob = new Blob(chunksRef.current, { type: mime })
-        setAudioBlob(blob)
-        setAudioMime(mime)
-        // Release microphone
-        stream.getTracks().forEach(t => t.stop())
-        if (timerRef.current) {
-          clearInterval(timerRef.current)
-          timerRef.current = null
-        }
-      }
-      recorder.start()
-      mediaRecorderRef.current = recorder
-      setRecordingSeconds(0)
-      setRecording(true)
-      timerRef.current = setInterval(
-        () => setRecordingSeconds(s => s + 1),
-        1000,
-      )
-    } catch {
-      // Microphone permission denied or unavailable — fail silently.
-      // The audio button remains visible; user can try again or choose a file.
-    }
-  }
-
-  /** Stop an in-progress recording. The onstop handler stores the resulting Blob. */
-  function stopRecording() {
-    mediaRecorderRef.current?.stop()
-    setRecording(false)
-  }
+  // NOTE: startRecording and stopRecording commented out — MediaRecorder requires HTTPS.
+  // Re-enable when Trove serves over HTTPS on LAN.
+  //
+  // async function startRecording() {
+  //   setShowAudioModal(false)
+  //   try {
+  //     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+  //     const recorder = new MediaRecorder(stream)
+  //     chunksRef.current = []
+  //     recorder.ondataavailable = (e) => {
+  //       if (e.data.size > 0) chunksRef.current.push(e.data)
+  //     }
+  //     recorder.onstop = () => {
+  //       const mime = recorder.mimeType || 'audio/webm'
+  //       const blob = new Blob(chunksRef.current, { type: mime })
+  //       setAudioBlob(blob)
+  //       setAudioMime(mime)
+  //       stream.getTracks().forEach(t => t.stop())
+  //       if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+  //     }
+  //     recorder.start()
+  //     mediaRecorderRef.current = recorder
+  //     setRecordingSeconds(0)
+  //     setRecording(true)
+  //     timerRef.current = setInterval(() => setRecordingSeconds(s => s + 1), 1000)
+  //   } catch {
+  //     // Microphone permission denied or unavailable — fail silently.
+  //   }
+  // }
+  //
+  // function stopRecording() {
+  //   mediaRecorderRef.current?.stop()
+  //   setRecording(false)
+  // }
 
   if (loadError) {
     return (
@@ -348,22 +337,12 @@ export default function GemRunner() {
               </div>
             )}
 
-            {/* Audio picker / inline recorder */}
+            {/* Audio picker — file upload only */}
+            {/* NOTE: inline recorder branch commented out — recording disabled (requires HTTPS) */}
             {gem.has_audio && capabilities.audio && (
               <div className="flex flex-col gap-2">
-                {recording ? (
-                  // Inline recorder — shown while MediaRecorder is active
-                  <div className="flex items-center gap-3 py-1">
-                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0" />
-                    <span className="text-sm text-gray-600 tabular-nums">
-                      {recordingSeconds}s
-                    </span>
-                    <Button color="failure" size="sm" onClick={stopRecording}>
-                      {t('gem.stop_recording')}
-                    </Button>
-                  </div>
-                ) : audioPreviewUrl ? (
-                  // Preview + remove — shown after recording or file pick
+                {audioPreviewUrl ? (
+                  // Preview + remove — shown after file pick
                   <div className="flex items-center gap-2">
                     <audio controls src={audioPreviewUrl} className="h-9 flex-1 min-w-0" />
                     <Button
@@ -380,6 +359,14 @@ export default function GemRunner() {
                     {t('gem.add_audio')}
                   </Button>
                 )}
+                {/* NOTE: recording branch commented out:
+                {recording ? (
+                  <div className="flex items-center gap-3 py-1">
+                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0" />
+                    <span className="text-sm text-gray-600 tabular-nums">{recordingSeconds}s</span>
+                    <Button color="failure" size="sm" onClick={stopRecording}>{t('gem.stop_recording')}</Button>
+                  </div>
+                ) : ...} */}
               </div>
             )}
 
@@ -451,7 +438,18 @@ export default function GemRunner() {
         </ModalBody>
       </Modal>
 
-      {/* Audio source picker modal */}
+      {/* Audio source picker modal — file upload only */}
+      {/* NOTE: "Record now" option commented out — recording disabled (requires HTTPS).
+          Re-enable canRecord check and startRecording button when HTTPS is available:
+          {canRecord ? (
+            <Button color="light" className="w-full" onClick={startRecording}>
+              {t('gem.audio_source.record')}
+            </Button>
+          ) : (
+            <p className="text-xs text-gray-400 text-center py-1">
+              {t('gem.audio_source.record_unavailable')}
+            </p>
+          )} */}
       <Modal show={showAudioModal} onClose={() => setShowAudioModal(false)} size="sm">
         <ModalHeader>{t('gem.audio_source.title')}</ModalHeader>
         <ModalBody>
@@ -463,19 +461,6 @@ export default function GemRunner() {
             >
               {t('gem.audio_source.file')}
             </Button>
-            {canRecord ? (
-              <Button
-                color="light"
-                className="w-full"
-                onClick={startRecording}
-              >
-                {t('gem.audio_source.record')}
-              </Button>
-            ) : (
-              <p className="text-xs text-gray-400 text-center py-1">
-                {t('gem.audio_source.record_unavailable')}
-              </p>
-            )}
           </div>
         </ModalBody>
       </Modal>
