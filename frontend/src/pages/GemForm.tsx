@@ -89,7 +89,7 @@ export default function GemForm() {
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [capabilities, setCapabilities] = useState<{ audio: boolean }>({ audio: false })
+  // const [capabilities, setCapabilities] = useState<{ audio: boolean }>({ audio: false })
 
   // In edit mode, load the existing gem
   useEffect(() => {
@@ -108,11 +108,13 @@ export default function GemForm() {
       .catch(() => {})
   }, [])
 
-  useEffect(() => {
-    appApi.capabilities()
-      .then(caps => setCapabilities(caps))
-      .catch(() => {})  // safe default: treat audio as unsupported if fetch fails
-  }, [])
+  // This is part of the audio support work that is currently disabled, 
+  // but leaving it here for when we re-enable it. It checks whether the backend supports audio input and updates the UI accordingly.
+  // useEffect(() => {
+  //   appApi.capabilities()
+  //     .then(caps => setCapabilities(caps))
+  //     .catch(() => {})  // safe default: treat audio as unsupported if fetch fails
+  // }, [])
 
   async function handleSave() {
     setError(null)
@@ -294,6 +296,8 @@ export default function GemForm() {
             <Label htmlFor="has-image">Accepts image input</Label>
           </div>
           <div className="flex items-start gap-2">
+          { /*
+            Audio input is currently unsupported, so this checkbox is disabled and hidden behind a feature flag.
             <Checkbox
               id="has-audio"
               checked={gem.has_audio}
@@ -314,6 +318,7 @@ export default function GemForm() {
                 </p>
               )}
             </div>
+            */}
           </div>
         </div>
 
