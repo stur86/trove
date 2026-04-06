@@ -50,6 +50,13 @@ const _realAppApi = {
    */
   logs: (): Promise<{ lines: string[] }> =>
     get('/app/admin/logs'),
+
+  /**
+   * Return runtime capability flags for the current model configuration.
+   * Currently: { audio: boolean } — True when the active model supports audio input.
+   */
+  capabilities: (): Promise<{ audio: boolean }> =>
+    get('/app/capabilities'),
 }
 
 /** API wrapper for app-mode admin operations. Switches to mock when VITE_MOCK_API=1. */

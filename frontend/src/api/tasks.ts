@@ -59,6 +59,21 @@ export interface UserTask {
   output_mode: OutputMode
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Encode a Blob to a base64 string (without the data URL prefix).
+ * Uses FileReader so it works in all browsers without Buffer.
+ */
+async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve((reader.result as string).split(',')[1])
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+}
+
 // ── Real API implementation ───────────────────────────────────────────────────
 
 const _realGemsApi = {
@@ -85,9 +100,29 @@ const _realGemsApi = {
   /**
    * Run a gem. Returns a raw Response whose body is an SSE stream.
    * Parse with readSSEStream() below.
+   *
+   * @param id     Gem slug id.
+   * @param values Argument values keyed by arg name.
+   * @param image  Optional image to send — { blob, mime } from a file input or canvas.
+   * @param audio  Optional audio to send — { blob, mime } from a file input or MediaRecorder.
    */
-  run: (id: string, values: Record<string, string>): Promise<Response> =>
-    post(`/app/gems/${id}/run`, { values }),
+  run: async (
+    id: string,
+    values: Record<string, string>,
+    image?: { blob: Blob; mime: string },
+    audio?: { blob: Blob; mime: string },
+  ): Promise<Response> => {
+    const body: Record<string, unknown> = { values }
+    if (image) {
+      body.image = await blobToBase64(image.blob)
+      body.image_mime = image.mime
+    }
+    if (audio) {
+      body.audio = await blobToBase64(audio.blob)
+      body.audio_mime = audio.mime
+    }
+    return post(`/app/gems/${id}/run`, body)
+  },
 }
 
 // ── Mock selector ─────────────────────────────────────────────────────────────

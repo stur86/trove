@@ -145,9 +145,14 @@ export const gemsApi = {
   /**
    * Simulates SSE streaming by yielding words from a canned response one at a
    * time via ReadableStream. Matches the real Response interface so GemRunner
-   * needs no special casing.
+   * needs no special casing. Image and audio args are accepted but ignored.
    */
-  run: (_id: string, _values: Record<string, string>): Promise<Response> => {
+  run: (
+    _id: string,
+    _values: Record<string, string>,
+    _image?: { blob: Blob; mime: string },
+    _audio?: { blob: Blob; mime: string },
+  ): Promise<Response> => {
     console.log(`Mock run gem with id ${_id} and values`, _values)
     const words = CANNED_RESPONSE.split(' ')
     const encoder = new TextEncoder()

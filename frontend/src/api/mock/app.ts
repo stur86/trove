@@ -51,4 +51,9 @@ export const appApi = {
       ],
     }
   },
+
+  capabilities: async (): Promise<{ audio: boolean }> => {
+    await new Promise(r => setTimeout(r, 50))
+    return { audio: true }  // mock default: gemma4:e4b supports audio
+  },
 }
