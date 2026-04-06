@@ -159,3 +159,80 @@ def test_run_gem_streams_sse(client, sample_gem, monkeypatch):
 def test_run_gem_not_found(client):
     res = client.post("/api/app/gems/missing/run", json={"values": {}})
     assert res.status_code == 404
+
+
+# --- /capabilities ---
+
+def test_capabilities_returns_audio_true_for_e4b(client):
+    """Default config uses gemma4:e4b which supports audio."""
+    res = client.get("/api/app/capabilities")
+    assert res.status_code == 200
+    assert res.json() == {"audio": True}
+
+
+def test_capabilities_returns_audio_false_for_26b(client):
+    from backend.config.service import load_config, save_config
+    cfg = load_config()
+    cfg = cfg.model_copy(update={"base_model": "gemma4:26b"})
+    save_config(cfg)
+    res = client.get("/api/app/capabilities")
+    assert res.status_code == 200
+    assert res.json() == {"audio": False}
+
+
+# --- Run with base64 media ---
+
+import base64  # noqa: E402
+
+
+def test_run_gem_passes_image_media_to_runner(client, sample_gem, monkeypatch):
+    """Base64 image in request is decoded and passed as MediaInput to stream_task."""
+    from backend.tasks.models import MediaInput
+    captured: list = []
+
+    async def fake_stream(task, values, *, media=None, _agent=None):
+        captured.append(media)
+        yield "ok"
+
+    monkeypatch.setattr("backend.tasks.router.stream_task", fake_stream)
+
+    img_bytes = b"\xff\xd8\xff\xe0"
+    img_b64 = base64.b64encode(img_bytes).decode()
+
+    res = client.post(
+        f"/api/app/gems/{sample_gem.id}/run",
+        json={"values": {"name": "World"}, "image": img_b64, "image_mime": "image/jpeg"},
+    )
+    assert res.status_code == 200
+    assert len(captured) == 1
+    assert captured[0] is not None
+    assert captured[0].has_image
+    assert captured[0].image == img_bytes
+    assert captured[0].image_mime == "image/jpeg"
+
+
+def test_run_gem_malformed_base64_returns_422(client, sample_gem):
+    """Malformed base64 in the image field returns HTTP 422."""
+    res = client.post(
+        f"/api/app/gems/{sample_gem.id}/run",
+        json={"values": {}, "image": "not-valid-base64!!!"},
+    )
+    assert res.status_code == 422
+
+
+def test_run_gem_no_media_passes_none_to_runner(client, sample_gem, monkeypatch):
+    """When no image or audio field is sent, media=None is passed to stream_task."""
+    captured: list = []
+
+    async def fake_stream(task, values, *, media=None, _agent=None):
+        captured.append(media)
+        yield "ok"
+
+    monkeypatch.setattr("backend.tasks.router.stream_task", fake_stream)
+
+    res = client.post(
+        f"/api/app/gems/{sample_gem.id}/run",
+        json={"values": {"name": "World"}},
+    )
+    assert res.status_code == 200
+    assert captured[0] is None

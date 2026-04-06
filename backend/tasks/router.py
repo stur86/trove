@@ -8,6 +8,8 @@ prefix of its own — it inherits /api/app from the parent app router.
 All execution goes through backend.tasks.runner, keeping this file
 as a thin HTTP wrapper.
 """
+import base64
+import binascii
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,7 +17,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from backend.app.auth import require_admin_cookie
-from backend.tasks.models import OutputMode, UserTask
+from backend.tasks.models import MediaInput, OutputMode, UserTask
 from backend.tasks.repository import delete_task, list_tasks, load_task, save_task
 from backend.tasks.runner import stream_task
 
@@ -27,6 +29,35 @@ class RunRequest(BaseModel):
 
     values: dict[str, str] = {}
     """Argument values keyed by arg name. Missing keys fall back to arg defaults."""
+    image: str | None = None
+    """Base64-encoded image bytes. Include image_mime when set."""
+    image_mime: str | None = None
+    """MIME type of the image (e.g. 'image/jpeg', 'image/png'). Defaults to image/jpeg."""
+    audio: str | None = None
+    """Base64-encoded audio bytes. Include audio_mime when set."""
+    audio_mime: str | None = None
+    """MIME type of the audio (e.g. 'audio/webm', 'audio/mp4'). Defaults to audio/webm."""
+
+
+def _decode_media(req: RunRequest) -> MediaInput | None:
+    """Decode base64 media fields from a RunRequest into a MediaInput.
+
+    Returns None when neither image nor audio is present.
+    Raises HTTPException 422 when a base64 field is malformed.
+    """
+    if not req.image and not req.audio:
+        return None
+    try:
+        image_bytes = base64.b64decode(req.image) if req.image else None
+        audio_bytes = base64.b64decode(req.audio) if req.audio else None
+    except (binascii.Error, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid base64 media data: {exc}")
+    return MediaInput(
+        image=image_bytes,
+        image_mime=req.image_mime or "image/jpeg",
+        audio=audio_bytes,
+        audio_mime=req.audio_mime or "audio/webm",
+    )
 
 
 @router.get("/gems")
@@ -98,12 +129,16 @@ def delete_gem(gem_id: str) -> None:
 @router.post("/gems/{gem_id}/run")
 async def run_gem(gem_id: str, req: RunRequest) -> StreamingResponse:
     """
-    Run a Gem with the provided argument values.
+    Run a Gem with the provided argument values and optional media.
 
     For TEXT output mode: streams server-sent events (data: lines).
     Each token is a separate data line; streaming ends with data: [DONE].
 
     For STRUCTURED output mode: returns HTTP 501 (not yet implemented).
+
+    Media fields (image, audio) must be base64-encoded. Include the
+    corresponding MIME type field (image_mime, audio_mime) for correct
+    handling by the model.
     """
     try:
         gem = load_task(gem_id)
@@ -113,10 +148,12 @@ async def run_gem(gem_id: str, req: RunRequest) -> StreamingResponse:
     if gem.output_mode == OutputMode.STRUCTURED:
         raise HTTPException(status_code=501, detail="Structured output not yet implemented")
 
+    media = _decode_media(req)
+
     async def sse_generator() -> AsyncIterator[str]:
         """Wrap stream_task tokens as SSE data lines."""
         try:
-            async for chunk in stream_task(gem, req.values):
+            async for chunk in stream_task(gem, req.values, media=media):
                 yield f"data: {chunk}\n\n"
         except ValueError as exc:
             # Missing required argument — emit error event before closing

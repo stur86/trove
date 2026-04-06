@@ -17,9 +17,10 @@ from fastapi.responses import StreamingResponse
 
 from backend.app.auth import require_admin, require_admin_cookie
 from backend.config.models import TroveConfig
-from backend.config.service import save_config
+from backend.config.service import load_config, save_config
 from backend.log_buffer import get_ollama_log_lines
 from backend.ollama.service import OllamaService, get_ollama_service
+from backend.tasks.models import audio_supported
 
 router = APIRouter(prefix="/api/app", tags=["app"])
 
@@ -110,6 +111,19 @@ def get_logs() -> dict:
     Requires admin cookie.
     """
     return {"lines": get_ollama_log_lines()}
+
+
+@router.get("/capabilities")
+def capabilities() -> dict:
+    """
+    Return runtime capability flags for the current model configuration.
+
+    Currently exposes:
+      audio (bool) — True when the active base model supports audio input.
+                     Only gemma4:e2b and gemma4:e4b support audio.
+    """
+    config = load_config()
+    return {"audio": audio_supported(config.base_model)}
 
 
 from backend.tasks.router import router as gems_router  # noqa: E402
