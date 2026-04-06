@@ -89,6 +89,7 @@ export default function GemForm() {
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [capabilities, setCapabilities] = useState<{ audio: boolean }>({ audio: false })
 
   // In edit mode, load the existing gem
   useEffect(() => {
@@ -105,6 +106,12 @@ export default function GemForm() {
     appApi.checkAdminValid()
       .then(res => { if (res.admin_auth === 'true') setAuthReady(true) })
       .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    appApi.capabilities()
+      .then(caps => setCapabilities(caps))
+      .catch(() => {})  // safe default: treat audio as unsupported if fetch fails
   }, [])
 
   async function handleSave() {
@@ -286,13 +293,27 @@ export default function GemForm() {
             />
             <Label htmlFor="has-image">Accepts image input</Label>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-start gap-2">
             <Checkbox
               id="has-audio"
               checked={gem.has_audio}
+              disabled={!capabilities.audio}
               onChange={e => setGem(g => ({ ...g, has_audio: e.target.checked }))}
+              className={!capabilities.audio ? 'opacity-50' : ''}
             />
-            <Label htmlFor="has-audio">Accepts audio input</Label>
+            <div>
+              <Label
+                htmlFor="has-audio"
+                className={!capabilities.audio ? 'text-gray-400' : ''}
+              >
+                Accepts audio input
+              </Label>
+              {!capabilities.audio && (
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {t('admin.gem.audio_not_supported')}
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
