@@ -100,6 +100,7 @@ task test          # pytest -v
 - [ ] Document library (upload, Markitdown conversion, folder structure, access tiers, AI summary)
 - [ ] Auth (username/password, admin-created accounts)
 - [ ] Login and network security
+- [ ] Export/import tasks or knowledge bases
 - [ ] Expanded i18n support for longer text and simplified explanations available in-app for many steps
 - [ ] Installation script (can be pulled from Github with a simple curl command, includes installing uv if necessary)
 - [ ] Library of helper tools that can be optionally allowed for a given Gem (date+time, calculator, )
