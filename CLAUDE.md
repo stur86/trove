@@ -95,7 +95,35 @@ task test          # pytest -v
 - [x] Setup page (hardware table, phase-based install flow, SSE log streaming)
 - [x] Admin page (model picker, num_ctx slider, language selector)
 - [x] Production build (FastAPI serves `frontend/dist/` as static files; dev mode unaffected)
-- [ ] Document library (upload, Markitdown conversion, folder structure, access tiers)
-- [ ] Task definition system (Jinja templates, structured inputs, tool toggles)
+- [x] Task definition system (Jinja templates, structured inputs, tool toggles)
+- [x] Pydantic AI agentic workflows
+- [ ] Document library (upload, Markitdown conversion, folder structure, access tiers, AI summary)
 - [ ] Auth (username/password, admin-created accounts)
-- [ ] Pydantic AI agentic workflows
+- [ ] Login and network security
+- [ ] Expanded i18n support for longer text and simplified explanations available in-app for many steps
+- [ ] Installation script (can be pulled from Github with a simple curl command, includes installing uv if necessary)
+- [ ] Library of helper tools that can be optionally allowed for a given Gem (date+time, calculator, )
+- [ ] New logo
+- [ ] Documentation, tutorials, architectural summary for developers
+- [ ] (Stretch Goal) Add mDNS for a custom local name to the setup process (with Avahi)
+- [ ] (Stretch Goal) Tagging and filtering system for gems
+- [ ] (Stretch Goal) Local HTTPS and re-enabling audio features
+
+### Security plan
+
+For network/login security, a minimal safety plan must be implemented. Possible ideas:
+
+* allow auth login and modification only from localhost; hide the admin options entirely to anyone connecting from elsewhere
+* ban CORS
+* implement rate limiting on user calls (enough to prevent DDOS)
+* admin password stored as salted hash instead of plain text
+* implement some kind of identification system - after a client connects, they receive some server-generated token that they need to always attach to all their future API calls, and that isn't stored in local/session storage; the token uses a custom header
+* Strict Host header validation (only allow expected IP / .local hostname) (might not be possible unless we implement a pairing process?)
+* Require custom header for all API calls (e.g. X-Client-Token)
+* Issue per-session random token (in-memory only, not persisted)
+* Bind token to client IP (optionally User-Agent)
+* Token expiration / rotation (short TTL, regenerate on reload)
+* Reject requests missing/invalid Origin or Referer
+* Restrict allowed HTTP methods per endpoint (e.g. POST only for actions)
+* Validate Content-Type and enforce payload size limits
+* Do not expose token via URL, query params, or standalone endpoint
