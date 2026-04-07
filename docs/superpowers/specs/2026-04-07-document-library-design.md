@@ -118,13 +118,14 @@ async def process_document(
     name: str,
     folder_id: str,
     mime_type: str,
+    description: str = "",
 ) -> Document:
     """Slugify, summarise, write markdown, insert DB row. Returns the new Document."""
 ```
 
 ### File upload flow
 
-1. Receive `multipart/form-data` with `file` + `folder_id`
+1. Receive `multipart/form-data` with `file` + `folder_id` + optional `description`
 2. Check file extension against whitelist (422 if not allowed)
 3. Write to a temp path; pass to markitdown for conversion to markdown string
 4. Delete temp file
@@ -132,19 +133,34 @@ async def process_document(
 
 ### URL upload flow
 
-1. Receive `application/json` with `{ url, folder_id, name }`
+1. Receive `application/json` with `{ url, folder_id, name }` + optional `description`
 2. Pass URL directly to markitdown (handles fetching + conversion)
 3. Call `process_document()`
 
 ### `process_document` steps
 
 1. **Slugify** — derive `id` from `name` (lowercase, hyphens); append numeric suffix on collision
-2. **Summarise** — run an internal hardcoded `Task` via `run_task()`:
-   - Template: `"In one sentence, describe what this document is about:\n\n{{ content }}"`
-   - On any failure (Ollama unavailable, timeout, error): fall back to using `name` as the description
+2. **Summarise** — choose strategy based on document length:
+   - Estimate token count as `word_count × 2` (where `word_count = len(content.split())`)
+   - Read `num_ctx` from the active Trove config
+   - If `word_count × 2 > num_ctx` **and** no `description` was supplied: return a special sentinel instead of a `Document` (see below — the router surfaces this to the frontend)
+   - If `description` was supplied (either because admin provided it, or because the document is large and the frontend re-submitted with one): use it directly
+   - Otherwise: run an internal hardcoded `Task` via `run_task()` with template `"In one sentence, describe what this document is about:\n\n{{ content }}"`. On any failure (Ollama unavailable, timeout, error): fall back to `name`
 3. **Persist** — write markdown to `~/.local/share/trove/documents/<folder_id>/<doc_id>.md`; insert row into `documents` table
 
-Processing is synchronous within the upload request. The AI summary task is short, so latency is acceptable.
+Processing is synchronous within the upload request.
+
+### Too-long document flow
+
+When a document exceeds the context window and no description is provided, neither the endpoint nor `process_document` persists anything. The endpoint returns HTTP 200 with:
+
+```json
+{ "status": "needs_description", "word_count": 42000 }
+```
+
+The frontend detects this, shows an inline description field (pre-filled with the filename as a prompt), and re-submits the same request with the `description` field populated. For file uploads the browser's `File` object is still in memory; for URL uploads the URL string is simply re-sent. On the second submission `description` is non-empty so the length check is bypassed and processing completes normally.
+
+The word-count estimate and `num_ctx` value are included in the response so the frontend can show a helpful message: e.g. *"This document is too long to summarise automatically (≈42,000 tokens, context window is 32,768). Please enter a short description."*
 
 ### Supported file formats (whitelist)
 
@@ -231,8 +247,8 @@ All endpoints require admin credentials.
 | `POST` | `/api/app/admin/folders` | Create folder (`{ name }`) |
 | `DELETE` | `/api/app/admin/folders/{id}` | Delete folder + all its documents + markdown files |
 | `GET` | `/api/app/admin/documents` | List documents; optional `?folder_id=` filter |
-| `POST` | `/api/app/admin/documents/upload` | Multipart: `file` + `folder_id` |
-| `POST` | `/api/app/admin/documents/from-url` | JSON: `{ url, folder_id, name }` |
+| `POST` | `/api/app/admin/documents/upload` | Multipart: `file` + `folder_id` + optional `description` |
+| `POST` | `/api/app/admin/documents/from-url` | JSON: `{ url, folder_id, name, description? }` |
 | `DELETE` | `/api/app/admin/documents/{id}` | Delete document + its markdown file |
 
 ---
@@ -289,7 +305,7 @@ Sample data: 2–3 folders, 4–6 documents covering a mix of descriptions. Used
 ## Testing
 
 - **`models.py`**: `Folder` and `Document` round-trip through DB. `UserTask` with `doc_folder_ids`/`doc_ids` persists and loads correctly.
-- **`service.py`**: slug derivation and collision handling. Fallback description when AI summary raises. Markitdown called with correct args for file vs URL paths.
+- **`service.py`**: slug derivation and collision handling. Fallback description when AI summary raises. Markitdown called with correct args for file vs URL paths. Length check: document exceeding `num_ctx` with no description supplied returns sentinel (not a `Document`). Document within limit uses AI summary. Supplied `description` bypasses length check and AI summary.
 - **`repository.py`**: folder CRUD, document CRUD, delete cascade (folder delete removes documents and markdown files).
 - **`router.py`**: `TestClient` tests. File whitelist enforcement (422 on bad extension). URL upload path. Delete cascade.
 - **`runner.py`**: tool injection present when `documents` is non-empty; absent when empty/None. `get_document` returns error string for out-of-scope ID. `get_table_of_contents` format.
