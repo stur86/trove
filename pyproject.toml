@@ -13,6 +13,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "typer>=0.12",
     "jinja2>=3.1",
+    "markitdown[all]>=0.1",
     "pydantic-ai>=0.0.54",
 ]
 
@@ -28,6 +29,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["backend*"]
+
+[tool.setuptools.package-data]
+backend = ["static/**/*"]
 
 [tool.taskipy.tasks]
 # Run both servers together (recommended for development)

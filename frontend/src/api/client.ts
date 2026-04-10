@@ -61,6 +61,23 @@ export async function post(path: string, body?: unknown, headers?: HeadersInit):
   return res
 }
 
+/**
+ * Make a PATCH request with a JSON body and return the parsed JSON response.
+ * @template T Expected response type
+ * @param path API path
+ * @param body Request body (serialised to JSON)
+ */
+export async function patch<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error(`PATCH ${path} failed: ${res.status}`)
+  return res.json()
+}
+
 /** Encode credentials for HTTP Basic Authorization header. */
 export function basicAuth(username: string, password: string): string {
   return `Basic ${btoa(`${username}:${password}`)}`

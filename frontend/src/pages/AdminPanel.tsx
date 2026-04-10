@@ -20,6 +20,7 @@ import { streamLines } from '../api/ollama'
 import { systemApi, type ModelInfo } from '../api/system'
 import { gemsApi, type UserTask } from '../api/tasks'
 import GemIcon from '../components/GemIcon'
+import DocumentsPanel from './DocumentsPanel'
 import { useTranslation } from '../i18n'
 
 /** Possible states for the save + build operation. */
@@ -272,7 +273,7 @@ export default function AdminPanel() {
           </TabItem>
 
           <TabItem title={t('admin.tab.documents')}>
-            <p className="pt-4 text-gray-500">{t('admin.documents.placeholder')}</p>
+            <DocumentsPanel />
           </TabItem>
 
           <TabItem title={t('admin.tab.logs')}>

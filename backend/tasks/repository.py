@@ -16,27 +16,43 @@ _arg_adapter: TypeAdapter[TaskArg] = TypeAdapter(TaskArg)
 
 _CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS tasks (
-    id          TEXT PRIMARY KEY,
-    name        TEXT NOT NULL,
-    description TEXT NOT NULL DEFAULT '',
-    hue         TEXT NOT NULL DEFAULT 'indigo',
-    template    TEXT NOT NULL,
-    args        TEXT NOT NULL,
-    has_image   INTEGER NOT NULL DEFAULT 0,
-    has_audio   INTEGER NOT NULL DEFAULT 0,
-    output_mode TEXT NOT NULL DEFAULT 'text'
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    description     TEXT NOT NULL DEFAULT '',
+    hue             TEXT NOT NULL DEFAULT 'indigo',
+    template        TEXT NOT NULL,
+    args            TEXT NOT NULL,
+    has_image       INTEGER NOT NULL DEFAULT 0,
+    has_audio       INTEGER NOT NULL DEFAULT 0,
+    output_mode     TEXT NOT NULL DEFAULT 'text',
+    doc_folder_ids  TEXT NOT NULL DEFAULT '[]',
+    doc_ids         TEXT NOT NULL DEFAULT '[]'
 )
 """
 
+# ADD COLUMN statements are no-ops on databases that already have the columns.
+# SQLite does not support IF NOT EXISTS on ALTER TABLE, so we swallow the error.
+_ADD_DOC_COLUMNS = [
+    "ALTER TABLE tasks ADD COLUMN doc_folder_ids TEXT NOT NULL DEFAULT '[]'",
+    "ALTER TABLE tasks ADD COLUMN doc_ids TEXT NOT NULL DEFAULT '[]'",
+]
+
 
 def _ensure_table(conn) -> None:
-    """Create the tasks table if it does not exist."""
+    """Create the tasks table if it does not exist, then add doc columns if missing."""
     conn.execute(_CREATE_TABLE)
+    for stmt in _ADD_DOC_COLUMNS:
+        try:
+            conn.execute(stmt)
+        except Exception:
+            pass  # Column already exists — safe to ignore
 
 
 def _row_to_user_task(row) -> UserTask:
     """Deserialise a sqlite3.Row into a UserTask, reconstructing the args union."""
     args = tuple(_arg_adapter.validate_python(a) for a in json.loads(row["args"]))
+    doc_folder_ids = tuple(json.loads(row["doc_folder_ids"] or "[]"))
+    doc_ids = tuple(json.loads(row["doc_ids"] or "[]"))
     return UserTask(
         id=row["id"],
         name=row["name"],
@@ -47,6 +63,8 @@ def _row_to_user_task(row) -> UserTask:
         has_image=bool(row["has_image"]),
         has_audio=bool(row["has_audio"]),
         output_mode=row["output_mode"],
+        doc_folder_ids=doc_folder_ids,
+        doc_ids=doc_ids,
     )
 
 
@@ -58,12 +76,15 @@ def save_task(task: UserTask) -> None:
     overwrites the previous record.
     """
     args_json = json.dumps([arg.model_dump() for arg in task.args])
+    doc_folder_ids_json = json.dumps(list(task.doc_folder_ids))
+    doc_ids_json = json.dumps(list(task.doc_ids))
     with get_db() as conn:
         _ensure_table(conn)
         conn.execute(
             """INSERT OR REPLACE INTO tasks
-               (id, name, description, hue, template, args, has_image, has_audio, output_mode)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               (id, name, description, hue, template, args,
+                has_image, has_audio, output_mode, doc_folder_ids, doc_ids)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 task.id,
                 task.name,
@@ -74,6 +95,8 @@ def save_task(task: UserTask) -> None:
                 int(task.has_image),
                 int(task.has_audio),
                 task.output_mode.value,
+                doc_folder_ids_json,
+                doc_ids_json,
             ),
         )
 

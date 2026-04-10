@@ -128,3 +128,6 @@ def capabilities() -> dict:
 
 from backend.tasks.router import router as gems_router  # noqa: E402
 router.include_router(gems_router)
+
+from backend.documents.router import router as documents_router  # noqa: E402
+router.include_router(documents_router)

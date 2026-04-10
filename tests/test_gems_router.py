@@ -190,7 +190,7 @@ def test_run_gem_passes_image_media_to_runner(client, sample_gem, monkeypatch):
     from backend.tasks.models import MediaInput
     captured: list = []
 
-    async def fake_stream(task, values, *, media=None, _agent=None):
+    async def fake_stream(task, values, *, media=None, documents=None, _agent=None):
         captured.append(media)
         yield "ok"
 
@@ -238,7 +238,7 @@ def test_run_gem_no_media_passes_none_to_runner(client, sample_gem, monkeypatch)
     """When no image or audio field is sent, media=None is passed to stream_task."""
     captured: list = []
 
-    async def fake_stream(task, values, *, media=None, _agent=None):
+    async def fake_stream(task, values, *, media=None, documents=None, _agent=None):
         captured.append(media)
         yield "ok"
 
@@ -250,3 +250,53 @@ def test_run_gem_no_media_passes_none_to_runner(client, sample_gem, monkeypatch)
     )
     assert res.status_code == 200
     assert captured[0] is None
+
+
+# ── Document resolution (Task 8) ─────────────────────────────────────────────
+
+from datetime import datetime, timezone  # noqa: E402
+from unittest.mock import patch  # noqa: E402
+
+from backend.documents.models import Document, Folder  # noqa: E402
+from backend.documents.repository import save_document, save_folder  # noqa: E402
+
+
+def _make_sample_doc(doc_id: str, folder_id: str = "f1") -> Document:
+    return Document(
+        id=doc_id, folder_id=folder_id, name=f"{doc_id}.txt",
+        description="A test doc", mime_type="text/plain",
+        created_at=datetime.now(timezone.utc),
+    )
+
+
+@pytest.fixture
+def gem_with_docs(data_dir):
+    """A gem that has doc access, plus the corresponding DB records."""
+    save_folder(Folder(id="f1", name="F1"))
+    save_document(_make_sample_doc("d1"))
+    task = UserTask(
+        id="doc-gem",
+        name="Doc Gem",
+        template="Use docs",
+        doc_folder_ids=("f1",),
+    )
+    save_task(task)
+    return task
+
+
+def test_run_gem_resolves_documents_and_passes_to_stream(authed_client, gem_with_docs):
+    """When a gem has doc_folder_ids, stream_task receives the resolved documents."""
+    captured = {}
+
+    async def fake_stream(task, values, *, media=None, documents=None):
+        captured["documents"] = documents
+        yield "ok"
+
+    with patch("backend.tasks.router.stream_task", side_effect=fake_stream):
+        res = authed_client.post(
+            "/api/app/gems/doc-gem/run",
+            json={"values": {}},
+        )
+    assert res.status_code == 200
+    assert captured.get("documents") is not None
+    assert any(d.id == "d1" for d in captured["documents"])

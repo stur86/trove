@@ -20,6 +20,7 @@ import {
 import {
   gemsApi, GEM_HUES, type OutputMode, type TaskArg, type UserTask,
 } from '../api/tasks'
+import { documentsApi, type Folder, type Document } from '../api/documents'
 import { appApi } from '../api/app'
 import AdminLogin from '../components/AdminLogin'
 import GemIcon from '../components/GemIcon'
@@ -38,6 +39,8 @@ function blankGem(): UserTask {
     has_image: false,
     has_audio: false,
     output_mode: 'text',
+    doc_folder_ids: [],
+    doc_ids: [],
   }
 }
 
@@ -89,6 +92,12 @@ export default function GemForm() {
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Document access
+  const [allFolders, setAllFolders] = useState<Folder[]>([])
+  const [allDocuments, setAllDocuments] = useState<Document[]>([])
+  const [checkedFolderIds, setCheckedFolderIds] = useState<Set<string>>(new Set())
+  const [checkedDocIds, setCheckedDocIds] = useState<Set<string>>(new Set())
   // const [capabilities, setCapabilities] = useState<{ audio: boolean }>({ audio: false })
 
   // In edit mode, load the existing gem
@@ -97,10 +106,19 @@ export default function GemForm() {
     gemsApi.get(id)
       .then(g => {
         setGem(g)
+        // Seed document access sets from the loaded gem
+        setCheckedFolderIds(new Set(g.doc_folder_ids))
+        setCheckedDocIds(new Set(g.doc_ids))
         setLoading(false)
       })
       .catch(() => { setError(t('admin.gem.error.not_found')); setLoading(false) })
   }, [id, isEdit])
+
+  // Load all folders and documents for the access tree
+  useEffect(() => {
+    documentsApi.listFolders().then(setAllFolders)
+    documentsApi.listDocuments().then(setAllDocuments)
+  }, [])
 
   useEffect(() => {
     appApi.checkAdminValid()
@@ -120,7 +138,12 @@ export default function GemForm() {
     setError(null)
     setSaving(true)
     // Args are always freshly derived from the template at save time
-    const cleanGem: UserTask = { ...gem, args: deriveArgs(gem.template) }
+    const cleanGem: UserTask = {
+      ...gem,
+      args: deriveArgs(gem.template),
+      doc_folder_ids: Array.from(checkedFolderIds),
+      doc_ids: Array.from(checkedDocIds),
+    }
     try {
       if (isEdit && id) {
         await gemsApi.update(id, cleanGem)
@@ -132,6 +155,67 @@ export default function GemForm() {
       setError(t('admin.gem.error.save_failed'))
     } finally {
       setSaving(false)
+    }
+  }
+
+  /** All documents that belong to a folder. */
+  function docsInFolder(folderId: string): Document[] {
+    return allDocuments.filter(d => d.folder_id === folderId)
+  }
+
+  /** True when every document in the folder is individually checked. */
+  function isFolderFullyChecked(folderId: string): boolean {
+    const docs = docsInFolder(folderId)
+    return docs.length > 0 && docs.every(d => checkedDocIds.has(d.id))
+  }
+
+  /** True when some (but not all) documents in the folder are individually checked. */
+  function isFolderIndeterminate(folderId: string): boolean {
+    if (checkedFolderIds.has(folderId)) return false
+    const docs = docsInFolder(folderId)
+    return docs.some(d => checkedDocIds.has(d.id)) && !isFolderFullyChecked(folderId)
+  }
+
+  /** True when a document is accessible (either via folder or individual grant). */
+  function isDocChecked(doc: Document): boolean {
+    return checkedFolderIds.has(doc.folder_id) || checkedDocIds.has(doc.id)
+  }
+
+  function toggleFolder(folderId: string, checked: boolean) {
+    const docs = docsInFolder(folderId)
+    setCheckedFolderIds(prev => {
+      const next = new Set(prev)
+      if (checked) next.add(folderId)
+      else next.delete(folderId)
+      return next
+    })
+    // Remove individual doc grants for docs in this folder (folder grant covers them)
+    setCheckedDocIds(prev => {
+      const next = new Set(prev)
+      docs.forEach(d => next.delete(d.id))
+      return next
+    })
+  }
+
+  function toggleDocument(doc: Document, checked: boolean) {
+    // If the folder is currently granted, switch to individual control:
+    // uncheck the folder, then check all OTHER docs individually
+    if (checkedFolderIds.has(doc.folder_id)) {
+      const siblings = docsInFolder(doc.folder_id)
+      setCheckedFolderIds(prev => { const n = new Set(prev); n.delete(doc.folder_id); return n })
+      setCheckedDocIds(prev => {
+        const n = new Set(prev)
+        siblings.forEach(d => { if (d.id !== doc.id) n.add(d.id) })
+        if (checked) n.add(doc.id)
+        return n
+      })
+    } else {
+      setCheckedDocIds(prev => {
+        const n = new Set(prev)
+        if (checked) n.add(doc.id)
+        else n.delete(doc.id)
+        return n
+      })
     }
   }
 
@@ -334,6 +418,59 @@ export default function GemForm() {
             <option value="text">Text</option>
             <option value="structured">Structured (JSON)</option>
           </Select>
+        </div>
+
+        {/* Document access */}
+        <div className="flex flex-col gap-2">
+          <Label>{t('gem.documents.section_title')}</Label>
+          <p className="text-xs text-gray-500">{t('gem.documents.section_hint')}</p>
+          {allFolders.length === 0 ? (
+            <p className="text-xs text-gray-400 italic">{t('gem.documents.no_folders')}</p>
+          ) : (
+            <div className="flex flex-col gap-1 border border-gray-200 rounded-lg p-3">
+              {allFolders.map(folder => {
+                const folderChecked = checkedFolderIds.has(folder.id)
+                const indeterminate = isFolderIndeterminate(folder.id)
+                const docs = docsInFolder(folder.id)
+                return (
+                  <div key={folder.id}>
+                    {/* Folder row */}
+                    <div className="flex items-center gap-2 py-1">
+                      <input
+                        type="checkbox"
+                        checked={folderChecked}
+                        ref={el => { if (el) el.indeterminate = indeterminate }}
+                        onChange={e => toggleFolder(folder.id, e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        id={`folder-${folder.id}`}
+                      />
+                      <label htmlFor={`folder-${folder.id}`} className="text-sm font-medium text-gray-800 cursor-pointer">
+                        {folder.name}
+                      </label>
+                    </div>
+                    {/* Document rows */}
+                    {docs.map(doc => (
+                      <div key={doc.id} className="flex items-start gap-2 pl-6 py-0.5">
+                        <input
+                          type="checkbox"
+                          checked={isDocChecked(doc)}
+                          onChange={e => toggleDocument(doc, e.target.checked)}
+                          className="mt-0.5 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          id={`doc-${doc.id}`}
+                        />
+                        <label htmlFor={`doc-${doc.id}`} className="text-xs text-gray-700 cursor-pointer">
+                          <span className="font-medium">{doc.name}</span>
+                          {doc.description && (
+                            <span className="text-gray-400"> — {doc.description}</span>
+                          )}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* Actions */}

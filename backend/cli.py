@@ -11,6 +11,7 @@ Each command uses the appropriate factory function to create the FastAPI applica
 """
 import os
 import shutil
+from typing import Optional
 
 import typer
 import uvicorn
@@ -43,6 +44,10 @@ def _set_ollama_host() -> None:
 def setup(
     host: str = typer.Option("127.0.0.1", help="Host to bind (default: localhost only)"),
     port: int = typer.Option(7071, help="Port to listen on"),
+    frontend_dist: Optional[str] = typer.Option(
+        None, "--frontend-dist",
+        help="Path to compiled frontend dist directory (overrides auto-detection)",
+    ),
 ) -> None:
     """
     Run Trove in setup mode.
@@ -51,6 +56,8 @@ def setup(
     No login required. Use this to install Ollama, pull models, configure
     the admin account, and install Trove as a system service.
     """
+    if frontend_dist:
+        os.environ["TROVE_FRONTEND_DIST"] = frontend_dist
     _set_ollama_host()
     uvicorn.run("backend.main:create_app_setup", host=host, port=port, factory=True)
 
@@ -59,6 +66,10 @@ def setup(
 def start(
     host: str = typer.Option("0.0.0.0", help="Host to bind (default: all interfaces)"),
     port: int = typer.Option(7770, help="Port to listen on"),
+    frontend_dist: Optional[str] = typer.Option(
+        None, "--frontend-dist",
+        help="Path to compiled frontend dist directory (overrides auto-detection)",
+    ),
 ) -> None:
     """
     Run Trove in app mode.
@@ -72,6 +83,8 @@ def start(
     Set TROVE_USE_GLOBAL_OLLAMA=1 in .env to use the system-wide Ollama
     instance (port 11434) instead and share already-pulled models.
     """
+    if frontend_dist:
+        os.environ["TROVE_FRONTEND_DIST"] = frontend_dist
     _set_ollama_host()
     if shutil.which("ollama"):
         from backend.ollama.service import ensure_ollama_running

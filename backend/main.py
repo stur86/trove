@@ -43,6 +43,28 @@ class AppMode(str, Enum):
     SETUP = "setup"
     APP = "app"
 
+def _find_frontend_dist() -> Path | None:
+    """
+    Locate the compiled React frontend.
+
+    Resolution order:
+    1. TROVE_FRONTEND_DIST env var (set by CLI --frontend-dist flag)
+    2. backend/static/ next to this file (installed wheel)
+    3. frontend/dist/ relative to repo root (dev mode)
+    """
+    import os
+    override = os.environ.get("TROVE_FRONTEND_DIST")
+    if override:
+        return Path(override)
+    static = Path(__file__).parent / "static"
+    if static.is_dir():
+        return static
+    dev = Path(__file__).parent.parent / "frontend" / "dist"
+    if dev.is_dir():
+        return dev
+    return None
+
+
 def _create_app_with_mode(mode: AppMode) -> FastAPI:
     """
     Create and configure the FastAPI application for the given mode.
@@ -98,8 +120,8 @@ def _create_app_with_mode(mode: AppMode) -> FastAPI:
     # Serve the compiled React frontend in production.
     # NOTE: Must come after all include_router() calls — FastAPI matches
     # explicit routes first, but only if registered before the catch-all.
-    _frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
-    if _frontend_dist.exists():
+    _frontend_dist = _find_frontend_dist()
+    if _frontend_dist is not None:
         application.mount(
             "/assets",
             StaticFiles(directory=str(_frontend_dist / "assets")),

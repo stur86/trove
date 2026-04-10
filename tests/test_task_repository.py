@@ -120,3 +120,42 @@ def test_delete_task(data_dir, sample_task):
 
 def test_delete_task_nonexistent_is_noop(data_dir):
     delete_task("does-not-exist")  # should not raise
+
+
+# ── doc fields round-trip (Task 6) ───────────────────────────────────────────
+
+def test_save_and_load_task_with_doc_fields(data_dir):
+    task = UserTask(
+        id="t1",
+        name="T1",
+        template="Hello",
+        doc_folder_ids=("hr", "finance"),
+        doc_ids=("policy-doc",),
+    )
+    save_task(task)
+    loaded = load_task("t1")
+    assert loaded.doc_folder_ids == ("hr", "finance")
+    assert loaded.doc_ids == ("policy-doc",)
+
+
+def test_existing_task_without_doc_fields_loads_with_defaults(data_dir):
+    """Tasks saved before doc columns existed default to empty tuples."""
+    import sqlite3
+    from backend.db import get_db_path
+    from backend.tasks.repository import _ensure_table
+
+    # Simulate old-style task without doc columns by inserting directly
+    with sqlite3.connect(str(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        # Ensure table exists first
+        _ensure_table(conn)
+        conn.execute(
+            "INSERT INTO tasks (id, name, description, hue, template, args, has_image, has_audio, output_mode)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("legacy", "Legacy", "", "indigo", "Hi", "[]", 0, 0, "text"),
+        )
+        conn.commit()
+
+    loaded = load_task("legacy")
+    assert loaded.doc_folder_ids == ()
+    assert loaded.doc_ids == ()

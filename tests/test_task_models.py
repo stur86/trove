@@ -151,3 +151,21 @@ def test_audio_supported_31b():
 
 def test_audio_supported_unknown_model():
     assert audio_supported("llama3:8b") is False
+
+
+# ── doc fields (Task 6) ───────────────────────────────────────────────────────
+
+def test_user_task_defaults_to_empty_doc_fields():
+    task = UserTask(id="t1", name="T1", template="Hello")
+    assert task.doc_folder_ids == ()
+    assert task.doc_ids == ()
+
+
+def test_user_task_accepts_doc_fields():
+    task = UserTask(
+        id="t1", name="T1", template="Hello",
+        doc_folder_ids=("hr", "finance"),
+        doc_ids=("policy-doc",),
+    )
+    assert task.doc_folder_ids == ("hr", "finance")
+    assert task.doc_ids == ("policy-doc",)

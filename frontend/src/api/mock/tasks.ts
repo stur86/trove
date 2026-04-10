@@ -27,6 +27,8 @@ const SAMPLE_TASKS: UserTask[] = [
     has_image: false,
     has_audio: false,
     output_mode: 'text',
+    doc_folder_ids: [],
+    doc_ids: [],
   },
   {
     id: 'translate',
@@ -47,6 +49,8 @@ const SAMPLE_TASKS: UserTask[] = [
     has_image: false,
     has_audio: false,
     output_mode: 'text',
+    doc_folder_ids: [],
+    doc_ids: [],
   },
   {
     id: 'draft-letter',
@@ -67,6 +71,8 @@ const SAMPLE_TASKS: UserTask[] = [
     has_image: false,
     has_audio: false,
     output_mode: 'text',
+    doc_folder_ids: [],
+    doc_ids: [],
   },
   {
     id: 'explain-simply',
@@ -87,6 +93,8 @@ const SAMPLE_TASKS: UserTask[] = [
     has_image: false,
     has_audio: false,
     output_mode: 'text',
+    doc_folder_ids: [],
+    doc_ids: [],
   },
   {
     id: 'meeting-notes',
@@ -100,6 +108,8 @@ const SAMPLE_TASKS: UserTask[] = [
     has_image: false,
     has_audio: false,
     output_mode: 'text',
+    doc_folder_ids: [],
+    doc_ids: [],
   },
 ]
 

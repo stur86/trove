@@ -97,7 +97,7 @@ task test          # pytest -v
 - [x] Production build (FastAPI serves `frontend/dist/` as static files; dev mode unaffected)
 - [x] Task definition system (Jinja templates, structured inputs, tool toggles)
 - [x] Pydantic AI agentic workflows
-- [ ] Document library (upload, Markitdown conversion, folder structure, access tiers, AI summary)
+- [x] Document library (upload, Markitdown conversion, folder structure, AI summary; PATCH rename/move endpoints; three-column admin UI with properties strip)
 - [ ] Auth (username/password, admin-created accounts)
 - [ ] Login and network security
 - [ ] Export/import tasks or knowledge bases

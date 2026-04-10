@@ -57,6 +57,10 @@ export interface UserTask {
   has_image: boolean
   has_audio: boolean
   output_mode: OutputMode
+  /** IDs of folders whose entire contents are accessible to this gem. */
+  doc_folder_ids: string[]
+  /** IDs of individually accessible documents outside of folder grants. */
+  doc_ids: string[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

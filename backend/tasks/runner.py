@@ -9,8 +9,11 @@ Both accept a plain Task (or UserTask subclass), a values dict, and an optional
 MediaInput for image/audio data. Neither function is aware of HTTP or SSE;
 formatting is the caller's concern.
 """
+from __future__ import annotations
+
 import re
 from collections.abc import AsyncIterator
+from typing import TYPE_CHECKING
 
 from pydantic_ai import Agent, BinaryContent
 from pydantic_ai.models.openai import OpenAIChatModel
@@ -20,18 +23,82 @@ from backend.system.service import TROVE_OLLAMA_PORT
 from backend.tasks.models import MediaInput, Task
 from backend.tasks.render import render_prompt
 
+if TYPE_CHECKING:
+    from backend.documents.models import Document
+
 # Ollama's OpenAI-compatible endpoint on Trove's private port.
 # AsyncOpenAI appends /chat/completions to this base URL.
 _OLLAMA_BASE_URL = f"http://127.0.0.1:{TROVE_OLLAMA_PORT}/v1"
 
 
-def _default_agent() -> Agent:
-    """Create a Pydantic AI Agent backed by the local trove_model Ollama model."""
+_DOC_SYSTEM_PROMPT = (
+    "You have access to a document library. "
+    "Call get_table_of_contents() to see what is available, "
+    "then get_document(id) to read a specific document."
+)
+
+
+def _build_document_tools(documents: list[Document]) -> list:
+    """Create the two document-access tool functions for a gem run.
+
+    Returns a list of two plain callables:
+      [0] get_table_of_contents() → str
+      [1] get_document(doc_id: str) → str
+
+    Both close over the permitted document list so they can enforce
+    access control and read from the correct filesystem paths.
+
+    Args:
+        documents: The full list of documents accessible to this run.
+    """
+    from backend.db import get_data_dir
+
+    doc_map = {doc.id: doc for doc in documents}
+    data_dir = get_data_dir()
+
+    def get_table_of_contents() -> str:
+        """Return a list of all accessible documents with their one-line descriptions."""
+        lines = [
+            f"[{doc.id}] {doc.name} — {doc.description}"
+            for doc in documents
+        ]
+        return "\n".join(lines)
+
+    def get_document(doc_id: str) -> str:
+        """Return the full markdown content of a document by its ID."""
+        if doc_id not in doc_map:
+            return (
+                f"Error: document '{doc_id}' is not in the permitted document set. "
+                f"Call get_table_of_contents() to see available documents."
+            )
+        doc = doc_map[doc_id]
+        path = data_dir / "documents" / doc.folder_id / f"{doc.id}.md"
+        try:
+            return path.read_text(encoding="utf-8")
+        except OSError as exc:
+            return f"Error: could not read document '{doc_id}': {exc}"
+
+    return [get_table_of_contents, get_document]
+
+
+def _make_agent(documents: list[Document] | None = None) -> Agent:
+    """Create a Pydantic AI Agent backed by the local trove_model Ollama model.
+
+    When documents are provided, the agent is configured with two tool functions
+    (get_table_of_contents and get_document) and a system prompt instructing the
+    model to use them.
+
+    Args:
+        documents: Documents in scope for this run. None or empty → no tools injected.
+    """
     model = OpenAIChatModel(
         "trove_model",
         provider=OllamaProvider(base_url=_OLLAMA_BASE_URL),
     )
-    return Agent(model)
+    if not documents:
+        return Agent(model)
+    tools = _build_document_tools(documents)
+    return Agent(model, tools=tools, system_prompt=_DOC_SYSTEM_PROMPT)
 
 
 def _build_parts(prompt: str, media: MediaInput | None) -> str | list:
@@ -131,6 +198,7 @@ async def stream_task(
     values: dict[str, str],
     *,
     media: MediaInput | None = None,
+    documents: list[Document] | None = None,
     _agent: Agent | None = None,
 ) -> AsyncIterator[str]:
     """
@@ -140,6 +208,8 @@ async def stream_task(
         task: The task to run (Task or UserTask).
         values: Argument values keyed by arg name.
         media: Optional image and/or audio bytes to include in the message.
+        documents: Documents accessible to this run. When non-empty, two tool
+                   functions are injected into the agent.
         _agent: Optional Agent override for testing without a real Ollama instance.
 
     Yields:
@@ -147,7 +217,7 @@ async def stream_task(
     """
     prompt = render_prompt(task, values)
     parts = _build_parts(prompt, media)
-    agent = _agent or _default_agent()
+    agent = _agent or _make_agent(documents)
     filt = _ThinkFilter()
 
     async with agent.run_stream(parts) as response:
@@ -166,6 +236,7 @@ async def run_task(
     values: dict[str, str],
     *,
     media: MediaInput | None = None,
+    documents: list[Document] | None = None,
     _agent: Agent | None = None,
 ) -> str:
     """
@@ -179,6 +250,8 @@ async def run_task(
         task: The task to run (Task or UserTask).
         values: Argument values keyed by arg name.
         media: Optional image and/or audio bytes to include in the message.
+        documents: Documents accessible to this run. When non-empty, two tool
+                   functions are injected into the agent.
         _agent: Optional Agent override for testing.
 
     Returns:
@@ -186,7 +259,7 @@ async def run_task(
     """
     prompt = render_prompt(task, values)
     parts = _build_parts(prompt, media)
-    agent = _agent or _default_agent()
+    agent = _agent or _make_agent(documents)
     result = await agent.run(parts)
     text: str = result.output
     return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()

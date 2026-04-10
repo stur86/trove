@@ -174,3 +174,75 @@ async def test_run_task_with_audio_media_returns_response():
     media = MediaInput(audio=b"\x1a\x45\xdf\xa3", audio_mime="audio/webm")
     result = await run_task(task, {}, media=media, _agent=agent)
     assert result == "Hello world"
+
+
+# ── Document tool injection (Task 7) ─────────────────────────────────────────
+
+from datetime import datetime, timezone  # noqa: E402
+from backend.documents.models import Document  # noqa: E402
+from backend.tasks.runner import _build_document_tools  # noqa: E402
+
+
+def _make_doc(doc_id: str, folder_id: str = "f1", description: str = "A doc") -> Document:
+    return Document(
+        id=doc_id, folder_id=folder_id, name=f"{doc_id}.txt",
+        description=description, mime_type="text/plain",
+        created_at=datetime.now(timezone.utc),
+    )
+
+
+def test_build_document_tools_returns_two_callables():
+    tools = _build_document_tools([_make_doc("d1")])
+    assert len(tools) == 2
+    assert callable(tools[0])
+    assert callable(tools[1])
+
+
+def test_get_table_of_contents_lists_all_docs():
+    docs = [
+        _make_doc("d1", description="First document."),
+        _make_doc("d2", description="Second document."),
+    ]
+    toc_fn, _ = _build_document_tools(docs)
+    result = toc_fn()
+    assert "[d1]" in result
+    assert "First document." in result
+    assert "[d2]" in result
+    assert "Second document." in result
+
+
+def test_get_document_returns_file_content(data_dir):
+    doc_dir = data_dir / "documents" / "f1"
+    doc_dir.mkdir(parents=True)
+    (doc_dir / "d1.md").write_text("# Hello\nThis is the content.")
+
+    _, get_fn = _build_document_tools([_make_doc("d1")])
+    result = get_fn("d1")
+    assert "This is the content." in result
+
+
+def test_get_document_out_of_scope_returns_error_string(data_dir):
+    _, get_fn = _build_document_tools([_make_doc("d1")])
+    result = get_fn("not-in-scope")
+    assert "not" in result.lower() or "error" in result.lower()
+
+
+@pytest.mark.asyncio
+async def test_stream_task_with_documents_runs_without_error(data_dir):
+    """Documents param accepted — agent runs normally (tool calls not asserted here)."""
+    doc = _make_doc("d1")
+    task = Task(template="Answer the question")
+    agent = Agent(TestModel(custom_output_text="The answer"))
+    chunks = []
+    async for chunk in stream_task(task, {}, documents=[doc], _agent=agent):
+        chunks.append(chunk)
+    assert "The answer" in "".join(chunks)
+
+
+@pytest.mark.asyncio
+async def test_run_task_with_documents_runs_without_error(data_dir):
+    doc = _make_doc("d1")
+    task = Task(template="Answer")
+    agent = Agent(TestModel(custom_output_text="42"))
+    result = await run_task(task, {}, documents=[doc], _agent=agent)
+    assert result == "42"

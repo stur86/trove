@@ -17,6 +17,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from backend.app.auth import require_admin_cookie
+from backend.documents.repository import resolve_documents
 from backend.tasks.models import MediaInput, OutputMode, UserTask
 from backend.tasks.repository import delete_task, list_tasks, load_task, save_task
 from backend.tasks.runner import stream_task
@@ -150,10 +151,16 @@ async def run_gem(gem_id: str, req: RunRequest) -> StreamingResponse:
 
     media = _decode_media(req)
 
+    # Resolve document access for this gem
+    documents = resolve_documents(
+        list(gem.doc_folder_ids),
+        list(gem.doc_ids),
+    ) if (gem.doc_folder_ids or gem.doc_ids) else None
+
     async def sse_generator() -> AsyncIterator[str]:
         """Wrap stream_task tokens as SSE data lines."""
         try:
-            async for chunk in stream_task(gem, req.values, media=media):
+            async for chunk in stream_task(gem, req.values, media=media, documents=documents):
                 yield f"data: {chunk}\n\n"
         except Exception as exc:
             # Emit an error event so the client can surface a meaningful message.

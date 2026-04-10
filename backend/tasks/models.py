@@ -128,6 +128,10 @@ class UserTask(Task, frozen=True):
     """Brief explanation of what this Gem does, shown in the card grid."""
     hue: GemHue = GemHue.INDIGO
     """Display colour for the GemIcon. Admin-chosen from 16 preset hues."""
+    doc_folder_ids: tuple[str, ...] = ()
+    """IDs of folders whose entire contents are accessible to this gem."""
+    doc_ids: tuple[str, ...] = ()
+    """IDs of individually accessible documents (outside of folder grants)."""
 
 
 class MediaInput(BaseModel, frozen=True):
