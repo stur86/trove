@@ -16,7 +16,6 @@ dependencies = [
     "markitdown[all]>=0.1",
     "pydantic-ai>=0.0.54",
     "passlib[bcrypt]>=1.7",
-    "bcrypt>=3.2,<4.0",
 ]
 
 [project.scripts]

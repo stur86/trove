@@ -54,20 +54,24 @@ def require_admin(
 
     Raises HTTP 401 if:
     - admin_password is empty (setup not complete)
-    - username does not match config
-    - password does not match the stored bcrypt hash
+    - username or password do not match config
+
+    Both username and password checks always run to prevent timing attacks
+    that would reveal whether a submitted username is recognised.
     """
     config = load_config()
-    # Reject immediately if setup is incomplete or username is wrong.
-    # Username comparison is timing-safe; bcrypt verify is inherently slow.
-    username_ok = hmac.compare_digest(credentials.username, config.admin_username)
-    if not config.admin_password or not username_ok:
+    if not config.admin_password:
         raise HTTPException(
             status_code=401,
-            detail="Invalid credentials or admin account not configured. Run trove setup first.",
+            detail="Admin account not configured. Run trove setup first.",
             headers={"WWW-Authenticate": "Basic"},
         )
-    if not verify_password(credentials.password, config.admin_password):
+    # hmac.compare_digest is timing-safe for the username string comparison.
+    username_ok = hmac.compare_digest(credentials.username, config.admin_username)
+    # Always call verify_password so response time does not reveal whether
+    # the username was recognised (timing-safe constant-time behaviour).
+    password_ok = verify_password(credentials.password, config.admin_password)
+    if not username_ok or not password_ok:
         raise HTTPException(
             status_code=401,
             detail="Invalid credentials or admin account not configured. Run trove setup first.",
