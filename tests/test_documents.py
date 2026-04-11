@@ -405,7 +405,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 
 @pytest.fixture
-def doc_client(config_dir, data_dir, monkeypatch):
+def doc_client(config_dir, data_dir, monkeypatch, session_token):
     """App-mode TestClient with admin cookie pre-set."""
     monkeypatch.setenv("TROVE_FAKE_OLLAMA", "1")
     monkeypatch.setenv("TROVE_FAKE_SYSTEM", "1")
@@ -414,7 +414,7 @@ def doc_client(config_dir, data_dir, monkeypatch):
     from backend.app.auth import hash_password
     save_config(TroveConfig(admin_username="admin", admin_password=hash_password("pass"), num_ctx=8192))
     from backend.main import create_app_app
-    client = TestClient(create_app_app())
+    client = TestClient(create_app_app(), headers={"X-Trove-Session": session_token})
     client.cookies.set("admin_auth", "true")
     return client
 

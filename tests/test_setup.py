@@ -82,13 +82,13 @@ def test_get_lan_ip_returns_string():
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def setup_client(config_dir, monkeypatch):
+def setup_client(config_dir, monkeypatch, session_token):
     """TestClient with the app running in setup mode, fake services active."""
     monkeypatch.setenv("TROVE_FAKE_SERVICE", "1")
     monkeypatch.setenv("TROVE_FAKE_OLLAMA", "1")
     monkeypatch.setenv("TROVE_FAKE_SYSTEM", "1")
     from backend.main import create_app_setup
-    return TestClient(create_app_setup())
+    return TestClient(create_app_setup(), headers={"X-Trove-Session": session_token})
 
 
 def test_setup_status_returns_expected_fields(setup_client):
@@ -183,7 +183,7 @@ def test_setup_logs_returns_lines(setup_client):
     assert isinstance(data["lines"], list)
 
 
-def test_setup_not_available_in_app_mode(config_dir):
+def test_setup_not_available_in_app_mode(session_token):
     from backend.main import create_app_app
-    client = TestClient(create_app_app())
+    client = TestClient(create_app_app(), headers={"X-Trove-Session": session_token})
     assert client.get("/api/setup/status").status_code == 404

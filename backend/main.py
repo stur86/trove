@@ -21,11 +21,15 @@ from backend.log_buffer import setup_ollama_log_buffer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as StarletteRequest
+from starlette.responses import JSONResponse as StarletteJSONResponse
 
 from backend.config.router import router as config_router
 from backend.i18n.router import router as i18n_router
 from backend.ollama.router import router as ollama_router
 from backend.ollama.service import RealOllamaService
+from backend.session import session_store
 from backend.system.router import router as system_router
 
 load_dotenv()  # Must run before os.getenv calls below
@@ -42,6 +46,37 @@ async def lifespan(app: FastAPI):
 class AppMode(str, Enum):
     SETUP = "setup"
     APP = "app"
+
+# Paths that do not require a session token.
+# /api/session — clients call this to obtain a token, so it cannot require one.
+# /api/health  — health checks must always be reachable.
+# /api/i18n/   — needed for displaying localised error messages before session is ready.
+_SESSION_EXEMPT_PREFIXES: tuple[str, ...] = ("/api/session", "/api/health", "/api/i18n/")
+
+
+class SessionMiddleware(BaseHTTPMiddleware):
+    """
+    Enforce X-Trove-Session header on all /api/ requests.
+
+    Clients obtain a token via GET /api/session and include it in every
+    subsequent request. Protects against cross-origin and direct API calls
+    from clients that never loaded the Trove frontend.
+    """
+
+    async def dispatch(self, request: StarletteRequest, call_next):
+        """Check for a valid session token; pass through exempt paths unchanged."""
+        path = request.url.path
+        if path.startswith("/api/") and not any(
+            path.startswith(prefix) for prefix in _SESSION_EXEMPT_PREFIXES
+        ):
+            token = request.headers.get("X-Trove-Session", "")
+            if not session_store.validate_and_refresh(token):
+                return StarletteJSONResponse(
+                    {"detail": "Missing or invalid session token."},
+                    status_code=401,
+                )
+        return await call_next(request)
+
 
 def _find_frontend_dist() -> Path | None:
     """
@@ -73,6 +108,13 @@ def _create_app_with_mode(mode: AppMode) -> FastAPI:
         mode (AppMode): The operating mode of the application (setup or app).
     """
     application = FastAPI(title="Trove", version="0.1.0", lifespan=lifespan)
+
+    application.add_middleware(SessionMiddleware)
+
+    @application.get("/api/session")
+    def create_session() -> dict:
+        """Issue a new session token for a connecting client. No auth required."""
+        return {"token": session_store.create()}
 
     # Allow the Vite dev server to call the backend during development.
     application.add_middleware(

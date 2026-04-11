@@ -54,3 +54,32 @@ def clear_caches():
 def disable_global_ollama(monkeypatch):
     """Force TROVE_USE_GLOBAL_OLLAMA=0 for all tests regardless of .env."""
     monkeypatch.setenv("TROVE_USE_GLOBAL_OLLAMA", "0")
+
+
+from backend.session import admin_store, session_store  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def clear_token_stores():
+    """
+    Clear session and admin token stores before and after each test.
+
+    Prevents tokens created in one test from leaking into another.
+    """
+    session_store.clear()
+    admin_store.clear()
+    yield
+    session_store.clear()
+    admin_store.clear()
+
+
+@pytest.fixture
+def session_token() -> str:
+    """A valid session token for attaching to API test requests."""
+    return session_store.create()
+
+
+@pytest.fixture
+def admin_token() -> str:
+    """A valid admin cookie token for use in admin-protected API test requests."""
+    return admin_store.create()

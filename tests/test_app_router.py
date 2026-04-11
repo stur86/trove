@@ -5,16 +5,16 @@ from fastapi.testclient import TestClient
 
 
 @pytest.fixture
-def app_client(config_dir, monkeypatch):
+def app_client(config_dir, monkeypatch, session_token):
     """TestClient with the app running in app mode, fake services active."""
     monkeypatch.setenv("TROVE_FAKE_OLLAMA", "1")
     monkeypatch.setenv("TROVE_FAKE_SYSTEM", "1")
     from backend.main import create_app_app
-    return TestClient(create_app_app())
+    return TestClient(create_app_app(), headers={"X-Trove-Session": session_token})
 
 
 @pytest.fixture
-def app_client_with_admin(config_dir, monkeypatch):
+def app_client_with_admin(config_dir, monkeypatch, session_token):
     """App-mode client with admin credentials pre-configured (hashed) in config."""
     monkeypatch.setenv("TROVE_FAKE_OLLAMA", "1")
     monkeypatch.setenv("TROVE_FAKE_SYSTEM", "1")
@@ -25,7 +25,7 @@ def app_client_with_admin(config_dir, monkeypatch):
     config.admin_password = hash_password("testpass")
     save_config(config)
     from backend.main import create_app_app
-    return TestClient(create_app_app())
+    return TestClient(create_app_app(), headers={"X-Trove-Session": session_token})
 
 
 def _basic_auth(username: str, password: str) -> str:
@@ -127,9 +127,9 @@ def test_admin_blocked_when_missing_cookie(app_client):
     assert response.status_code == 401
 
 
-def test_app_router_not_available_in_setup_mode(config_dir):
+def test_app_router_not_available_in_setup_mode(config_dir, session_token):
     from backend.main import create_app_setup
-    client = TestClient(create_app_setup())
+    client = TestClient(create_app_setup(), headers={"X-Trove-Session": session_token})
     assert client.get("/api/app/status").status_code == 404
 
 

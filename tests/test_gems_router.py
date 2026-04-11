@@ -7,7 +7,7 @@ from backend.tasks.repository import save_task
 
 
 @pytest.fixture
-def client(config_dir, data_dir, monkeypatch):
+def client(config_dir, data_dir, monkeypatch, session_token):
     """App-mode TestClient without admin cookie (for testing unauthenticated access)."""
     monkeypatch.setenv("TROVE_FAKE_OLLAMA", "1")
     monkeypatch.setenv("TROVE_FAKE_SYSTEM", "1")
@@ -17,7 +17,7 @@ def client(config_dir, data_dir, monkeypatch):
     cfg = cfg.model_copy(update={"admin_username": "admin", "admin_password": hash_password("testpass")})
     save_config(cfg)
     from backend.main import create_app_app
-    return TestClient(create_app_app())
+    return TestClient(create_app_app(), headers={"X-Trove-Session": session_token})
 
 
 @pytest.fixture
