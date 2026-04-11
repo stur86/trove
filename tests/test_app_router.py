@@ -15,13 +15,14 @@ def app_client(config_dir, monkeypatch):
 
 @pytest.fixture
 def app_client_with_admin(config_dir, monkeypatch):
-    """App-mode client with admin credentials pre-configured in config."""
+    """App-mode client with admin credentials pre-configured (hashed) in config."""
     monkeypatch.setenv("TROVE_FAKE_OLLAMA", "1")
     monkeypatch.setenv("TROVE_FAKE_SYSTEM", "1")
     from backend.config.service import load_config, save_config
+    from backend.app.auth import hash_password
     config = load_config()
     config.admin_username = "admin"
-    config.admin_password = "testpass"
+    config.admin_password = hash_password("testpass")
     save_config(config)
     from backend.main import create_app_app
     return TestClient(create_app_app())

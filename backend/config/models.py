@@ -27,4 +27,4 @@ class TroveConfig(BaseModel):
     """Admin account username used to access the admin panel. Plaintext until full auth system is built."""
 
     admin_password: str = ""
-    """Admin account password. Empty string means setup is not yet complete."""
+    """Bcrypt hash of the admin password. Empty string means setup is not complete."""

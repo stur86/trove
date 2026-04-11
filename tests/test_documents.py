@@ -411,7 +411,8 @@ def doc_client(config_dir, data_dir, monkeypatch):
     monkeypatch.setenv("TROVE_FAKE_SYSTEM", "1")
     from backend.config.service import save_config
     from backend.config.models import TroveConfig
-    save_config(TroveConfig(admin_username="admin", admin_password="pass", num_ctx=8192))
+    from backend.app.auth import hash_password
+    save_config(TroveConfig(admin_username="admin", admin_password=hash_password("pass"), num_ctx=8192))
     from backend.main import create_app_app
     client = TestClient(create_app_app())
     client.cookies.set("admin_auth", "true")

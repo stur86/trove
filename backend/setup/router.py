@@ -13,6 +13,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
+from backend.app.auth import hash_password
 from backend.config.service import load_config, save_config
 from backend.log_buffer import get_ollama_log_lines
 from backend.ollama.service import OllamaService, get_ollama_service
@@ -100,14 +101,14 @@ def set_language(body: LanguageRequest) -> dict:
 @router.post("/admin-credentials")
 def save_admin_credentials(body: AdminCredentialsRequest) -> dict:
     """
-    Save admin username and password to config.
+    Save admin username and bcrypt-hashed password to config.
 
-    Stored as plaintext — this is a stub until the full auth system
-    (JWT, password hashing) is implemented.
+    The password is hashed with bcrypt before being written to disk.
+    Plain-text passwords are never stored.
     """
     config = load_config()
     config.admin_username = body.username
-    config.admin_password = body.password
+    config.admin_password = hash_password(body.password)
     save_config(config)
     return {"saved": True}
 

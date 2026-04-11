@@ -12,8 +12,9 @@ def client(config_dir, data_dir, monkeypatch):
     monkeypatch.setenv("TROVE_FAKE_OLLAMA", "1")
     monkeypatch.setenv("TROVE_FAKE_SYSTEM", "1")
     from backend.config.service import load_config, save_config
+    from backend.app.auth import hash_password
     cfg = load_config()
-    cfg = cfg.model_copy(update={"admin_username": "admin", "admin_password": "testpass"})
+    cfg = cfg.model_copy(update={"admin_username": "admin", "admin_password": hash_password("testpass")})
     save_config(cfg)
     from backend.main import create_app_app
     return TestClient(create_app_app())

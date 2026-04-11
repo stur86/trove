@@ -125,9 +125,12 @@ def test_setup_admin_credentials_saves_to_config(setup_client, config_dir):
     )
     assert response.status_code == 200
     from backend.config.service import load_config
+    from backend.app.auth import verify_password
     config = load_config()
     assert config.admin_username == "teacher"
-    assert config.admin_password == "blackboard"
+    # Password is stored as a bcrypt hash — verify plaintext matches the hash.
+    assert config.admin_password.startswith("$2b$")
+    assert verify_password("blackboard", config.admin_password)
 
 
 def test_setup_status_admin_configured_after_save(setup_client, config_dir):
