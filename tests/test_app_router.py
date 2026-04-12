@@ -182,3 +182,17 @@ def test_app_router_not_available_in_setup_mode(config_dir, session_token):
 def test_build_model_requires_auth(app_client_with_admin):
     response = app_client_with_admin.post("/api/app/admin/build-model")
     assert response.status_code == 401
+
+
+def test_logs_requires_admin_cookie(app_client):
+    """GET /api/app/admin/logs without admin cookie must return 401."""
+    response = app_client.get("/api/app/admin/logs")
+    assert response.status_code == 401
+
+
+def test_logs_returns_lines_with_admin_cookie(app_client_with_admin, admin_token):
+    """GET /api/app/admin/logs with a valid admin cookie must return a lines list."""
+    app_client_with_admin.cookies.set("admin_auth", admin_token)
+    response = app_client_with_admin.get("/api/app/admin/logs")
+    assert response.status_code == 200
+    assert "lines" in response.json()

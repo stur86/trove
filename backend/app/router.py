@@ -137,7 +137,7 @@ def build_model(
     )
 
 
-@router.get("/admin/logs")
+@router.get("/admin/logs", dependencies=[Depends(require_admin_cookie)])
 def get_logs() -> dict:
     """
     Return the last up to 1000 lines from the in-process log buffer.
