@@ -11,13 +11,13 @@
 }}}%%
 graph LR
     subgraph server["🖥️  Server machine  (fixed LAN IP)"]
-        trove(["Trove\nport 7770"])
+        trove(["Trove<br/>port 7770"])
         style trove fill:#4f46e5,color:#fff,stroke:#3730a3
     end
 
     subgraph admin_only["🔒  Localhost only"]
-        setup(["Setup wizard\nport 7071"])
-        admin_ui(["Admin panel\nlocalhost:7770/admin"])
+        setup(["Setup wizard<br/>port 7071"])
+        admin_ui(["Admin panel<br/>localhost:7770/admin"])
         style setup fill:#7c3aed,color:#fff,stroke:#5b21b6
         style admin_ui fill:#7c3aed,color:#fff,stroke:#5b21b6
     end
