@@ -22,6 +22,7 @@ def test_mode_endpoint_returns_setup(session_token):
 
 
 def test_mode_endpoint_returns_app(session_token):
+    """GET /api/mode returns 'app' when the app is created in app mode."""
     from backend.main import create_app_app
     client = TestClient(create_app_app(), headers={"X-Trove-Session": session_token})
     assert client.get("/api/mode").json() == {"mode": "app"}

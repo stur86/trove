@@ -11,6 +11,7 @@ in the same test without conflicts.
 """
 import pytest
 from backend.ollama.service import get_ollama_service
+from backend.session import admin_store, session_store
 from backend.system.service import get_system_service
 
 
@@ -55,8 +56,6 @@ def disable_global_ollama(monkeypatch):
     """Force TROVE_USE_GLOBAL_OLLAMA=0 for all tests regardless of .env."""
     monkeypatch.setenv("TROVE_USE_GLOBAL_OLLAMA", "0")
 
-
-from backend.session import admin_store, session_store  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
