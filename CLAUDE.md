@@ -104,7 +104,7 @@ task test          # pytest -v
 - [ ] Expanded i18n support for longer text and simplified explanations available in-app for many steps
 - [x] Installation script (can be pulled from Github with a simple curl command, includes installing uv if necessary)
 - [ ] Library of helper tools that can be optionally allowed for a given Gem (date+time, calculator, )
-- [ ] New logo
+- [x] New logo
 - [ ] Documentation, tutorials, architectural summary for developers
 - [ ] (Stretch Goal) Add mDNS for a custom local name to the setup process (with Avahi)
 - [ ] (Stretch Goal) Tagging and filtering system for gems
