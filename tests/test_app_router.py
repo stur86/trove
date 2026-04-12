@@ -34,13 +34,16 @@ def _basic_auth(username: str, password: str) -> str:
     return f"Basic {token}"
 
 def test_app_login_sets_cookie(app_client_with_admin):
-    """POST /admin/login with valid credentials should set admin_auth cookie."""
+    """POST /admin/login with valid credentials should set a random admin_auth cookie."""
     response = app_client_with_admin.post(
         "/api/app/admin/login",
         headers={"Authorization": _basic_auth("admin", "testpass")},
     )
     assert response.status_code == 200
-    assert response.cookies.get("admin_auth") == "true"
+    cookie_val = response.cookies.get("admin_auth")
+    assert cookie_val is not None
+    assert cookie_val != "true"  # Must be a random token, not a literal.
+    assert len(cookie_val) > 10
 
 def test_app_login_rejects_invalid_credentials(app_client_with_admin):
     """POST /admin/login with wrong credentials should return 401."""
@@ -53,53 +56,51 @@ def test_app_login_rejects_invalid_credentials(app_client_with_admin):
     
 def test_app_logout_clears_cookie(app_client_with_admin):
     """POST /admin/logout should delete the admin_auth cookie."""
-    # First log in to set the cookie
     login_response = app_client_with_admin.post(
         "/api/app/admin/login",
         headers={"Authorization": _basic_auth("admin", "testpass")},
     )
     assert login_response.status_code == 200
-    assert login_response.cookies.get("admin_auth") == "true"
-    
-    # Now log out to clear the cookie
     logout_response = app_client_with_admin.post("/api/app/admin/logout")
     assert logout_response.status_code == 200
     assert logout_response.cookies.get("admin_auth") is None
     
-def test_app_valid_checks_cookie(app_client_with_admin):
-    app_client_with_admin.cookies.set("admin_auth", "true")
+def test_app_valid_checks_cookie(app_client_with_admin, admin_token):
+    app_client_with_admin.cookies.set("admin_auth", admin_token)
     response = app_client_with_admin.get("/api/app/admin/valid")
     assert response.status_code == 200
-    assert response.json().get("admin_auth") == "true"
-    
+    assert response.json().get("admin_auth") == admin_token
+
 def test_app_valid_rejects_invalid_cookie(app_client_with_admin):
-    app_client_with_admin.cookies.set("admin_auth", "false")
+    app_client_with_admin.cookies.set("admin_auth", "not-a-valid-token")
     response = app_client_with_admin.get("/api/app/admin/valid")
     assert response.status_code == 200
-    assert response.json().get("admin_auth") == "false"
+    assert response.json().get("admin_auth") == "not-a-valid-token"
 
 def test_app_status_reachable(app_client):
     response = app_client.get("/api/app/status")
     assert response.status_code == 200
     assert response.json()["mode"] == "app"
 
-def test_admin_config_accepts_correct_credentials(app_client_with_admin, config_dir):
-    app_client_with_admin.cookies.set("admin_auth", "true")
+def test_admin_config_accepts_correct_credentials(app_client_with_admin, config_dir, admin_token):
+    from backend.app.auth import hash_password
+    app_client_with_admin.cookies.set("admin_auth", admin_token)
     response = app_client_with_admin.put(
         "/api/app/admin/config",
         json={"base_model": "gemma4:e2b", "num_ctx": 4096, "locale": "it",
-              "admin_username": "admin", "admin_password": "testpass"},
+              "admin_username": "admin", "admin_password": hash_password("testpass")},
     )
     assert response.status_code == 200
     assert response.json()["locale"] == "it"
 
 
-def test_admin_config_persists_changes(app_client_with_admin, config_dir):
-    app_client_with_admin.cookies.set("admin_auth", "true")
+def test_admin_config_persists_changes(app_client_with_admin, config_dir, admin_token):
+    from backend.app.auth import hash_password
+    app_client_with_admin.cookies.set("admin_auth", admin_token)
     app_client_with_admin.put(
         "/api/app/admin/config",
         json={"base_model": "gemma4:26b", "num_ctx": 16384, "locale": "en",
-              "admin_username": "admin", "admin_password": "testpass"}
+              "admin_username": "admin", "admin_password": hash_password("testpass")},
     )
     from backend.config.service import load_config
     config = load_config()
@@ -108,12 +109,12 @@ def test_admin_config_persists_changes(app_client_with_admin, config_dir):
 
 
 def test_admin_blocked_when_false_cookie(app_client):
-    """If the admin_auth cookie is false, all admin routes return 401."""
-    app_client.cookies.set("admin_auth", "false")
+    """An unrecognised cookie value must result in 401."""
+    app_client.cookies.set("admin_auth", "not-a-valid-token")
     response = app_client.put(
         "/api/app/admin/config",
         json={"base_model": "gemma4:e2b", "num_ctx": 4096, "locale": "en",
-              "admin_username": "admin", "admin_password": ""}
+              "admin_username": "admin", "admin_password": ""},
     )
     assert response.status_code == 401
 

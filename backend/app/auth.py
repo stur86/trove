@@ -81,12 +81,13 @@ def require_admin(
 
 def require_admin_cookie(admin_auth: str = Cookie(None)) -> None:
     """
-    Verify admin credentials from HTTP cookie.
+    Verify the admin session cookie against the in-memory admin token store.
 
-    Raises HTTP 401 if the admin_auth cookie is absent or not equal to 'true'.
-    Note: this check is replaced with a token-store lookup in Task 4.
+    Raises HTTP 401 if the cookie is absent or its value is not a live admin token.
+    The cookie value is a cryptographically random string set by the login endpoint.
     """
-    if admin_auth != "true":
+    from backend.session import admin_store  # local import avoids circular dependency at module level
+    if not admin_auth or not admin_store.validate_and_refresh(admin_auth):
         raise HTTPException(
             status_code=401,
             detail="Admin authentication cookie missing or invalid. Please log in as admin.",

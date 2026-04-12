@@ -12,7 +12,7 @@ with other domain routers that need admin-gated endpoints.
 import socket
 from typing import Annotated
 
-from fastapi import APIRouter, Cookie, Depends, Response
+from fastapi import APIRouter, Cookie, Depends, Request, Response
 from fastapi.responses import StreamingResponse
 
 from backend.app.auth import require_admin, require_admin_cookie
@@ -57,22 +57,43 @@ def network_url() -> dict:
     return {"url": None}
 
 @router.post("/admin/login", dependencies=[Depends(require_admin)])
-def admin_login(response: Response):
+def admin_login(response: Response) -> dict:
+    """
+    Exchange HTTP Basic credentials for a signed admin session cookie.
+
+    Generates a cryptographically random token, stores it in the admin token
+    store, and sets it as an httpOnly cookie. Localhost-origin enforcement is
+    added in Task 5.
+    """
+    from backend.session import admin_store
+    token = admin_store.create()
     response.set_cookie(
         key="admin_auth",
-        value="true",
+        value=token,
         httponly=True,
         secure=True,
-        samesite="lax"
+        samesite="lax",
     )
     return {"message": "Admin login successful. Cookie set."}
 
+
 @router.get("/admin/valid")
 def check_admin_cookie(admin_auth: str = Cookie(None)):
+    """Return the current admin_auth cookie value (for client-side validation checks)."""
     return {"admin_auth": admin_auth}
 
+
 @router.post("/admin/logout")
-def admin_logout(response: Response):
+def admin_logout(request: Request, response: Response) -> dict:
+    """
+    Revoke the admin session cookie.
+
+    Removes the token from the admin store so it cannot be replayed after logout.
+    """
+    from backend.session import admin_store
+    token = request.cookies.get("admin_auth")
+    if token:
+        admin_store.revoke(token)
     response.delete_cookie(key="admin_auth")
     return {"message": "Admin logout successful. Cookie deleted."}
 

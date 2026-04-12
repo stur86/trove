@@ -50,12 +50,21 @@ def test_require_admin_invalid_credentials():
 
 
 def test_require_admin_cookie_valid():
-    """require_admin_cookie() passes when the cookie value is 'true' (pre-Task 4 stub)."""
-    require_admin_cookie(admin_auth="true")
+    """require_admin_cookie() must pass when the cookie holds a live admin token."""
+    from backend.session import admin_store
+    token = admin_store.create()
+    require_admin_cookie(admin_auth=token)
 
 
 def test_require_admin_cookie_invalid():
-    """require_admin_cookie() raises HTTPException with wrong cookie."""
+    """require_admin_cookie() must raise 401 for an unrecognised cookie value."""
     with pytest.raises(HTTPException) as exc_info:
-        require_admin_cookie(admin_auth="false")
+        require_admin_cookie(admin_auth="not-a-valid-token")
+    assert exc_info.value.status_code == 401
+
+
+def test_require_admin_cookie_missing():
+    """require_admin_cookie() must raise 401 when the cookie is absent."""
+    with pytest.raises(HTTPException) as exc_info:
+        require_admin_cookie(admin_auth=None)
     assert exc_info.value.status_code == 401

@@ -21,9 +21,9 @@ def client(config_dir, data_dir, monkeypatch, session_token):
 
 
 @pytest.fixture
-def authed_client(client):
-    """TestClient with the admin_auth cookie pre-set (for testing authenticated access)."""
-    client.cookies.set("admin_auth", "true")
+def authed_client(client, admin_token):
+    """TestClient with a valid admin_auth cookie pre-set."""
+    client.cookies.set("admin_auth", admin_token)
     return client
 
 
