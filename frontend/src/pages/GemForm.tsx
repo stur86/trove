@@ -122,7 +122,7 @@ export default function GemForm() {
 
   useEffect(() => {
     appApi.checkAdminValid()
-      .then(res => { if (res.admin_auth === 'true') setAuthReady(true) })
+      .then(res => { if (res.valid) setAuthReady(true) })
       .catch(() => {})
   }, [])
 

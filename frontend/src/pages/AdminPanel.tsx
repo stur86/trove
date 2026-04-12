@@ -92,7 +92,7 @@ export default function AdminPanel() {
   // On first render, check whether the admin cookie is already present.
   useEffect(() => {
     appApi.checkAdminValid()
-      .then(res => { if (res.admin_auth === 'true') setAuthed(true) })
+      .then(res => { if (res.valid) setAuthed(true) })
       .catch(() => {})
   }, [])
 

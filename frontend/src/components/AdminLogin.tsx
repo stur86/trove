@@ -1,12 +1,24 @@
+/**
+ * AdminLogin — standalone login card used by AdminPanel and GemForm.
+ *
+ * Renders a username/password form inside a Flowbite Card. The caller
+ * supplies an async onSubmit handler; this component handles the
+ * submitting state and re-enables the button once the promise settles.
+ */
 import { useState } from 'react'
 import { Card, Label, TextInput, Button, Alert } from 'flowbite-react'
 
+/** Props for AdminLogin. */
 type Props = {
+  /** Called when the user submits the form. Should throw on auth failure. */
   onSubmit: (username: string, password: string) => Promise<void>
+  /** When true, shows an "Invalid credentials" alert below the form. */
   loginError?: boolean
+  /** Card heading. Defaults to 'Admin login'. */
   title?: string
 }
 
+/** Reusable admin login card with username, password, and submit button. */
 export default function AdminLogin({ onSubmit, loginError, title }: Props) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')

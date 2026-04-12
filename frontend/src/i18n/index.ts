@@ -41,27 +41,17 @@ type UseTranslationResult = {
   ready: boolean;
 };
 
-/**
- * React hook for UI string translation.
- *
- * Fetches the locale file on mount and whenever locale changes.
- * Returns a `t(key)` function that looks up a translation key,
- * falling back to the key itself if not yet loaded or missing.
- *
- * @param locale - BCP-47 locale code, e.g. 'en'. Defaults to 'en'.
- *
- * @example
- * const { t } = useTranslation('en')
- * return <button>{t('setup.install_button')}</button>
- */
-/**
- * Fetch and cache the active locale code from the server config.
- * Returns 'en' immediately while the request is in flight.
- * Subsequent calls within the same session resolve from the cache.
- */
+// Module-level singletons for deduplicating the config fetch across hook instances.
 let _localeCache: string | null = null
 let _localeFetch: Promise<string> | null = null
 
+/**
+ * React hook that returns the active locale code from the server config.
+ *
+ * Returns 'en' immediately while the first request is in flight, then
+ * updates once the config arrives. Deduplicates the fetch across all
+ * hook instances within the same session using module-level singletons.
+ */
 export function useLocale(): string {
   const [locale, setLocale] = useState<string>(_localeCache ?? 'en')
   useEffect(() => {
@@ -80,6 +70,19 @@ export function useLocale(): string {
   return locale
 }
 
+/**
+ * React hook for UI string translation.
+ *
+ * Fetches the locale file on mount and whenever locale changes.
+ * Returns a `t(key)` function that looks up a translation key,
+ * falling back to the key itself if not yet loaded or missing.
+ *
+ * @param locale - BCP-47 locale code, e.g. 'en'. Defaults to 'en'.
+ *
+ * @example
+ * const { t } = useTranslation('en')
+ * return <button>{t('setup.install_button')}</button>
+ */
 export function useTranslation(locale: string = 'en'): UseTranslationResult {
   const [strings, setStrings] = useState<Strings>(cache[locale] ?? {})
 

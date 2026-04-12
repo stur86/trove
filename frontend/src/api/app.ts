@@ -16,9 +16,10 @@ const _realAppApi = {
     post('/app/admin/login', undefined, { Authorization: basicAuth(username, password) }).then(() => {}),
 
   /**
-   * Check whether the admin cookie is present/valid.
+   * Check whether the admin cookie holds a live token.
+   * Returns { valid: true } if the cookie is present and not expired.
    */
-  checkAdminValid: (): Promise<{ admin_auth: string | null }> =>
+  checkAdminValid: (): Promise<{ valid: boolean }> =>
     get('/app/admin/valid'),
 
   /**

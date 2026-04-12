@@ -278,7 +278,7 @@ export default function SetupWizard() {
     setupApi.status().then(setStatus)
   }
 
-if (!ready || !status || !system) {
+  if (!ready || !status || !system) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Spinner size="xl" />
@@ -294,8 +294,6 @@ if (!ready || !status || !system) {
     t('setup.admin.title'),
     t('setup.service.title'),
   ]
-
-  /** Reusable streaming log display (moved to top-level) */
 
   return (
     <div className="min-h-screen bg-gray-50">

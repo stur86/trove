@@ -1,8 +1,8 @@
 /**
  * Mock implementation of appApi.
  *
- * In mock mode the admin is always considered logged in (checkAdminValid
- * returns 'true') and all write operations succeed silently.
+ * In mock mode the admin is always considered authenticated (checkAdminValid
+ * returns { valid: true }) and all write operations succeed silently.
  */
 import type { TroveConfig } from '../config'
 import { mockSSELines } from './_stream'
@@ -13,9 +13,9 @@ export const appApi = {
     await new Promise(r => setTimeout(r, 150))
   },
 
-  checkAdminValid: async (): Promise<{ admin_auth: string | null }> => {
+  checkAdminValid: async (): Promise<{ valid: boolean }> => {
     await new Promise(r => setTimeout(r, 50))
-    return { admin_auth: 'true' }
+    return { valid: true }
   },
 
   logout: async (): Promise<void> => {
