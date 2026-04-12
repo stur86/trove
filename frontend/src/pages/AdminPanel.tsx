@@ -35,6 +35,10 @@ const MODEL_LABELS: Record<string, string> = {
 }
 
 export default function AdminPanel() {
+  // Admin login is only possible from the machine running the server.
+  // On any other device the login form is hidden and replaced with a notice.
+  const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+
   const [authed, setAuthed] = useState(false)
   const [loginError, setLoginError] = useState(false)
   const location = useLocation()
@@ -136,10 +140,22 @@ export default function AdminPanel() {
 
   // ── Login screen ──────────────────────────────────────────────────────────
   if (!authed) {
+    if (!isLocalhost) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+          <div className="text-center max-w-sm">
+            <p className="text-gray-700 text-lg font-semibold mb-2">Admin access unavailable</p>
+            <p className="text-gray-500 text-sm">
+              Admin login is only available from the server machine.
+              Open <code className="bg-gray-100 px-1 rounded">http://localhost:7770</code> in a browser on that machine.
+            </p>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-          <AdminLogin onSubmit={handleLogin} loginError={loginError} title={t('admin.login.title')} />
-        
+        <AdminLogin onSubmit={handleLogin} loginError={loginError} title={t('admin.login.title')} />
       </div>
     )
   }
