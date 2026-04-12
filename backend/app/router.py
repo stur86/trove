@@ -2,26 +2,39 @@
 FastAPI router for the app domain.
 
 Mounted only in app mode. Provides:
-  - GET /api/app/status — public health check
-  - PUT /api/app/admin/config — save config (requires admin auth)
-  - POST /api/app/admin/build-model — build trove_model SSE (requires admin auth)
+  - GET  /api/app/status         — public health check
+  - GET  /api/app/network-url    — LAN URL for sharing with users
+  - GET  /api/app/capabilities   — runtime capability flags (e.g. audio support)
+  - POST /api/app/admin/login    — exchange HTTP Basic credentials for a cookie
+  - GET  /api/app/admin/valid    — check whether the admin cookie is live
+  - POST /api/app/admin/logout   — revoke the admin cookie
+  - PUT  /api/app/admin/config   — save config (requires admin cookie)
+  - POST /api/app/admin/build-model — rebuild trove_model SSE (requires admin cookie)
+  - GET  /api/app/admin/logs     — log buffer snapshot (requires admin cookie)
 
-The require_admin dependency is defined in backend.app.auth and shared
-with other domain routers that need admin-gated endpoints.
+Sub-routers for gems and documents are included at the bottom of this module.
+The require_admin* dependencies are defined in backend.app.auth.
 """
-import socket
 from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 
 from backend.app.auth import ADMIN_LOGIN_ALLOWED_HOSTS, require_admin, require_admin_cookie
-from backend.session import admin_store
 from backend.config.models import TroveConfig
 from backend.config.service import load_config, save_config
 from backend.log_buffer import get_ollama_log_lines
+from backend.network import get_lan_ip
 from backend.ollama.service import OllamaService, get_ollama_service
+from backend.session import admin_store
 from backend.tasks.models import audio_supported
+
+# Sub-routers — included at the bottom of this module after `router` is defined.
+# They are imported here at the top so the dependency graph is visible at a glance.
+# The include_router() calls must come after the APIRouter is instantiated, which
+# is why they live at the bottom; the imports themselves have no such constraint.
+from backend.tasks.router import router as gems_router          # noqa: E402
+from backend.documents.router import router as documents_router  # noqa: E402
 
 router = APIRouter(prefix="/api/app", tags=["app"])
 
@@ -32,27 +45,15 @@ def app_status() -> dict:
     return {"mode": "app", "status": "ok"}
 
 
-def _lan_ip() -> str | None:
-    """Return the machine's outbound LAN IP, or None if detection fails."""
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            # Connecting to a public address reveals which local interface is used
-            # for outbound traffic — no actual packet is sent.
-            s.connect(("8.8.8.8", 80))
-            return s.getsockname()[0]
-    except OSError:
-        return None
-
-
 @router.get("/network-url")
 def network_url() -> dict:
     """
     Return the URL other LAN devices can use to reach this Trove instance.
 
-    Detects the machine's outbound LAN IP via a UDP connect trick.
+    Detects the machine's outbound LAN IP via a UDP connect trick (see backend.network).
     The port matches the default `trove start` port (7770).
     """
-    ip = _lan_ip()
+    ip = get_lan_ip()
     if ip:
         return {"url": f"http://{ip}:7770"}
     return {"url": None}
@@ -161,8 +162,5 @@ def capabilities() -> dict:
     return {"audio": audio_supported(config.base_model)}
 
 
-from backend.tasks.router import router as gems_router  # noqa: E402
 router.include_router(gems_router)
-
-from backend.documents.router import router as documents_router  # noqa: E402
 router.include_router(documents_router)

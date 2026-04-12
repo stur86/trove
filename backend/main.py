@@ -142,8 +142,11 @@ def _create_app_with_mode(mode: AppMode) -> FastAPI:
         return {"status": "ok"}
 
     # Mode-specific routers.
-    # NOTE: These imports are deferred so that tests can call create_app(mode)
-    # before those modules are fully implemented (they fail gracefully as 404s).
+    # Imports are deferred inside try/except blocks intentionally: during early
+    # development a domain module may not exist yet, and we'd rather return 404
+    # for its routes than crash the whole application at startup. In a complete
+    # installation both imports will always succeed; the except branch is never
+    # reached in production.
     if mode == AppMode.SETUP:
         try:
             from backend.setup.router import router as setup_router

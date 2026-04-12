@@ -68,13 +68,16 @@ def test_get_service_installer_returns_real_when_no_flag(monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_get_lan_ip_returns_string():
-    """_get_lan_ip() (via router import) should return a non-empty IP string."""
-    from backend.setup.router import _get_lan_ip
-    ip = _get_lan_ip()
-    assert isinstance(ip, str)
-    assert len(ip) > 0
-    parts = ip.split(".")
-    assert len(parts) == 4
+    """get_lan_ip() should return a non-empty dotted-quad IP string or None."""
+    from backend.network import get_lan_ip
+    ip = get_lan_ip()
+    # On a machine with network access this returns a real IP; on CI it may
+    # return None (no route), so we only assert the shape when non-None.
+    if ip is not None:
+        assert isinstance(ip, str)
+        assert len(ip) > 0
+        parts = ip.split(".")
+        assert len(parts) == 4
 
 
 # ---------------------------------------------------------------------------

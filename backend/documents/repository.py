@@ -30,10 +30,12 @@ def _ensure_tables(conn) -> None:
 
 
 def _row_to_folder(row) -> Folder:
+    """Deserialise a sqlite3.Row into a Folder model."""
     return Folder(id=row["id"], name=row["name"])
 
 
 def _row_to_document(row) -> Document:
+    """Deserialise a sqlite3.Row into a Document model, parsing the ISO timestamp."""
     return Document(
         id=row["id"],
         folder_id=row["folder_id"],

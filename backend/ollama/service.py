@@ -29,6 +29,13 @@ _ollama_logger = logging.getLogger(OLLAMA_LOGGER_NAME)
 
 
 class OllamaProcess:
+    """
+    Thin wrapper around a running ``ollama`` subprocess.
+
+    Spawns the process with OLLAMA_HOST set to the given port, merges
+    stdout and stderr into a single stream, and exposes helpers to pipe
+    that output to a logger, check liveness, and wait for completion.
+    """
 
     def __init__(self, command: list[str], port: int = TROVE_OLLAMA_PORT):
         proc_env = os.environ.copy()
@@ -188,10 +195,13 @@ class RealOllamaService:
 
     All subprocess calls use subprocess.Popen for streaming output.
 
-    ``_serve_process`` is a class-level singleton holding the handle for any
-    ``ollama serve`` process we spawned ourselves (non-systemd fallback). It
-    persists across request instances so we can avoid double-spawning and can
-    terminate it cleanly on application shutdown.
+    ``_serve_process`` is intentionally a *class-level* attribute, not an
+    instance attribute. Because FastAPI creates a new service instance on every
+    request (via ``get_ollama_service``), an instance attribute would be lost
+    between requests and we would lose the handle to the process we spawned.
+    Class-level storage keeps the handle alive for the lifetime of the process,
+    regardless of how many service instances are created. The lifespan hook in
+    ``backend.main`` reads this attribute to terminate the process on shutdown.
     """
 
     _serve_process: ClassVar[OllamaProcess | None] = None
@@ -200,33 +210,31 @@ class RealOllamaService:
         """
         Return the current Ollama installation status.
 
+        Runs ``ollama list`` once and checks the output for both the configured
+        base model and the derived ``trove_model``, avoiding two subprocess calls.
+
         Keys:
           installed (bool): whether the ollama binary is on the PATH.
-          running (bool): whether the ollama systemd service is active.
+          running (bool): whether the Ollama server is accepting requests.
           model_pulled (bool): whether the configured base model has been pulled.
           model_built (bool): whether trove_model has been created.
         """
         installed = shutil.which("ollama") is not None
         running = is_ollama_service_running() if installed else False
         config = load_config()
-        model_pulled = self._is_model_pulled(config.base_model) if installed else False
-        model_built = self._is_trove_model_built() if installed else False
+        model_pulled = False
+        model_built = False
+        if installed:
+            # A single `ollama list` call is enough to check both models.
+            list_output = sp.run(["ollama", "list"], capture_output=True, text=True).stdout
+            model_pulled = config.base_model in list_output
+            model_built = "trove_model" in list_output
         return {
             "installed": installed,
             "running": running,
             "model_pulled": model_pulled,
             "model_built": model_built,
         }
-
-    def _is_model_pulled(self, model_tag: str) -> bool:
-        """Return True if model_tag appears in `ollama list` output."""
-        result = sp.run(["ollama", "list"], capture_output=True, text=True)
-        return model_tag in result.stdout
-
-    def _is_trove_model_built(self) -> bool:
-        """Return True if trove_model appears in `ollama list` output."""
-        result = sp.run(["ollama", "list"], capture_output=True, text=True)
-        return "trove_model" in result.stdout
 
     def stream_install(self) -> Iterator[str]:
         """

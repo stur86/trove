@@ -86,6 +86,12 @@ class ExpirableTokenDict:
 
 
 # Module-level singletons — one per concern.
+#
+# These are not wrapped in FastAPI dependency factories because they are
+# not environment-switchable (there is no "fake" session store for testing)
+# and are used outside of route handlers — the SessionMiddleware in main.py
+# accesses session_store directly, which means it cannot go through FastAPI DI.
+# Direct import is the simplest correct approach here.
 session_store = ExpirableTokenDict(
     ttl=timedelta(hours=2),
     sweep_interval=timedelta(minutes=5),
