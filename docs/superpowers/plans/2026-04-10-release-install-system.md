@@ -215,7 +215,7 @@ git commit -m "feat: add --frontend-dist flag and auto-detect backend/static/ fo
 set -euo pipefail
 
 VERSION="__TROVE_VERSION__"
-REPO="https://github.com/simonefacchini/trove"  # update to actual repo URL
+REPO="https://github.com/stur86/trove"  # update to actual repo URL
 WHEEL_URL="${REPO}/releases/download/v${VERSION}/trove-${VERSION}-py3-none-any.whl"
 
 # ── Parse arguments ──────────────────────────────────────────────────────────

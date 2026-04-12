@@ -4,7 +4,7 @@
 set -euo pipefail
 
 VERSION="__TROVE_VERSION__"
-REPO="https://github.com/simonefacchini/trove"
+REPO="https://github.com/stur86/trove"
 WHEEL_URL="${REPO}/releases/download/v${VERSION}/trove-${VERSION}-py3-none-any.whl"
 
 # ── Parse arguments ──────────────────────────────────────────────────────────

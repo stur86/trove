@@ -3971,7 +3971,6 @@ name = "trove"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "bcrypt" },
     { name = "fastapi" },
     { name = "jinja2" },
     { name = "markitdown", extra = ["all"] },
@@ -3995,7 +3994,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "bcrypt", specifier = ">=3.2,<4.0" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "markitdown", extras = ["all"], specifier = ">=0.1" },
