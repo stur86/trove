@@ -47,6 +47,9 @@ start        = "trove start"
 # Production: build frontend first
 build        = "cd frontend && bun run build"
 install-deps = "uv sync --group dev && cd frontend && bun install"
+install-docs = "uv sync --group docs"
+docs-build   = "uv run mkdocs build --strict"
+docs-serve   = "uv run mkdocs serve"
 test         = "pytest -v"
 
 [tool.pytest.ini_options]

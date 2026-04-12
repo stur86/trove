@@ -12,6 +12,9 @@ wheels/
 # Temporary docs
 tmp_docs/
 
+# MkDocs build output
+site/
+
 # Git worktrees
 .worktrees/
 
