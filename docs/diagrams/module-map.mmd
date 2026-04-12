@@ -1,115 +1,81 @@
-%%{init: {"theme": "neutral"}}%%
+%%{init: {"theme": "base", "themeVariables": {
+  "primaryColor": "#4f46e5",
+  "primaryTextColor": "#ffffff",
+  "primaryBorderColor": "#3730a3",
+  "lineColor": "#6b7280",
+  "clusterBkg": "#f8fafc",
+  "clusterBorder": "#cbd5e1"
+}}}%%
 graph TB
-    %% ── External components (outside application boundary) ────────────────
-    ollama_proc[["Ollama server\n(external process)"]]
-    fs_config[["~/.config/trove/\nconfig.json · Modelfile\n(filesystem)"]]
-    fs_data[["~/.local/share/trove/\ntrove.db · documents/\n(filesystem)"]]
-    browser[["Browser client\n(React SPA)"]]
+    %% ── Outside the application ───────────────────────────────────────────
+    browser(["🌐 Browser\n(React SPA)"])
+    ollama(["🤖 Ollama server\nexternal process"])
+    storage(["💾 Filesystem\nconfig · database · documents"])
+    style browser fill:#0ea5e9,color:#fff,stroke:#0284c7
+    style ollama fill:#f59e0b,color:#fff,stroke:#d97706
+    style storage fill:#64748b,color:#fff,stroke:#475569
 
     %% ── Application boundary ──────────────────────────────────────────────
-    subgraph app["Trove application boundary"]
-        direction TB
+    subgraph app["Trove application"]
 
-        subgraph backend["Backend (FastAPI / Python)"]
+        subgraph frontend["Frontend  (React · TypeScript · Vite)"]
             direction LR
-            main["main.py\nSessionMiddleware\nSPA serving"]
-            session["session.py\nExpirableTokenDict\n(session + admin stores)"]
-
-            subgraph shared_routers["Shared routers (both modes)"]
-                config_r["config/\nGET+PUT /api/config"]
-                i18n_r["i18n/\nGET /api/i18n/{locale}"]
-                system_r["system/\nGET /api/system/check"]
-                ollama_r["ollama/\ninstall · pull · build\nstatus (SSE)"]
-            end
-
-            subgraph setup_domain["Setup domain (setup mode only)"]
-                setup_r["setup/router.py\nwizard endpoints\n/api/setup/*"]
-                setup_svc["setup/service.py\nServiceInstaller\n(Real / Fake)"]
-                setup_r --> setup_svc
-            end
-
-            subgraph app_domain["App domain (app mode only)"]
-                app_r["app/router.py\n/api/app/*\nadmin + capabilities + network-url"]
-                app_auth["app/auth.py\nbcrypt verify\nadmin cookie"]
-                app_r --> app_auth
-
-                subgraph tasks_domain["Tasks domain"]
-                    tasks_r["tasks/router.py\nCRUD /api/app/gems/*"]
-                    tasks_repo["tasks/repository.py\nSQLite CRUD"]
-                    task_runner["tasks/runner.py\nPydantic AI agent\nJinja template render"]
-                    tasks_r --> tasks_repo
-                    tasks_r --> task_runner
-                end
-
-                subgraph docs_domain["Documents domain"]
-                    docs_r["documents/router.py\nupload · list · rename"]
-                    docs_repo["documents/repository.py\nSQLite CRUD"]
-                    docs_r --> docs_repo
-                end
-
-                app_r --> tasks_r
-                app_r --> docs_r
-            end
-
-            network["network.py\nget_lan_ip()"]
-            db["db.py\nSQLite connection\nschema init"]
-            log_buf["log_buffer.py\nring buffer\n(last 1000 log lines)"]
-
-            main --> session
-            main --> shared_routers
-            main --> setup_domain
-            main --> app_domain
-            tasks_repo --> db
-            docs_repo --> db
+            pages["Pages\nSetup wizard · Gem runner\nAdmin panel · Documents"]
+            api_layer["API clients\nTyped fetch wrappers\nMock mode support"]
+            i18n["i18n hooks\nuseLocale · useTranslation"]
+            style pages fill:#4f46e5,color:#fff,stroke:#3730a3
+            style api_layer fill:#818cf8,color:#fff,stroke:#6366f1
+            style i18n fill:#818cf8,color:#fff,stroke:#6366f1
         end
 
-        subgraph frontend["Frontend (React / TypeScript / Vite)"]
+        subgraph backend["Backend  (FastAPI · Python)"]
             direction LR
-            router_fe["App.tsx\nReact Router"]
 
-            subgraph pages["Pages"]
-                setup_wiz["SetupWizard.tsx\nstep 0-5 wizard"]
-                manage["ManageDashboard.tsx\npost-setup management"]
-                admin["AdminPanel.tsx\ntabs: settings · docs · gems · logs"]
-                gem_runner["GemRunner.tsx\nrun a gem (user-facing)"]
-                gem_form["GemForm.tsx\ncreate / edit gem"]
-                docs_panel["DocumentsPanel.tsx\nupload / browse documents"]
+            subgraph shared["Always active"]
+                session["Session tokens\nX-Trove-Session"]
+                config_svc["Config service\nXDG persistence"]
+                system_svc["System check\nRAM · disk · GPU"]
+                style session fill:#10b981,color:#fff,stroke:#059669
+                style config_svc fill:#10b981,color:#fff,stroke:#059669
+                style system_svc fill:#10b981,color:#fff,stroke:#059669
             end
 
-            subgraph api_clients["API clients (src/api/)"]
-                api_config["config.ts"]
-                api_app["app.ts"]
-                api_ollama["ollama.ts\nstreamLines()"]
-                api_setup["setup.ts"]
-                api_system["system.ts"]
-                api_tasks["tasks.ts"]
-                api_docs["documents.ts"]
+            subgraph setup_mode["Setup mode only  (localhost:7071)"]
+                setup_wizard["Setup wizard\n6-step first-run flow"]
+                service_mgr["Service manager\ninstall · restart · uninstall"]
+                style setup_wizard fill:#7c3aed,color:#fff,stroke:#5b21b6
+                style service_mgr fill:#7c3aed,color:#fff,stroke:#5b21b6
             end
 
-            i18n_hook["i18n/index.ts\nuseLocale()\nuseTranslation()"]
-
-            router_fe --> pages
-            pages --> api_clients
-            pages --> i18n_hook
+            subgraph app_mode["App mode  (LAN:7770)"]
+                gem_runner["Gem runner\nPydantic AI agent\nJinja template · SSE stream"]
+                doc_library["Document library\nupload · Markitdown · AI summary"]
+                admin_auth["Admin auth\nbcrypt · httponly cookie"]
+                style gem_runner fill:#4f46e5,color:#fff,stroke:#3730a3
+                style doc_library fill:#4f46e5,color:#fff,stroke:#3730a3
+                style admin_auth fill:#4f46e5,color:#fff,stroke:#3730a3
+            end
         end
     end
 
-    %% ── Cross-boundary connections ────────────────────────────────────────
-    browser -- "HTTP+SSE / X-Trove-Session" --> main
-    browser -- "serves SPA assets" --> frontend
-    ollama_r -- "HTTP API + subprocess" --> ollama_proc
-    task_runner -- "Pydantic AI / HTTP" --> ollama_proc
-    config_r -- "XDG read/write" --> fs_config
-    ollama_r -- "writes Modelfile" --> fs_config
-    docs_repo -- "stores files" --> fs_data
-    db -- "SQLite file" --> fs_data
+    %% ── Connections ───────────────────────────────────────────────────────
+    browser -- "HTTP · SSE\nX-Trove-Session" --> backend
+    frontend -- "fetch calls" --> api_layer
+    pages --> api_layer
+    pages --> i18n
 
-    %% ── Gem run flow (A → B labelled edges) ──────────────────────────────
-    gem_runner -- "1 · POST /api/app/gems/{id}/run\n(text + optional image)" --> tasks_r
-    task_runner -- "2 · renders Jinja template\nfetches doc metadata (tool call)" --> docs_repo
-    task_runner -- "3 · streams completion tokens\n(SSE back to GemRunner)" --> gem_runner
+    gem_runner -- "model inference\n(streaming)" --> ollama
+    doc_library -- "AI document summary" --> ollama
+    config_svc -- "read / write" --> storage
+    doc_library -- "store files" --> storage
+    gem_runner -- "read documents" --> storage
+
+    %% ── Gem run flow ──────────────────────────────────────────────────────
+    pages -. "① user submits gem form" .-> gem_runner
+    gem_runner -. "② renders template\n③ fetches doc context" .-> doc_library
+    gem_runner -. "④ streams tokens back" .-> pages
 
     %% ── Document upload flow ──────────────────────────────────────────────
-    docs_panel -- "A · POST /api/app/documents/upload\n(multipart file)" --> docs_r
-    docs_r -- "B · Markitdown conversion\nAI summary via Ollama" --> ollama_proc
-    docs_r -- "C · writes markdown + metadata" --> docs_repo
+    pages -. "A uploads file" .-> doc_library
+    doc_library -. "B converts + summarises" .-> ollama
+    doc_library -. "C saves to library" .-> storage

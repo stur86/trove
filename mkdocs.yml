@@ -1,0 +1,72 @@
+site_name: Trove
+site_description: Local LLM platform for non-technical users
+site_url: https://simone-sturniolo.github.io/trove/
+docs_dir: docs
+repo_url: https://github.com/simone-sturniolo/trove
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.snippets:
+      base_path: .
+  - admonition
+  - attr_list
+
+plugins:
+  - search
+  - i18n:
+      docs_structure: folder
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: it
+          name: Italiano
+          build: true
+          nav_translations:
+            Home: Home
+            User guide: Guida utente
+            Admin guide: Guida amministratore
+            Developer guide: Guida sviluppatore
+            Getting started: Per iniziare
+            Running a gem: Eseguire un Gem
+            Media input: Input multimediale
+            Overview: Panoramica
+            Managing gems: Gestire i Gem
+            Managing documents: Gestire i documenti
+            Settings: Impostazioni
+
+nav:
+  - Home: index.md
+  - User guide:
+    - Getting started: user/index.md
+    - Running a gem: user/running-a-gem.md
+    - Media input: user/media-input.md
+  - Admin guide:
+    - Overview: admin/index.md
+    - Managing gems: admin/gems.md
+    - Managing documents: admin/documents.md
+    - Settings: admin/settings.md
+  - Developer guide:
+    - Overview: dev/index.md
+    - Setup & installation: dev/setup.md
+    - Backend: dev/backend.md
+    - Frontend: dev/frontend.md
