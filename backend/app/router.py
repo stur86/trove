@@ -12,10 +12,10 @@ with other domain routers that need admin-gated endpoints.
 import socket
 from typing import Annotated
 
-from fastapi import APIRouter, Cookie, Depends, Request, Response
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 
-from backend.app.auth import require_admin, require_admin_cookie
+from backend.app.auth import ADMIN_LOGIN_ALLOWED_HOSTS, require_admin, require_admin_cookie
 from backend.session import admin_store
 from backend.config.models import TroveConfig
 from backend.config.service import load_config, save_config
@@ -58,14 +58,20 @@ def network_url() -> dict:
     return {"url": None}
 
 @router.post("/admin/login", dependencies=[Depends(require_admin)])
-def admin_login(response: Response) -> dict:
+def admin_login(request: Request, response: Response) -> dict:
     """
     Exchange HTTP Basic credentials for a signed admin session cookie.
 
-    Generates a cryptographically random token, stores it in the admin token
-    store, and sets it as an httpOnly cookie. Localhost-origin enforcement is
-    added in Task 5.
+    Rejects requests not originating from the local machine (127.0.0.1 / ::1).
+    ADMIN_LOGIN_ALLOWED_HOSTS is defined in backend.app.auth and may be extended
+    if mDNS or a fixed hostname is added in future.
     """
+    if request.client.host not in ADMIN_LOGIN_ALLOWED_HOSTS:
+        raise HTTPException(
+            status_code=403,
+            detail="Admin login is only available from the server machine. "
+                   "Open http://localhost:7770 in a browser on this machine.",
+        )
     token = admin_store.create()
     response.set_cookie(
         key="admin_auth",

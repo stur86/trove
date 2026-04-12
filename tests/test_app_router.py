@@ -34,8 +34,10 @@ def _basic_auth(username: str, password: str) -> str:
     token = base64.b64encode(f"{username}:{password}".encode()).decode()
     return f"Basic {token}"
 
-def test_app_login_sets_cookie(app_client_with_admin):
+def test_app_login_sets_cookie(app_client_with_admin, monkeypatch):
     """POST /admin/login with valid credentials should set a random admin_auth cookie."""
+    import backend.app.router as router_mod
+    monkeypatch.setattr(router_mod, "ADMIN_LOGIN_ALLOWED_HOSTS", ["testclient"])
     response = app_client_with_admin.post(
         "/api/app/admin/login",
         headers={"Authorization": _basic_auth("admin", "testpass")},
@@ -46,17 +48,21 @@ def test_app_login_sets_cookie(app_client_with_admin):
     assert cookie_val != "true"  # Must be a random token, not a literal.
     assert len(cookie_val) > 10
 
+
 def test_app_login_rejects_invalid_credentials(app_client_with_admin):
-    """POST /admin/login with wrong credentials should return 401."""
+    """POST /admin/login with wrong credentials should return 401 before the host check."""
     response = app_client_with_admin.post(
         "/api/app/admin/login",
         headers={"Authorization": _basic_auth("admin", "wrongpass")},
     )
     assert response.status_code == 401
     assert "admin_auth" not in response.cookies
-    
-def test_app_logout_clears_cookie(app_client_with_admin):
+
+
+def test_app_logout_clears_cookie(app_client_with_admin, monkeypatch):
     """POST /admin/logout should delete the admin_auth cookie and revoke the token."""
+    import backend.app.router as router_mod
+    monkeypatch.setattr(router_mod, "ADMIN_LOGIN_ALLOWED_HOSTS", ["testclient"])
     login_response = app_client_with_admin.post(
         "/api/app/admin/login",
         headers={"Authorization": _basic_auth("admin", "testpass")},
@@ -69,6 +75,36 @@ def test_app_logout_clears_cookie(app_client_with_admin):
     # Token must be revoked — replaying it must now fail.
     from backend.session import admin_store
     assert not admin_store.validate_and_refresh(token)
+
+
+def test_login_from_non_localhost_returns_403(app_client_with_admin):
+    """
+    POST /admin/login from a non-localhost host must return 403.
+
+    TestClient's reported host is 'testclient', which is not in
+    ADMIN_LOGIN_ALLOWED_HOSTS, so this tests the rejection path naturally.
+    """
+    response = app_client_with_admin.post(
+        "/api/app/admin/login",
+        headers={"Authorization": _basic_auth("admin", "testpass")},
+    )
+    assert response.status_code == 403
+
+
+def test_login_from_localhost_succeeds(app_client_with_admin, monkeypatch):
+    """
+    POST /admin/login succeeds when the request appears to come from localhost.
+
+    Patches ADMIN_LOGIN_ALLOWED_HOSTS to include 'testclient' (the host
+    Starlette TestClient reports) to simulate a localhost origin.
+    """
+    import backend.app.router as router_mod
+    monkeypatch.setattr(router_mod, "ADMIN_LOGIN_ALLOWED_HOSTS", ["testclient"])
+    response = app_client_with_admin.post(
+        "/api/app/admin/login",
+        headers={"Authorization": _basic_auth("admin", "testpass")},
+    )
+    assert response.status_code == 200
 
 
 def test_app_valid_checks_cookie(app_client_with_admin, admin_token):
