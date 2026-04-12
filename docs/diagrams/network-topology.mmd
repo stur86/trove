@@ -1,0 +1,31 @@
+%%{init: {"theme": "neutral"}}%%
+graph TD
+    subgraph server["Server machine (fixed LAN IP, e.g. 192.168.1.10)"]
+        direction TB
+        trove["Trove\n(FastAPI, uvicorn)"]
+        ollama["Ollama server\nport 11434"]
+        config_dir["~/.config/trove/\nconfig.json · Modelfile"]
+        data_dir["~/.local/share/trove/\ntrove.db · documents/"]
+        trove -- "spawns / queries" --> ollama
+        trove -- "reads / writes" --> config_dir
+        trove -- "reads / writes" --> data_dir
+    end
+
+    subgraph modes["Trove ports"]
+        setup_port["Setup mode\nlocalhost:7071\n(setup wizard only)"]
+        app_port["App mode\n0.0.0.0:7770\n(LAN-accessible)"]
+    end
+
+    trove --> setup_port
+    trove --> app_port
+
+    admin_browser["Admin browser\n(same machine only)\nlocalhost:7071 or\nlocalhost:7770/admin"]
+    user1["User device A\nbrowser → 192.168.1.10:7770"]
+    user2["User device B\nbrowser → 192.168.1.10:7770"]
+    user3["User device C\nbrowser → 192.168.1.10:7770"]
+
+    setup_port -. "HTTP (localhost only)" .-> admin_browser
+    app_port -- "HTTP over LAN" --> user1
+    app_port -- "HTTP over LAN" --> user2
+    app_port -- "HTTP over LAN" --> user3
+    app_port -. "HTTP (admin, localhost only)" .-> admin_browser
