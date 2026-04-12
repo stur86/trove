@@ -16,6 +16,7 @@ from fastapi import APIRouter, Cookie, Depends, Request, Response
 from fastapi.responses import StreamingResponse
 
 from backend.app.auth import require_admin, require_admin_cookie
+from backend.session import admin_store
 from backend.config.models import TroveConfig
 from backend.config.service import load_config, save_config
 from backend.log_buffer import get_ollama_log_lines
@@ -65,22 +66,30 @@ def admin_login(response: Response) -> dict:
     store, and sets it as an httpOnly cookie. Localhost-origin enforcement is
     added in Task 5.
     """
-    from backend.session import admin_store
     token = admin_store.create()
     response.set_cookie(
         key="admin_auth",
         value=token,
         httponly=True,
-        secure=True,
+        # secure=True would prevent the cookie from being sent over HTTP, which is
+        # Trove's current runtime (HTTPS is a future stretch goal). Set to False for now;
+        # revisit when HTTPS/mDNS is added.
+        secure=False,
         samesite="lax",
     )
     return {"message": "Admin login successful. Cookie set."}
 
 
 @router.get("/admin/valid")
-def check_admin_cookie(admin_auth: str = Cookie(None)):
-    """Return the current admin_auth cookie value (for client-side validation checks)."""
-    return {"admin_auth": admin_auth}
+def check_admin_cookie(admin_auth: str = Cookie(None)) -> dict:
+    """
+    Return whether the current admin_auth cookie holds a live token.
+
+    Returns {"valid": true} or {"valid": false} — never reflects the token value
+    back to the caller so it cannot be exfiltrated via a response body.
+    """
+    valid = bool(admin_auth and admin_store.validate_and_refresh(admin_auth))
+    return {"valid": valid}
 
 
 @router.post("/admin/logout")
@@ -90,7 +99,6 @@ def admin_logout(request: Request, response: Response) -> dict:
 
     Removes the token from the admin store so it cannot be replayed after logout.
     """
-    from backend.session import admin_store
     token = request.cookies.get("admin_auth")
     if token:
         admin_store.revoke(token)

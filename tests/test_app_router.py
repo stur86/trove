@@ -2,6 +2,7 @@
 import base64
 import pytest
 from fastapi.testclient import TestClient
+from backend.app.auth import hash_password
 
 
 @pytest.fixture
@@ -55,27 +56,37 @@ def test_app_login_rejects_invalid_credentials(app_client_with_admin):
     assert "admin_auth" not in response.cookies
     
 def test_app_logout_clears_cookie(app_client_with_admin):
-    """POST /admin/logout should delete the admin_auth cookie."""
+    """POST /admin/logout should delete the admin_auth cookie and revoke the token."""
     login_response = app_client_with_admin.post(
         "/api/app/admin/login",
         headers={"Authorization": _basic_auth("admin", "testpass")},
     )
     assert login_response.status_code == 200
+    token = login_response.cookies.get("admin_auth")
     logout_response = app_client_with_admin.post("/api/app/admin/logout")
     assert logout_response.status_code == 200
     assert logout_response.cookies.get("admin_auth") is None
-    
+    # Token must be revoked — replaying it must now fail.
+    from backend.session import admin_store
+    assert not admin_store.validate_and_refresh(token)
+
+
 def test_app_valid_checks_cookie(app_client_with_admin, admin_token):
+    """GET /admin/valid returns {valid: true} for a live admin token."""
     app_client_with_admin.cookies.set("admin_auth", admin_token)
     response = app_client_with_admin.get("/api/app/admin/valid")
     assert response.status_code == 200
-    assert response.json().get("admin_auth") == admin_token
+    assert response.json() == {"valid": True}
+    # Token value must never be reflected in the response body.
+    assert admin_token not in str(response.json())
+
 
 def test_app_valid_rejects_invalid_cookie(app_client_with_admin):
+    """GET /admin/valid returns {valid: false} for an unrecognised cookie."""
     app_client_with_admin.cookies.set("admin_auth", "not-a-valid-token")
     response = app_client_with_admin.get("/api/app/admin/valid")
     assert response.status_code == 200
-    assert response.json().get("admin_auth") == "not-a-valid-token"
+    assert response.json() == {"valid": False}
 
 def test_app_status_reachable(app_client):
     response = app_client.get("/api/app/status")
@@ -83,7 +94,6 @@ def test_app_status_reachable(app_client):
     assert response.json()["mode"] == "app"
 
 def test_admin_config_accepts_correct_credentials(app_client_with_admin, config_dir, admin_token):
-    from backend.app.auth import hash_password
     app_client_with_admin.cookies.set("admin_auth", admin_token)
     response = app_client_with_admin.put(
         "/api/app/admin/config",
@@ -95,7 +105,6 @@ def test_admin_config_accepts_correct_credentials(app_client_with_admin, config_
 
 
 def test_admin_config_persists_changes(app_client_with_admin, config_dir, admin_token):
-    from backend.app.auth import hash_password
     app_client_with_admin.cookies.set("admin_auth", admin_token)
     app_client_with_admin.put(
         "/api/app/admin/config",

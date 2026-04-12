@@ -18,6 +18,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from passlib.context import CryptContext
 
 from backend.config.service import load_config
+from backend.session import admin_store
 
 _security = HTTPBasic()
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -86,7 +87,6 @@ def require_admin_cookie(admin_auth: str = Cookie(None)) -> None:
     Raises HTTP 401 if the cookie is absent or its value is not a live admin token.
     The cookie value is a cryptographically random string set by the login endpoint.
     """
-    from backend.session import admin_store  # local import avoids circular dependency at module level
     if not admin_auth or not admin_store.validate_and_refresh(admin_auth):
         raise HTTPException(
             status_code=401,
