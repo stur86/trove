@@ -41,13 +41,19 @@ trove/
 │   │   ├── i18n/                # useTranslation hook, locale cache
 │   │   └── pages/               # Setup.tsx, Admin.tsx
 ├── tests/                       # pytest tests, one file per domain
-├── docs/
+├── docs/                        # MkDocs Material source — EVERYTHING HERE IS PUBLISHED
+│   ├── en/                      # English content (user, admin, dev guides)
+│   ├── it/                      # Italian translations (user, admin guides only)
+│   └── diagrams/                # Standalone Mermaid diagram files (.mmd)
+├── planning/                    # Internal planning artifacts — NOT published
 │   └── superpowers/
-│       ├── specs/               # Design documents
+│       ├── specs/               # Design documents (brainstorming outputs)
 │       └── plans/               # Implementation plans
 ├── pyproject.toml               # uv deps + taskipy tasks
 └── uv.lock
 ```
+
+> **Important for agents:** `docs/` is the MkDocs source directory. Every file in it becomes part of the published documentation site. Do NOT place internal planning artifacts, specs, or implementation plans inside `docs/`. Those belong in `planning/superpowers/specs/` and `planning/superpowers/plans/` respectively.
 
 **Runtime config** (not in repo): `~/.config/trove/config.json` and `~/.config/trove/Modelfile`
 
