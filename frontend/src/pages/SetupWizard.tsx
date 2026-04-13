@@ -82,7 +82,7 @@ function WelcomeStep({ t, system, onNext }: { t: TranslationFunction; system: Sy
           </TableRow>
         </TableBody>
       </Table>
-      <div><Button color="blue" onClick={onNext}>{t('setup.welcome.begin')}</Button></div>
+      <div><Button color="blue" onClick={onNext}>{t('setup.next')}</Button></div>
     </>
   )
 }

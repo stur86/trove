@@ -5,6 +5,7 @@
   "setup.step_start": "Start Ollama service",
   "setup.step_pull": "Download model",
   "setup.building": "Building model...",
+  "setup.next": "Continue",
   "setup.language.title": "Choose your language",
   "setup.language.select": "Select language",
   "setup.welcome.title": "Welcome to Trove",

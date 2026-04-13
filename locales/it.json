@@ -5,6 +5,7 @@
   "setup.step_start": "Avvia il servizio Ollama",
   "setup.step_pull": "Scarica il modello",
   "setup.building": "Costruzione del modello...",
+  "setup.next": "Continua",
   "setup.language.title": "Scegli la lingua",
   "setup.language.select": "Seleziona lingua",
   "setup.welcome.title": "Benvenuto su Trove",
