@@ -14,7 +14,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Alert, Button, Label, Select, Spinner, TabItem, Tabs, RangeSlider } from 'flowbite-react'
 import { appApi } from '../api/app'
-import AdminLogin from '../components/AdminLogin'
+import AdminLogin, { isAllowedAdmin } from '../components/AdminLogin'
 import { type TroveConfig, configApi } from '../api/config'
 import { streamLines } from '../api/ollama'
 import { systemApi, type ModelInfo } from '../api/system'
@@ -37,7 +37,7 @@ const MODEL_LABELS: Record<string, string> = {
 export default function AdminPanel() {
   // Admin login is only possible from the machine running the server.
   // On any other device the login form is hidden and replaced with a notice.
-  const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+  const isAllowed = isAllowedAdmin();
 
   const [authed, setAuthed] = useState(false)
   const [loginError, setLoginError] = useState(false)
@@ -140,7 +140,7 @@ export default function AdminPanel() {
 
   // ── Login screen ──────────────────────────────────────────────────────────
   if (!authed) {
-    if (!isLocalhost) {
+    if (!isAllowed) {
       return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
           <div className="text-center max-w-sm">

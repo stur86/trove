@@ -18,6 +18,11 @@ type Props = {
   title?: string
 }
 
+/** Returns true if the current hostname is allowed for admin access. */
+export function isAllowedAdmin(): boolean {
+  return ['localhost', '127.0.0.1'].includes(window.location.hostname);
+}
+
 /** Reusable admin login card with username, password, and submit button. */
 export default function AdminLogin({ onSubmit, loginError, title }: Props) {
   const [username, setUsername] = useState('')
