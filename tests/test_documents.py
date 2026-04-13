@@ -419,7 +419,7 @@ def doc_client(config_dir, data_dir, monkeypatch, session_token, admin_token):
     return client
 
 
-def test_list_folders_empty(doc_client):
+def test_list_folders_api_empty(doc_client):
     res = doc_client.get("/api/app/admin/folders")
     assert res.status_code == 200
     assert res.json() == []
@@ -445,7 +445,7 @@ def test_delete_folder_removes_it(doc_client):
     assert doc_client.get("/api/app/admin/folders").json() == []
 
 
-def test_list_documents_empty(doc_client):
+def test_list_documents_api_empty(doc_client):
     doc_client.post("/api/app/admin/folders", json={"name": "F1"})
     res = doc_client.get("/api/app/admin/documents?folder_id=f1")
     assert res.status_code == 200
