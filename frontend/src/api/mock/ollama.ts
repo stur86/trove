@@ -4,7 +4,7 @@
  * Status reports Ollama as fully installed and running with the model built.
  * Streaming operations return fake SSE progress lines.
  */
-import type { OllamaStatus } from '../ollama'
+import type { OllamaStatus, StartServiceResult } from '../ollama'
 import { mockSSELines } from './_stream'
 
 export const ollamaApi = {
@@ -25,8 +25,10 @@ export const ollamaApi = {
       'Ollama installed successfully.',
     ], 400),
 
-  start: (): Promise<Response> =>
-    mockSSELines(['Starting Ollama service…', 'Ollama is running.'], 300),
+  start: async (): Promise<StartServiceResult> => {
+    await new Promise(r => setTimeout(r, 300))
+    return { success: true }
+  },
 
   pull: (_modelTag?: string): Promise<Response> =>
     mockSSELines([

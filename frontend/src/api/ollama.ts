@@ -19,6 +19,13 @@ export interface OllamaStatus {
   model_built: boolean
 }
 
+/** Result of POST /api/ollama/start. */
+export interface StartServiceResult {
+  success: boolean
+  /** Reason code when success is false: 'not_installed' | 'timeout' | 'not_running'. */
+  reason?: string
+}
+
 /**
  * Read a Server-Sent Events stream and call onLine for each data line.
  *
@@ -64,8 +71,11 @@ export const ollamaApi = import.meta.env.VITE_MOCK_API ? _mockOllamaApi : {
   status: () => get<OllamaStatus>('/ollama/status'),
   /** Start Ollama install; returns a streaming Response. */
   install: () => post('/ollama/install'),
-  /** Start the Ollama service; returns a streaming Response. */
-  start: () => post('/ollama/start'),
+  /** Start the Ollama service and return whether it is now reachable. */
+  start: async (): Promise<StartServiceResult> => {
+    const res = await post('/ollama/start')
+    return res.json()
+  },
   /**
    * Pull a model; returns a streaming Response.
    * @param modelTag Specific tag to pull (e.g. "gemma4:26b").

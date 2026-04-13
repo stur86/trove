@@ -22,6 +22,7 @@ from typing import ClassVar, Protocol, runtime_checkable
 
 from backend.config.models import TroveConfig
 from backend.config.service import get_config_dir, load_config
+from backend.ollama.models import StartServiceResult
 from backend.system.service import TROVE_OLLAMA_PORT, is_ollama_service_running
 from backend.log_buffer import OLLAMA_LOGGER_NAME
 
@@ -171,8 +172,14 @@ class OllamaService(Protocol):
         """Install Ollama and yield SSE-formatted progress lines."""
         ...
 
-    def start_service(self) -> Iterator[str]:
-        """Start the Ollama service and yield SSE-formatted progress lines."""
+    def start_service(self) -> StartServiceResult:
+        """
+        Start the Ollama service and report whether it is now reachable.
+
+        Returns a ``StartServiceResult`` with ``success=True`` when the
+        server is accepting requests, or ``success=False`` with a
+        ``reason`` string on failure.
+        """
         ...
 
     def stream_pull(self, model_tag: str) -> Iterator[str]:
@@ -265,51 +272,55 @@ class RealOllamaService:
         else:
             yield f"data: [ERROR] Installation failed (exit {process.returncode}).\n\n"
 
-    def start_service(self) -> Iterator[str]:
+    def start_service(self) -> StartServiceResult:
         """
-        Start Trove's Ollama instance and yield SSE-formatted progress lines.
+        Start Trove's Ollama instance and return whether it is reachable.
 
-        When TROVE_USE_GLOBAL_OLLAMA=1, Trove defers to the system-wide Ollama
-        service (port 11434) and skips spawning its own process — it just checks
-        that the global service is reachable.
+        Returns immediately with ``reason="not_installed"`` when the
+        ``ollama`` binary is absent, so callers can offer installation.
 
-        Otherwise, spawns ``ollama serve`` as a managed subprocess on Trove's
-        private port (11435), so it doesn't conflict with any system service.
+        When ``TROVE_USE_GLOBAL_OLLAMA=1``, checks that the external
+        service is reachable without spawning a private process.
+
+        Otherwise, spawns ``ollama serve`` as a managed subprocess on
+        Trove's private port (11435) and waits up to 10 s for readiness.
         """
+        if not shutil.which("ollama"):
+            return StartServiceResult(success=False, reason="not_installed")
+
         if os.getenv("TROVE_USE_GLOBAL_OLLAMA") == "1":
-            yield f"data: Using global Ollama instance on port {TROVE_OLLAMA_PORT}...\n\n"
             if is_ollama_service_running():
-                yield "data: [DONE] Global Ollama is running.\n\n"
-            else:
-                yield (
-                    f"data: [ERROR] Global Ollama is not reachable on port "
-                    f"{TROVE_OLLAMA_PORT}. Make sure the ollama service is running.\n\n"
-                )
-            return
+                return StartServiceResult(success=True)
+            return StartServiceResult(success=False, reason="not_running")
 
-        yield f"data: Starting Ollama on port {TROVE_OLLAMA_PORT}...\n\n"
-
+        # Already responding on our port — nothing to do.
         if is_ollama_service_running():
-            yield "data: [DONE] Ollama is already running.\n\n"
-            return
+            return StartServiceResult(success=True)
 
+        # We already spawned a process that is still alive.
         proc = RealOllamaService._serve_process
         if proc is not None and proc.is_running:
-            yield f"data: [DONE] Ollama already running (pid {proc.pid}).\n\n"
-            return
+            return StartServiceResult(success=True)
 
-        proc_env = os.environ.copy()
-        proc_env["OLLAMA_HOST"] = f"localhost:{TROVE_OLLAMA_PORT}"
+        # Spawn a new ``ollama serve`` process on the private port.
+        _ollama_logger.info("Starting Ollama on port %d…", TROVE_OLLAMA_PORT)
         RealOllamaService._serve_process = OllamaProcess(
             ["serve"], port=TROVE_OLLAMA_PORT
         )
         RealOllamaService._serve_process.pipe_output_to_log(_ollama_logger)
+
+        # Wait up to 10 s for the server to become ready.
         for _ in range(20):
             time.sleep(0.5)
             if is_ollama_service_running():
-                yield "data: [DONE] Ollama service started.\n\n"
-                return
-        yield "data: [ERROR] Failed to start Ollama service.\n\n"
+                _ollama_logger.info("Ollama ready on port %d.", TROVE_OLLAMA_PORT)
+                return StartServiceResult(success=True)
+
+        _ollama_logger.warning(
+            "Ollama did not become ready on port %d within 10 s.",
+            TROVE_OLLAMA_PORT,
+        )
+        return StartServiceResult(success=False, reason="timeout")
 
     def stream_pull(self, model_tag: str) -> Iterator[str]:
         """Pull an Ollama model and yield SSE-formatted progress lines."""
@@ -385,10 +396,9 @@ class FakeOllamaService:
             yield f"data: {line}\n\n"
         yield "data: [DONE] Ollama installed successfully.\n\n"
 
-    def start_service(self) -> Iterator[str]:
-        """Yield fake service-start output."""
-        yield "data: Starting Ollama service (fake mode)...\n\n"
-        yield "data: [DONE] Ollama service started.\n\n"
+    def start_service(self) -> StartServiceResult:
+        """Return a successful start result (fake mode — always succeeds)."""
+        return StartServiceResult(success=True)
 
     def stream_pull(self, model_tag: str) -> Iterator[str]:
         """Yield fake model pull output."""

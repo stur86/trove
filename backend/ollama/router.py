@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
 from backend.config.service import load_config
+from backend.ollama.models import StartServiceResult
 from backend.ollama.service import OllamaService, get_ollama_service
 
 router = APIRouter(prefix="/api/ollama", tags=["ollama"])
@@ -39,13 +40,14 @@ def install_ollama(
 @router.post("/start")
 def start_ollama(
     service: Annotated[OllamaService, Depends(get_ollama_service)],
-) -> StreamingResponse:
+) -> StartServiceResult:
     """
-    Start the Ollama service and stream progress as SSE.
+    Start the Ollama service and report whether it is now reachable.
 
-    Tries systemctl first, falls back to ollama serve for non-systemd environments.
+    Returns a JSON object with ``success`` (bool) and an optional
+    ``reason`` string (``"not_installed"``, ``"timeout"``, ``"not_running"``).
     """
-    return StreamingResponse(service.start_service(), media_type="text/event-stream")
+    return service.start_service()
 
 
 @router.post("/pull")

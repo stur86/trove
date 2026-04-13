@@ -20,6 +20,17 @@ import type { TranslationFunction } from '../i18n'
 
 import type { Dispatch, SetStateAction, RefObject } from 'react'
 
+/**
+ * Tracks whether Ollama is ready during step 2 (Install Ollama).
+ *
+ * - idle        — not yet checked (initial state before entering step 2)
+ * - starting    — POST /ollama/start in progress
+ * - running     — server is up and accepting requests
+ * - not_installed — binary not found; user must install
+ * - failed      — server is installed but did not start in time
+ */
+type OllamaPhase = 'idle' | 'starting' | 'running' | 'not_installed' | 'failed'
+
 /** Presentational components for each step (defined before main component) */
 function LogBox({ log, logEndRef }: { log: string[]; logEndRef: RefObject<HTMLDivElement | null> }) {
   return log.length > 0 ? (
@@ -76,18 +87,55 @@ function WelcomeStep({ t, system, onNext }: { t: TranslationFunction; system: Sy
   )
 }
 
-function InstallOllamaStep({ t, status, busy, onInstall, onNext, log, logEndRef }: { t: TranslationFunction; status: SetupStatus; busy: boolean; onInstall: () => Promise<void>; onNext: () => void; log: string[]; logEndRef: RefObject<HTMLDivElement | null> }) {
+function InstallOllamaStep({ t, busy, ollamaPhase, onInstall, onRetryStart, onNext, log, logEndRef }: {
+  t: TranslationFunction
+  busy: boolean
+  /** Current Ollama readiness phase — drives which UI is shown. */
+  ollamaPhase: OllamaPhase
+  onInstall: () => Promise<void>
+  /** Retry the /start call when the server failed to become ready. */
+  onRetryStart: () => Promise<void>
+  onNext: () => void
+  log: string[]
+  logEndRef: RefObject<HTMLDivElement | null>
+}) {
   return (
     <>
       <h1 className="text-2xl font-bold">{t('setup.install.title')}</h1>
       <p className="text-gray-600">{t('setup.install.description')}</p>
-      {status.ollama_installed
-        ? <Alert color="success">✓ {t('setup.install.already_done')}</Alert>
-        : <Button color="blue" disabled={busy} onClick={onInstall}>{t('setup.install.button')}</Button>
-      }
+
+      {/* Checking / starting — show a spinner while we wait for /start */}
+      {(ollamaPhase === 'idle' || ollamaPhase === 'starting') && (
+        <div className="flex items-center gap-3 text-gray-500">
+          <Spinner size="sm" />
+          <span>Checking Ollama status…</span>
+        </div>
+      )}
+
+      {/* Already running */}
+      {ollamaPhase === 'running' && (
+        <Alert color="success">✓ {t('setup.install.already_done')}</Alert>
+      )}
+
+      {/* Not installed — show install button (disabled while install is streaming) */}
+      {ollamaPhase === 'not_installed' && (
+        <Button color="blue" disabled={busy} onClick={onInstall}>
+          {t('setup.install.button')}
+        </Button>
+      )}
+
+      {/* Installed but failed to start in time */}
+      {ollamaPhase === 'failed' && (
+        <>
+          <Alert color="failure">Ollama failed to start. Check the log below or retry.</Alert>
+          <Button color="blue" disabled={busy} onClick={onRetryStart}>Retry</Button>
+        </>
+      )}
+
       <LogBox log={log} logEndRef={logEndRef} />
+
       <div>
-        <Button color="gray" disabled={!status.ollama_installed || busy} onClick={onNext}>
+        <Button color="gray" disabled={ollamaPhase !== 'running' || busy} onClick={onNext}>
           {t('setup.install.next')}
         </Button>
       </div>
@@ -210,6 +258,9 @@ export default function SetupWizard() {
   const [adminUser, setAdminUser] = useState('')
   const [adminPass, setAdminPass] = useState('')
   const logEndRef = useRef<HTMLDivElement | null>(null)
+  const [ollamaPhase, setOllamaPhase] = useState<OllamaPhase>('idle')
+  /** Prevents the auto-start effect from firing more than once per visit to step 2. */
+  const ollamaStartAttempted = useRef(false)
 
   useEffect(() => {
     configApi.get().then(c => setLocale(c.locale))
@@ -221,6 +272,15 @@ export default function SetupWizard() {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [log])
 
+  /** On entering step 2, try to start Ollama once to determine readiness. */
+  useEffect(() => {
+    if (step !== 2 || ollamaStartAttempted.current) return
+    ollamaStartAttempted.current = true
+    void handleStartOllama()
+    // handleStartOllama only calls stable setters and module-level API wrappers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step])
+
   /** Append a log line, filtering [DONE] events and formatting errors. */
   function appendLog(line: string) {
     if (line.startsWith('[DONE]')) return
@@ -228,6 +288,26 @@ export default function SetupWizard() {
       ...prev,
       line.startsWith('[ERROR]') ? `ERROR: ${line.replace('[ERROR] ', '')}` : line,
     ])
+  }
+
+  /**
+   * POST /api/ollama/start and update ollamaPhase based on the result.
+   *
+   * Called automatically when the user enters step 2, and again after
+   * a successful Ollama installation to confirm the service is running.
+   */
+  async function handleStartOllama() {
+    setOllamaPhase('starting')
+    const result = await ollamaApi.start()
+    if (result.success) {
+      setOllamaPhase('running')
+      // Refresh status so models_pulled is accurate when step 3 loads.
+      setupApi.status().then(setStatus)
+    } else if (result.reason === 'not_installed') {
+      setOllamaPhase('not_installed')
+    } else {
+      setOllamaPhase('failed')
+    }
   }
 
   async function handleLanguageSelect(newLocale: string) {
@@ -239,7 +319,18 @@ export default function SetupWizard() {
     setBusy(true)
     setLog([])
     const res = await ollamaApi.install()
-    await new Promise<void>(resolve => streamLines(res, appendLog, resolve))
+    // Intercept [DONE] to know whether the install succeeded, while still
+    // passing all other lines through appendLog for display.
+    let installSucceeded = false
+    await new Promise<void>(resolve =>
+      streamLines(res, line => {
+        if (line.startsWith('[DONE]')) { installSucceeded = true; return }
+        appendLog(line)
+      }, resolve)
+    )
+    // Confirm the service is up — this also flips ollamaPhase to 'running'
+    // if successful, which unlocks the Next button.
+    if (installSucceeded) await handleStartOllama()
     setBusy(false)
     setupApi.status().then(setStatus)
   }
@@ -331,9 +422,10 @@ export default function SetupWizard() {
         {step === 2 && (
           <InstallOllamaStep
             t={t}
-            status={status!}
             busy={busy}
+            ollamaPhase={ollamaPhase}
             onInstall={handleInstallOllama}
+            onRetryStart={handleStartOllama}
             onNext={() => setStep(3)}
             log={log}
             logEndRef={logEndRef}

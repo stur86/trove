@@ -89,12 +89,22 @@ def test_real_stream_install_yields_error_on_failure():
     assert any("[ERROR]" in e for e in events)
 
 
-def test_real_start_service_already_running():
-    """start_service yields [DONE] immediately when Ollama is already up."""
+def test_real_start_service_not_installed():
+    """start_service returns not_installed when the binary is absent."""
     svc = RealOllamaService()
-    with patch("backend.ollama.service.is_ollama_service_running", return_value=True):
-        events = list(svc.start_service())
-    assert any("[DONE]" in e for e in events)
+    with patch("backend.ollama.service.shutil.which", return_value=None):
+        result = svc.start_service()
+    assert result.success is False
+    assert result.reason == "not_installed"
+
+
+def test_real_start_service_already_running():
+    """start_service returns success when Ollama is already up."""
+    svc = RealOllamaService()
+    with patch("backend.ollama.service.shutil.which", return_value="/usr/bin/ollama"):
+        with patch("backend.ollama.service.is_ollama_service_running", return_value=True):
+            result = svc.start_service()
+    assert result.success is True
 
 
 def test_real_start_service_spawns_and_stores_process():
@@ -109,25 +119,28 @@ def test_real_start_service_spawns_and_stores_process():
     wrapper = MagicMock()
     wrapper.proc = mock_proc
     wrapper.pipe_output_to_log = MagicMock()
-    with patch("backend.ollama.service.OllamaProcess", return_value=wrapper):
-        with patch("backend.ollama.service.is_ollama_service_running", side_effect=side_effects):
-            with patch("backend.ollama.service.time.sleep"):
-                events = list(svc.start_service())
-    assert any("[DONE]" in e for e in events)
+    with patch("backend.ollama.service.shutil.which", return_value="/usr/bin/ollama"):
+        with patch("backend.ollama.service.OllamaProcess", return_value=wrapper):
+            with patch("backend.ollama.service.is_ollama_service_running", side_effect=side_effects):
+                with patch("backend.ollama.service.time.sleep"):
+                    result = svc.start_service()
+    assert result.success is True
     assert RealOllamaService._serve_process.proc is mock_proc
 
 
-def test_real_start_service_failure():
-    """start_service yields [ERROR] when ollama serve never becomes ready."""
+def test_real_start_service_timeout():
+    """start_service returns timeout when ollama serve never becomes ready."""
     RealOllamaService._serve_process = None
     svc = RealOllamaService()
     wrapper = MagicMock()
     wrapper.pipe_output_to_log = MagicMock()
-    with patch("backend.ollama.service.OllamaProcess", return_value=wrapper):
-        with patch("backend.ollama.service.is_ollama_service_running", return_value=False):
-            with patch("backend.ollama.service.time.sleep"):
-                events = list(svc.start_service())
-    assert any("[ERROR]" in e for e in events)
+    with patch("backend.ollama.service.shutil.which", return_value="/usr/bin/ollama"):
+        with patch("backend.ollama.service.OllamaProcess", return_value=wrapper):
+            with patch("backend.ollama.service.is_ollama_service_running", return_value=False):
+                with patch("backend.ollama.service.time.sleep"):
+                    result = svc.start_service()
+    assert result.success is False
+    assert result.reason == "timeout"
 
 
 def test_real_stream_pull_yields_done():
@@ -172,10 +185,11 @@ def test_fake_stream_install_yields_done():
     assert any("fake mode" in e for e in events)
 
 
-def test_fake_start_service_yields_done():
+def test_fake_start_service_returns_success():
+    """Fake start_service always reports success."""
     svc = FakeOllamaService()
-    events = list(svc.start_service())
-    assert any("[DONE]" in e for e in events)
+    result = svc.start_service()
+    assert result.success is True
 
 
 def test_fake_stream_pull_yields_done():
