@@ -13,6 +13,8 @@ digraph {
         Admin [shape=box, label="Admin 🛠️", fillcolor=white, style=filled]
         Admin -> Server [label="Creates Gems, Uploads Documents"]
         { rank=same; Server; Admin }
+        Ollama [shape=box, label="Ollama Server 🐳", fillcolor=white, style=filled]
+        Server -> Ollama [label="Via HTTP API"]
     }
 
     User_1 -> Server [label="Runs Gems"]

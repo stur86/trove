@@ -72,7 +72,7 @@ digraph trove_modules {
 
       /* App — public (no auth) */
       subgraph cluster_r_public {
-        label="App \u2014 public"
+        label="App — public"
         style=filled fillcolor="#ecfdf5" color="#10b981" fontcolor="#064e3b"
         r_session [label="Session\nstatus · capabilities" fillcolor="#059669" fontcolor=white color="#047857"]
         r_runner  [label="Gem runner\nlist · run · SSE"   fillcolor="#059669" fontcolor=white color="#047857"]
@@ -81,7 +81,7 @@ digraph trove_modules {
 
       /* App — admin only (cookie required) */
       subgraph cluster_r_admin {
-        label="App \u2014 admin only  (require cookie)"
+        label="App — admin only  (require cookie)"
         style=filled fillcolor="#eef2ff" color="#6366f1" fontcolor="#1e1b4b"
         r_auth       [label="Auth\nlogin · logout"              fillcolor="#4f46e5" fontcolor=white color="#3730a3"]
         r_gems_admin [label="Gems admin\ncreate · edit · delete" fillcolor="#4f46e5" fontcolor=white color="#3730a3"]
@@ -92,7 +92,7 @@ digraph trove_modules {
 
       /* Shared — mounted on both interfaces */
       subgraph cluster_r_shared {
-        label="Shared \u2014 both interfaces"
+        label="Shared — both interfaces"
         style=filled fillcolor="#fef9c3" color="#ca8a04" fontcolor="#713f12"
         r_config  [label="Config · i18n"          fillcolor="#a16207" fontcolor=white color="#854d0e"]
         r_system  [label="System checks"           fillcolor="#a16207" fontcolor=white color="#854d0e"]
