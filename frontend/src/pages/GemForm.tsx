@@ -14,6 +14,8 @@
  */
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import CheckboxTree from 'react-checkbox-tree'
+import 'react-checkbox-tree/lib/react-checkbox-tree.css'
 import {
   Alert, Button, Checkbox, Label, Select, Spinner, Textarea, TextInput,
 } from 'flowbite-react'
@@ -96,8 +98,7 @@ export default function GemForm() {
   // Document access
   const [allFolders, setAllFolders] = useState<Folder[]>([])
   const [allDocuments, setAllDocuments] = useState<Document[]>([])
-  const [checkedFolderIds, setCheckedFolderIds] = useState<Set<string>>(new Set())
-  const [checkedDocIds, setCheckedDocIds] = useState<Set<string>>(new Set())
+  const [expanded, setExpanded] = useState<string[]>([])
   // const [capabilities, setCapabilities] = useState<{ audio: boolean }>({ audio: false })
 
   // In edit mode, load the existing gem
@@ -106,9 +107,6 @@ export default function GemForm() {
     gemsApi.get(id)
       .then(g => {
         setGem(g)
-        // Seed document access sets from the loaded gem
-        setCheckedFolderIds(new Set(g.doc_folder_ids))
-        setCheckedDocIds(new Set(g.doc_ids))
         setLoading(false)
       })
       .catch(() => { setError(t('admin.gem.error.not_found')); setLoading(false) })
@@ -119,6 +117,11 @@ export default function GemForm() {
     documentsApi.listFolders().then(setAllFolders)
     documentsApi.listDocuments().then(setAllDocuments)
   }, [])
+
+  // Expand all folders by default when folder list loads
+  useEffect(() => {
+    setExpanded(allFolders.map(f => `folder:${f.id}`))
+  }, [allFolders])
 
   useEffect(() => {
     appApi.checkAdminValid()
@@ -141,8 +144,7 @@ export default function GemForm() {
     const cleanGem: UserTask = {
       ...gem,
       args: deriveArgs(gem.template),
-      doc_folder_ids: Array.from(checkedFolderIds),
-      doc_ids: Array.from(checkedDocIds),
+      // doc_folder_ids and doc_ids are kept current in gem state by handleCheckedChange
     }
     try {
       if (isEdit && id) {
@@ -158,65 +160,75 @@ export default function GemForm() {
     }
   }
 
-  /** All documents that belong to a folder. */
-  function docsInFolder(folderId: string): Document[] {
-    return allDocuments.filter(d => d.folder_id === folderId)
-  }
+  /**
+   * Derive node values from gem state for the tree's controlled checked prop.
+   * Folder values use 'folder:<id>' prefix; doc values use 'doc:<id>' prefix.
+   */
+  const checkedValues: string[] = [
+    ...gem.doc_folder_ids.map(id => `folder:${id}`),
+    ...gem.doc_ids.map(id => `doc:${id}`),
+  ]
 
-  /** True when every document in the folder is individually checked. */
-  function isFolderFullyChecked(folderId: string): boolean {
-    const docs = docsInFolder(folderId)
-    return docs.length > 0 && docs.every(d => checkedDocIds.has(d.id))
-  }
-
-  /** True when some (but not all) documents in the folder are individually checked. */
-  function isFolderIndeterminate(folderId: string): boolean {
-    if (checkedFolderIds.has(folderId)) return false
-    const docs = docsInFolder(folderId)
-    return docs.some(d => checkedDocIds.has(d.id)) && !isFolderFullyChecked(folderId)
-  }
-
-  /** True when a document is accessible (either via folder or individual grant). */
-  function isDocChecked(doc: Document): boolean {
-    return checkedFolderIds.has(doc.folder_id) || checkedDocIds.has(doc.id)
-  }
-
-  function toggleFolder(folderId: string, checked: boolean) {
-    const docs = docsInFolder(folderId)
-    setCheckedFolderIds(prev => {
-      const next = new Set(prev)
-      if (checked) next.add(folderId)
-      else next.delete(folderId)
-      return next
-    })
-    // Remove individual doc grants for docs in this folder (folder grant covers them)
-    setCheckedDocIds(prev => {
-      const next = new Set(prev)
-      docs.forEach(d => next.delete(d.id))
-      return next
-    })
-  }
-
-  function toggleDocument(doc: Document, checked: boolean) {
-    // If the folder is currently granted, switch to individual control:
-    // uncheck the folder, then check all OTHER docs individually
-    if (checkedFolderIds.has(doc.folder_id)) {
-      const siblings = docsInFolder(doc.folder_id)
-      setCheckedFolderIds(prev => { const n = new Set(prev); n.delete(doc.folder_id); return n })
-      setCheckedDocIds(prev => {
-        const n = new Set(prev)
-        siblings.forEach(d => { if (d.id !== doc.id) n.add(d.id) })
-        if (checked) n.add(doc.id)
-        return n
+  /**
+   * Handle checkbox changes from react-checkbox-tree.
+   * Maps prefixed values back to doc_folder_ids and doc_ids in gem state.
+   * When a folder is checked, its children are covered by the folder grant
+   * and should not also appear as individual doc_ids.
+   */
+  function handleCheckedChange(newChecked: string[], _targetNode: unknown) {
+    const newFolderIds = newChecked
+      .filter(v => v.startsWith('folder:'))
+      .map(v => v.slice(7))
+    const checkedFolderSet = new Set(newFolderIds)
+    const newDocIds = newChecked
+      .filter(v => v.startsWith('doc:'))
+      .map(v => v.slice(4))
+      .filter(docId => {
+        const doc = allDocuments.find(d => d.id === docId)
+        return doc ? !checkedFolderSet.has(doc.folder_id) : true
       })
-    } else {
-      setCheckedDocIds(prev => {
-        const n = new Set(prev)
-        if (checked) n.add(doc.id)
-        else n.delete(doc.id)
-        return n
-      })
-    }
+    setGem(g => ({ ...g, doc_folder_ids: newFolderIds, doc_ids: newDocIds }))
+  }
+
+  /** Build the node tree for react-checkbox-tree. */
+  const treeNodes = allFolders.map(folder => ({
+    value: `folder:${folder.id}`,
+    label: folder.name,
+    children: allDocuments
+      .filter(d => d.folder_id === folder.id)
+      .map(doc => ({
+        value: `doc:${doc.id}`,
+        label: doc.name,
+        title: doc.description || undefined,
+      })),
+  }))
+
+  /** Minimal inline SVG icons — avoids pulling in Font Awesome. */
+  const TREE_ICONS = {
+    check: (
+      <svg className="w-4 h-4 text-blue-600 inline" viewBox="0 0 20 20" fill="currentColor">
+        <rect x="2" y="2" width="16" height="16" rx="3" fill="currentColor" opacity="0.15" />
+        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+      </svg>
+    ),
+    uncheck: (
+      <svg className="w-4 h-4 text-gray-300 inline" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <rect x="2.75" y="2.75" width="14.5" height="14.5" rx="2.25" />
+      </svg>
+    ),
+    halfCheck: (
+      <svg className="w-4 h-4 text-blue-400 inline" viewBox="0 0 20 20" fill="currentColor">
+        <rect x="2" y="2" width="16" height="16" rx="3" fill="currentColor" opacity="0.15" />
+        <path d="M5 10h10" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    ),
+    expandClose: <span className="text-gray-400 text-xs select-none">›</span>,
+    expandOpen: <span className="text-gray-400 text-xs select-none">⌄</span>,
+    expandAll: <span />,
+    collapseAll: <span />,
+    parentClose: <span />,
+    parentOpen: <span />,
+    leaf: <span />,
   }
 
   // Re-auth screen if admin cookie is not present
@@ -427,48 +439,15 @@ export default function GemForm() {
           {allFolders.length === 0 ? (
             <p className="text-xs text-gray-400 italic">{t('gem.documents.no_folders')}</p>
           ) : (
-            <div className="flex flex-col gap-1 border border-gray-200 rounded-lg p-3">
-              {allFolders.map(folder => {
-                const folderChecked = checkedFolderIds.has(folder.id)
-                const indeterminate = isFolderIndeterminate(folder.id)
-                const docs = docsInFolder(folder.id)
-                return (
-                  <div key={folder.id}>
-                    {/* Folder row */}
-                    <div className="flex items-center gap-2 py-1">
-                      <input
-                        type="checkbox"
-                        checked={folderChecked}
-                        ref={el => { if (el) el.indeterminate = indeterminate }}
-                        onChange={e => toggleFolder(folder.id, e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        id={`folder-${folder.id}`}
-                      />
-                      <label htmlFor={`folder-${folder.id}`} className="text-sm font-medium text-gray-800 cursor-pointer">
-                        {folder.name}
-                      </label>
-                    </div>
-                    {/* Document rows */}
-                    {docs.map(doc => (
-                      <div key={doc.id} className="flex items-start gap-2 pl-6 py-0.5">
-                        <input
-                          type="checkbox"
-                          checked={isDocChecked(doc)}
-                          onChange={e => toggleDocument(doc, e.target.checked)}
-                          className="mt-0.5 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          id={`doc-${doc.id}`}
-                        />
-                        <label htmlFor={`doc-${doc.id}`} className="text-xs text-gray-700 cursor-pointer">
-                          <span className="font-medium">{doc.name}</span>
-                          {doc.description && (
-                            <span className="text-gray-400"> — {doc.description}</span>
-                          )}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                )
-              })}
+            <div className="border border-gray-200 rounded-lg p-3">
+              <CheckboxTree
+                nodes={treeNodes}
+                checked={checkedValues}
+                expanded={expanded}
+                onCheck={handleCheckedChange}
+                onExpand={setExpanded}
+                icons={TREE_ICONS}
+              />
             </div>
           )}
         </div>
