@@ -76,7 +76,7 @@ rm "$WHEEL_PATH"
 cat > "$BIN_DIR/trove" <<WRAPPER
 #!/bin/bash
 # Trove wrapper — runs Trove using the local uv and venv.
-VIRTUAL_ENV="${INSTALL_DIR}/.venv" exec "${UV}" run python -m backend.cli "\$@"
+VIRTUAL_ENV="${INSTALL_DIR}/.venv" exec "${UV}" run trove "\$@"
 WRAPPER
 chmod +x "$BIN_DIR/trove"
 
