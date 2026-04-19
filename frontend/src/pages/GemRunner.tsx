@@ -132,14 +132,11 @@ export default function GemRunner() {
       const imgArg = imageBlob ? { blob: imageBlob, mime: imageMime } : undefined
       const audArg = audioBlob ? { blob: audioBlob, mime: audioMime } : undefined
       const res = await gemsApi.run(id, values, imgArg, audArg)
-      let firstToken = true
       for await (const token of readSSEStream(res)) {
-        if (firstToken) {
-          firstToken = false
-          setPhase('done')
-        }
         setOutput(prev => prev + token)
       }
+      // Only switch to 'done' once the full response has arrived so that
+      // ReactMarkdown never tries to parse an incomplete token stream.
       setPhase('done')
     } catch {
       setOutput(t('gem.error.run'))
@@ -389,33 +386,41 @@ export default function GemRunner() {
           </button>
         )}
 
-        {/* Spinner — shown while running before first token */}
-        {phase === 'running' && (
+        {/* Spinner — shown while waiting for first token */}
+        {phase === 'running' && !output && (
           <div className="flex justify-center py-6">
             <Spinner size="lg" />
           </div>
         )}
 
-        {/* Output area — shown once first token arrives */}
-        {phase === 'done' && (
+        {/* Output area — plain text while streaming, Markdown once complete */}
+        {(phase === 'running' && output !== '') || phase === 'done' ? (
           <div className="flex flex-col gap-3">
             <div
               ref={outputRef}
-              className="bg-white border border-gray-200 rounded-lg p-4 min-h-32 max-h-[60vh] overflow-y-auto text-sm text-gray-800 leading-relaxed prose prose-sm max-w-none"
+              className="bg-white border border-gray-200 rounded-lg p-4 min-h-32 max-h-[60vh] overflow-y-auto text-sm text-gray-800 leading-relaxed"
             >
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {output}
-              </ReactMarkdown>
-              <span
-                className="inline-block w-0.5 h-3.5 bg-indigo-500 ml-0.5 align-middle animate-pulse"
-                aria-hidden="true"
-              />
+              {phase === 'running' ? (
+                <span className="whitespace-pre-wrap">
+                  {output}
+                  <span
+                    className="inline-block w-0.5 h-3.5 bg-indigo-500 ml-0.5 align-middle animate-pulse"
+                    aria-hidden="true"
+                  />
+                </span>
+              ) : (
+                <div className="prose prose-sm max-w-none">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {output}
+                  </ReactMarkdown>
+                </div>
+              )}
             </div>
             <Button color="light" onClick={handleRun}>
               {t('gem.run_again')}
             </Button>
           </div>
-        )}
+        ) : null}
 
       </div>
 
