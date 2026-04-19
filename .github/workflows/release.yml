@@ -50,11 +50,6 @@ jobs:
       - name: Build Python wheel
         run: uv build --wheel
 
-      - name: Stamp version into install.sh
-        env:
-          VERSION: ${{ steps.version.outputs.VERSION }}
-        run: sed "s/__TROVE_VERSION__/${VERSION}/g" install.sh > "install-${VERSION}.sh"
-
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -65,4 +60,4 @@ jobs:
             --title "Trove v${VERSION}" \
             --generate-notes \
             "dist/trove-${VERSION}-py3-none-any.whl" \
-            "install-${VERSION}.sh#install.sh"
+            "install.sh"

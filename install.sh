@@ -1,11 +1,29 @@
 #!/bin/bash
-# Trove installer — downloads and installs Trove v__TROVE_VERSION__
+# Trove installer — fetches the latest release from GitHub and installs it.
 # Usage: bash install.sh [--prefix /custom/path]
 set -euo pipefail
 
-VERSION="__TROVE_VERSION__"
-REPO="https://github.com/stur86/trove"
-WHEEL_URL="${REPO}/releases/download/v${VERSION}/trove-${VERSION}-py3-none-any.whl"
+REPO="stur86/trove"
+API_URL="https://api.github.com/repos/${REPO}/releases/latest"
+
+# Fetch the latest release metadata and extract the wheel download URL.
+# Uses only curl and sed — no jq required.
+echo "Fetching latest Trove release..."
+RELEASE_JSON=$(curl -sf "$API_URL") || {
+  echo "Error: could not reach GitHub API at ${API_URL}" >&2; exit 1
+}
+
+WHEEL_URL=$(printf '%s' "$RELEASE_JSON" \
+  | grep '"browser_download_url"' \
+  | grep '\.whl"' \
+  | sed 's/.*"browser_download_url": "\(.*\)"/\1/')
+
+if [[ -z "$WHEEL_URL" ]]; then
+  echo "Error: no .whl asset found in the latest release." >&2; exit 1
+fi
+
+# Derive the version from the wheel filename (trove-X.Y.Z-py3-none-any.whl).
+VERSION=$(printf '%s' "$WHEEL_URL" | sed 's|.*/trove-\([^-]*\)-.*|\1|')
 
 # ── Parse arguments ──────────────────────────────────────────────────────────
 PREFIX=""
