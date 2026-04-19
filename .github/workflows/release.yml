@@ -1,23 +1,36 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
 
 jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # needed to create the GitHub release
+      contents: write   # needed to create the tag and GitHub release
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Extract version from tag
+      - name: Read version from pyproject.toml
         id: version
-        # Strip the leading 'v' so VERSION=0.1.0 matches pyproject.toml and the wheel filename.
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        run: |
+          VERSION=$(grep '^version' pyproject.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "TAG=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag (fails if it already exists)
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          TAG: ${{ steps.version.outputs.TAG }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # --no-sign avoids requiring a GPG key on the runner.
+          # git tag fails with exit code 128 if the tag already exists — which
+          # aborts the workflow and prompts you to bump the version in pyproject.toml.
+          git tag "$TAG"
+          git push origin "$TAG"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
@@ -35,20 +48,20 @@ jobs:
         run: cd frontend && bun run build
 
       - name: Build Python wheel
-        # uv build produces dist/trove-<version>-py3-none-any.whl
         run: uv build --wheel
 
       - name: Stamp version into install.sh
         env:
           VERSION: ${{ steps.version.outputs.VERSION }}
-        run: sed "s/__TROVE_VERSION__/${VERSION}/g" install.sh > install-${{ steps.version.outputs.VERSION }}.sh
+        run: sed "s/__TROVE_VERSION__/${VERSION}/g" install.sh > "install-${VERSION}.sh"
 
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          TAG: ${{ steps.version.outputs.TAG }}
         run: |
-          VERSION=${{ steps.version.outputs.VERSION }}
-          gh release create "$GITHUB_REF_NAME" \
+          gh release create "$TAG" \
             --title "Trove v${VERSION}" \
             --generate-notes \
             "dist/trove-${VERSION}-py3-none-any.whl" \
