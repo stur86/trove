@@ -17,7 +17,7 @@ Premi il pulsante **Esegui**. L'AI inizia a generare una risposta e il risultato
 
 ## Passo 4 — Leggi e copia il risultato
 
-Il risultato è mostrato come testo normale (o in un formato strutturato se il Gem è configurato così). Puoi selezionarlo e copiarlo come qualsiasi altro testo. Non esiste una funzione di salvataggio o cronologia — copia ciò che ti serve prima di lasciare la pagina.
+Il risultato è visualizzato con formattazione — titoli, elenchi puntati, testo in grassetto e tabelle vengono mostrati quando l'AI li usa. Puoi selezionare e copiare qualsiasi parte del testo come di consueto. Non esiste una funzione di salvataggio o cronologia — copia ciò che ti serve prima di lasciare la pagina.
 
 ## Ricominciare
 

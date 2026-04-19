@@ -29,6 +29,15 @@ This means:
 - **Very large documents** may be truncated to fit within the model's context window.
 - The AI will not always use documents — it uses them only when they seem relevant to the user's request.
 
+## Downloading documents
+
+You can download individual documents or entire folders directly from the Documents tab.
+
+- **Folder** — click the download icon (↓) next to a folder name to receive a ZIP archive containing the converted Markdown version of every document in that folder.
+- **Document** — click the download icon next to a document name to receive its converted Markdown file (`.md`).
+
+These downloads contain the plain-text version of each file as Trove sees it, not the original uploaded file.
+
 ## Removing a document
 
 Click the **Delete** button next to a document in the admin panel. The file and its metadata are permanently deleted.

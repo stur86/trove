@@ -41,11 +41,13 @@ Questo crea due campi di input per l'utente: *lingua* e *testo*.
 
 ## Accesso ai documenti
 
-Ogni Gem può avere accesso a una parte della raccolta documenti:
+Ogni Gem può avere accesso a una parte della raccolta documenti tramite l'albero di cartelle e documenti nel modulo del Gem:
 
-- **Accesso alla cartella** — l'AI può vedere tutti i documenti della cartella, inclusi quelli aggiunti in seguito.
-- **Accesso ai singoli documenti** — l'AI può vedere solo i file specifici che selezioni.
-- **Nessun accesso** (predefinito) — l'AI non usa la raccolta documenti per questo Gem.
+- **Accesso alla cartella** — spunta la casella accanto al nome di una cartella. L'AI può vedere tutti i documenti della cartella, inclusi quelli aggiunti in seguito. Spuntare una cartella seleziona automaticamente tutti i documenti al suo interno.
+- **Accesso ai singoli documenti** — espandi una cartella e spunta solo i documenti specifici desiderati. Una cartella con solo alcuni documenti selezionati mostra un indicatore parziale (−).
+- **Nessun accesso** (predefinito) — lascia tutte le caselle deselezionate. L'AI non usa la raccolta documenti per questo Gem.
+
+Quando un Gem ha accesso ai documenti, l'AI decide autonomamente se consultarli o rispondere dalle proprie conoscenze.
 
 ## Modificare ed eliminare
 

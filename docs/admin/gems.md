@@ -41,11 +41,11 @@ This creates two input fields for the user: *language* and *text*.
 
 ## Document access
 
-Each gem can be given access to part of the document library:
+Each gem can be given access to part of the document library using the folder and document tree in the gem form:
 
-- **Folder access** — the AI can see every document in the folder, including new ones added later.
-- **Individual document access** — the AI can only see the specific files you select.
-- **No access** (default) — the AI does not use the document library for this gem.
+- **Folder access** — tick the checkbox next to a folder name. The AI can see every document in that folder, including new ones added later. Ticking a folder automatically ticks all documents inside it.
+- **Individual document access** — expand a folder and tick only the specific documents you want. A folder with some but not all documents ticked shows a partial (−) indicator.
+- **No access** (default) — leave all boxes unticked. The AI does not use the document library for this gem.
 
 When a gem has document access, the AI decides for itself whether to look up documents or answer from its own knowledge.
 

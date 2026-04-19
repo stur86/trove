@@ -29,6 +29,15 @@ Questo significa:
 - **Documenti molto lunghi** potrebbero essere troncati per rientrare nella finestra di contesto del modello.
 - L'AI non usa sempre i documenti — li usa solo quando sembrano rilevanti per la richiesta dell'utente.
 
+## Scaricare documenti
+
+Puoi scaricare singoli documenti o intere cartelle direttamente dalla scheda Documenti.
+
+- **Cartella** — clicca l'icona di download (↓) accanto al nome di una cartella per ricevere un archivio ZIP contenente la versione Markdown convertita di ogni documento nella cartella.
+- **Documento** — clicca l'icona di download accanto al nome di un documento per ricevere il suo file Markdown convertito (`.md`).
+
+Questi download contengono la versione in testo normale di ogni file come la vede Trove, non il file originale caricato.
+
 ## Rimuovere un documento
 
 Clicca il pulsante **Elimina** accanto a un documento nel pannello amministratore. Il file e i suoi metadati vengono eliminati definitivamente.

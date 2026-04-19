@@ -17,7 +17,7 @@ Press the **Run** button. The AI begins generating a response and the result app
 
 ## Step 4 — Read and copy the result
 
-The result is shown as plain text (or formatted output if the gem is configured that way). You can select and copy it like any other text. There is no save or history feature — copy what you need before leaving the page.
+The result is displayed with formatting — headings, bullet points, bold text, and tables are rendered when the AI uses them. You can select and copy any part of the text as normal. There is no save or history feature — copy what you need before leaving the page.
 
 ## Starting over
 
