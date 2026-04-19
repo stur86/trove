@@ -4,10 +4,13 @@ All endpoints require admin cookie authentication. Markitdown is imported
 inside the upload handlers to keep it out of the module-level import chain
 (avoiding slow startup if markitdown has heavy dependencies).
 """
+import io
 import tempfile
+import zipfile
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from backend.app.auth import require_admin_cookie
@@ -111,6 +114,35 @@ def remove_folder(folder_id: str) -> None:
         (data_dir / "documents" / folder_id).rmdir()
     except OSError:
         pass  # Not empty or doesn't exist — ignore
+
+
+@router.get("/admin/folders/{folder_id}/download", dependencies=[Depends(require_admin_cookie)])
+def download_folder(folder_id: str) -> Response:
+    """Download all documents in a folder as a ZIP of .md files.
+
+    Each .md file in the archive is named <doc_id>.md (flat structure).
+    Requires admin cookie.
+    """
+    try:
+        get_folder(folder_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Folder '{folder_id}' not found")
+
+    docs = list_documents(folder_id)
+    data_dir = get_data_dir()
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for doc in docs:
+            md_path = data_dir / "documents" / folder_id / f"{doc.id}.md"
+            if md_path.exists():
+                zf.writestr(f"{doc.id}.md", md_path.read_bytes())
+
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{folder_id}.zip"'},
+    )
 
 
 class RenameFolderRequest(BaseModel):
@@ -236,6 +268,28 @@ def remove_document(doc_id: str) -> None:
     if folder_id is None:
         raise HTTPException(status_code=404, detail=f"Document '{doc_id}' not found")
     (get_data_dir() / "documents" / folder_id / f"{doc_id}.md").unlink(missing_ok=True)
+
+
+@router.get("/admin/documents/{doc_id}/download", dependencies=[Depends(require_admin_cookie)])
+def download_document(doc_id: str) -> Response:
+    """Download a single document as its converted markdown file.
+
+    Requires admin cookie.
+    """
+    try:
+        doc = get_document(doc_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Document '{doc_id}' not found")
+
+    md_path = get_data_dir() / "documents" / doc.folder_id / f"{doc_id}.md"
+    if not md_path.exists():
+        raise HTTPException(status_code=404, detail=f"Markdown file for '{doc_id}' not found on disk")
+
+    return Response(
+        content=md_path.read_bytes(),
+        media_type="text/markdown",
+        headers={"Content-Disposition": f'attachment; filename="{doc_id}.md"'},
+    )
 
 
 class UpdateDocumentRequest(BaseModel):
