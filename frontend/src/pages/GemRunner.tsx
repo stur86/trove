@@ -14,6 +14,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Label, Modal, ModalBody, ModalHeader, Select, Spinner, TextInput } from 'flowbite-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { gemsApi, readSSEStream, type UserTask } from '../api/tasks'
 import { appApi } from '../api/app'
 import GemIcon from '../components/GemIcon'
@@ -399,9 +401,11 @@ export default function GemRunner() {
           <div className="flex flex-col gap-3">
             <div
               ref={outputRef}
-              className="bg-white border border-gray-200 rounded-lg p-4 min-h-32 max-h-[60vh] overflow-y-auto text-sm text-gray-800 leading-relaxed whitespace-pre-wrap font-mono"
+              className="bg-white border border-gray-200 rounded-lg p-4 min-h-32 max-h-[60vh] overflow-y-auto text-sm text-gray-800 leading-relaxed prose prose-sm max-w-none"
             >
-              {output}
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {output}
+              </ReactMarkdown>
               <span
                 className="inline-block w-0.5 h-3.5 bg-indigo-500 ml-0.5 align-middle animate-pulse"
                 aria-hidden="true"
