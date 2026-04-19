@@ -272,3 +272,87 @@ def test_import_add_md_file_content_preserved(data_dir):
     import_bundle(bundle, ImportMode.ADD)
 
     assert (data_dir / "documents" / "new-folder" / "new-doc.md").read_text() == "Preserved text"
+
+
+# ── Router tests ──────────────────────────────────────────────────────────────
+
+import io as _io  # noqa: E402
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+
+@pytest.fixture
+def bundle_client(config_dir, data_dir, monkeypatch, session_token, admin_token):
+    """App-mode TestClient with session + admin cookie pre-set."""
+    monkeypatch.setenv("TROVE_FAKE_OLLAMA", "1")
+    monkeypatch.setenv("TROVE_FAKE_SYSTEM", "1")
+    from backend.config.service import save_config
+    from backend.config.models import TroveConfig
+    from backend.app.auth import hash_password
+    save_config(TroveConfig(admin_username="admin", admin_password=hash_password("pass"), num_ctx=8192))
+    from backend.main import create_app_app
+    client = TestClient(create_app_app(), headers={"X-Trove-Session": session_token})
+    client.cookies.set("admin_auth", admin_token)
+    return client
+
+
+def test_export_endpoint_returns_zip(bundle_client, data_dir):
+    _make_folder()
+    res = bundle_client.get("/api/app/admin/bundle/export")
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "application/zip"
+    assert zipfile.is_zipfile(_io.BytesIO(res.content))
+
+
+def test_export_endpoint_requires_admin(bundle_client, data_dir, session_token):
+    """Without an admin cookie, export returns 401 or 403."""
+    from fastapi.testclient import TestClient
+    from backend.main import create_app_app
+    client = TestClient(create_app_app(), headers={"X-Trove-Session": session_token})
+    res = client.get("/api/app/admin/bundle/export")
+    assert res.status_code in (401, 403)
+
+
+def test_import_endpoint_replace_mode(bundle_client, data_dir):
+    """POST a bundle ZIP to the import endpoint in replace mode."""
+    _make_folder()
+    _make_gem("existing-gem")
+
+    # Export, then add another gem, then replace with the original bundle
+    bundle_bytes = bundle_client.get("/api/app/admin/bundle/export").content
+    _make_gem("extra-gem")
+
+    res = bundle_client.post(
+        "/api/app/admin/bundle/import",
+        files={"file": ("bundle.zip", _io.BytesIO(bundle_bytes), "application/zip")},
+        data={"mode": "replace"},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["gems_imported"] == 1
+    assert data["gems_renamed"] == {}
+
+
+def test_import_endpoint_add_mode(bundle_client, data_dir):
+    _make_folder()
+    _make_gem("gem-a")
+    bundle_bytes = bundle_client.get("/api/app/admin/bundle/export").content
+
+    res = bundle_client.post(
+        "/api/app/admin/bundle/import",
+        files={"file": ("bundle.zip", _io.BytesIO(bundle_bytes), "application/zip")},
+        data={"mode": "add"},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    # gem-a already exists; import renames it
+    assert "gem-a" in data["gems_renamed"]
+
+
+def test_import_endpoint_bad_zip_returns_422(bundle_client):
+    res = bundle_client.post(
+        "/api/app/admin/bundle/import",
+        files={"file": ("bad.zip", _io.BytesIO(b"not a zip"), "application/zip")},
+        data={"mode": "add"},
+    )
+    assert res.status_code == 422

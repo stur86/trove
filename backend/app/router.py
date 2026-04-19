@@ -35,6 +35,7 @@ from backend.tasks.models import audio_supported
 # is why they live at the bottom; the imports themselves have no such constraint.
 from backend.tasks.router import router as gems_router          # noqa: E402
 from backend.documents.router import router as documents_router  # noqa: E402
+from backend.bundle.router import router as bundle_router        # noqa: E402
 
 router = APIRouter(prefix="/api/app", tags=["app"])
 
@@ -164,3 +165,4 @@ def capabilities() -> dict:
 
 router.include_router(gems_router)
 router.include_router(documents_router)
+router.include_router(bundle_router)
