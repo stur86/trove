@@ -275,6 +275,11 @@ export default function AdminPanel() {
                     value={config.num_ctx}
                     onChange={e => setConfig({ ...config, num_ctx: Number(e.target.value) })}
                   />
+                  {config.num_ctx > 8192 && (
+                    <Alert color="warning" className="mt-2">
+                      High context windows use a lot of extra memory. On some machines this can cause the server to slow down or become unresponsive. Try a short test run before using this setting with real users.
+                    </Alert>
+                  )}
                 </div>
 
                 <div>
