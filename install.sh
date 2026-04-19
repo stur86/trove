@@ -53,7 +53,7 @@ mkdir -p "$INSTALL_DIR" "$BIN_DIR"
 UV_DIR="$INSTALL_DIR/uv"
 mkdir -p "$UV_DIR"
 echo "Installing uv to ${UV_DIR}..."
-UV_INSTALL_DIR="$UV_DIR" curl -LsSf https://astral.sh/uv/install.sh | sh
+curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="$UV_DIR" sh
 UV="$UV_DIR/uv"
 
 # ── Download wheel ───────────────────────────────────────────────────────────
