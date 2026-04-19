@@ -90,3 +90,7 @@ def start(
         from backend.ollama.service import ensure_ollama_running
         ensure_ollama_running()
     uvicorn.run("backend.main:create_app_app", host=host, port=port, factory=True)
+
+if __name__ == "__main__":
+    # Running the CLI via `python -m backend.cli` is supported
+    cli()
