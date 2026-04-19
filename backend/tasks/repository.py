@@ -131,3 +131,13 @@ def list_tasks() -> list[UserTask]:
         _ensure_table(conn)
         rows = conn.execute("SELECT * FROM tasks ORDER BY id").fetchall()
     return [_row_to_user_task(row) for row in rows]
+
+
+def task_id_exists(task_id: str) -> bool:
+    """Return True if a task with the given id already exists in the database."""
+    with get_db() as conn:
+        _ensure_table(conn)
+        row = conn.execute(
+            "SELECT 1 FROM tasks WHERE id = ?", (task_id,)
+        ).fetchone()
+    return row is not None
