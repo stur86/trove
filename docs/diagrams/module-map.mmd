@@ -4,78 +4,76 @@
   "primaryBorderColor": "#3730a3",
   "lineColor": "#6b7280",
   "clusterBkg": "#f8fafc",
-  "clusterBorder": "#cbd5e1"
+  "clusterBorder": "#94a3b8"
 }}}%%
 graph TB
-    %% ── Layer 1: user ─────────────────────────────────────────────────────
-    browser(["🌐 Browser"])
-    style browser fill:#0ea5e9,color:#fff,stroke:#0284c7
 
-    %% ── Layer 2: frontend ─────────────────────────────────────────────────
-    subgraph frontend["Frontend  (React · TypeScript · Vite)"]
-        direction LR
-        pages["Pages<br/>Setup wizard · Gem runner<br/>Admin panel · Documents"]
-        api_layer["API clients<br/>Typed fetch wrappers<br/>Mock mode support"]
-        i18n["i18n hooks<br/>useLocale · useTranslation"]
-        style pages fill:#4f46e5,color:#fff,stroke:#3730a3
-        style api_layer fill:#818cf8,color:#fff,stroke:#6366f1
-        style i18n fill:#818cf8,color:#fff,stroke:#6366f1
+  %% ── Frontend ──────────────────────────────────────────────────────────
+  subgraph frontend["Frontend  ·  React · TypeScript · Vite"]
+    direction LR
+
+    subgraph local_fe["🔒  Localhost only"]
+      direction TB
+      setup_page["⚙️ Setup wizard"]
+      admin_page["🔧 Admin panel"]
     end
 
-    %% ── Layer 3: backend — mode interface ─────────────────────────────────
-    subgraph mode_layer["Backend — mode interface"]
-        direction LR
+    user_page["💎 Gem runner"]
+  end
 
-        subgraph setup_mode["Setup mode  (localhost:7071)"]
-            setup_ep["6-step wizard<br/>service installer"]
-            style setup_ep fill:#7c3aed,color:#fff,stroke:#5b21b6
-        end
+  style local_fe fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
 
-        subgraph shared_routes["Shared routes  (both modes)"]
-            shared_ep["config · i18n · system<br/>Ollama install / pull / build"]
-            style shared_ep fill:#10b981,color:#fff,stroke:#059669
-        end
+  %% ── Backend — Setup server ────────────────────────────────────────────
+  subgraph setup_srv["🔒  Setup server  ·  port 7071  ·  localhost only"]
+    direction LR
+    ss_wizard["Setup wizard router<br/>(6-step installer)"]
+    ss_shared["Config · i18n · system<br/>Ollama install / pull / build"]
+  end
 
-        subgraph app_mode["App mode  (LAN:7770)"]
-            app_ep["admin auth<br/>gem runner · document library"]
-            style app_ep fill:#4f46e5,color:#fff,stroke:#3730a3
-        end
+  style setup_srv fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+
+  %% ── Backend — App server ──────────────────────────────────────────────
+  subgraph app_srv["App server  ·  port 7770  ·  LAN + localhost"]
+    direction TB
+
+    subgraph admin_r["Admin routers  (require admin cookie)"]
+      direction LR
+      a_auth["Auth<br/>login / logout"]
+      a_gems["Gems<br/>CRUD"]
+      a_docs["Documents<br/>upload · Markitdown<br/>AI summary · download"]
+      a_bundle["Bundle<br/>export / import"]
     end
 
-    %% ── Layer 4: backend — services ───────────────────────────────────────
-    subgraph services["Backend — services"]
-        direction LR
-        session["Session tokens<br/>X-Trove-Session"]
-        gem_svc["Gem runner<br/>Pydantic AI agent<br/>Jinja template · SSE"]
-        doc_svc["Document library<br/>Markitdown · AI summary<br/>folder access control"]
-        cfg_svc["Config · i18n · system<br/>XDG persistence<br/>hardware checks"]
-        style session fill:#10b981,color:#fff,stroke:#059669
-        style gem_svc fill:#4f46e5,color:#fff,stroke:#3730a3
-        style doc_svc fill:#4f46e5,color:#fff,stroke:#3730a3
-        style cfg_svc fill:#10b981,color:#fff,stroke:#059669
+    subgraph public_r["Public routers"]
+      direction LR
+      p_session["Session<br/>tokens"]
+      p_runner["Gem runner<br/>Pydantic AI · SSE stream"]
+      p_config["Config · i18n<br/>System · Ollama"]
     end
+  end
 
-    %% ── Layer 5: external ─────────────────────────────────────────────────
-    ollama(["🤖 Ollama<br/>(external process)"])
-    storage(["💾 Storage<br/>config · database · files"])
-    style ollama fill:#f59e0b,color:#fff,stroke:#d97706
-    style storage fill:#64748b,color:#fff,stroke:#475569
+  style admin_r fill:#eef2ff,stroke:#6366f1,color:#1e1b4b
+  style public_r fill:#f0fdf4,stroke:#22c55e,color:#14532d
 
-    %% ── Layer connections ─────────────────────────────────────────────────
-    browser -- "HTTP · SSE<br/>X-Trove-Session" --> frontend
-    frontend --> mode_layer
-    mode_layer --> services
-    gem_svc -- "model inference<br/>(streaming)" --> ollama
-    doc_svc -- "AI summary" --> ollama
-    cfg_svc --> storage
-    doc_svc --> storage
+  %% ── External resources ────────────────────────────────────────────────
+  ollama[("🤖 Ollama server")]
+  storage[("💾 SQLite DB<br/>+ file storage")]
 
-    %% ── Gem run flow (labelled) ───────────────────────────────────────────
-    pages -. "① submit gem form" .-> app_ep
-    app_ep -. "② render template<br/>③ fetch doc context" .-> gem_svc
-    gem_svc -. "④ stream tokens back" .-> pages
+  style ollama fill:#fef3c7,stroke:#d97706,color:#78350f
+  style storage fill:#f1f5f9,stroke:#64748b,color:#1e293b
 
-    %% ── Document upload flow (labelled) ───────────────────────────────────
-    pages -. "A upload file" .-> app_ep
-    app_ep -. "B convert + summarise" .-> doc_svc
-    doc_svc -. "C save to library" .-> storage
+  %% ── Frontend → Backend connections ───────────────────────────────────
+  setup_page -- "port 7071" --> setup_srv
+  admin_page -- "port 7770<br/>(admin cookie)" --> admin_r
+  user_page  -- "port 7770" --> public_r
+
+  %% ── Backend → External connections ───────────────────────────────────
+  ss_shared  -- "install / build" --> ollama
+  p_runner   -- "inference<br/>(SSE stream)" --> ollama
+  a_docs     -- "AI summary" --> ollama
+
+  ss_shared  --> storage
+  a_gems     --> storage
+  a_docs     --> storage
+  a_bundle   --> storage
+  p_session  --> storage
