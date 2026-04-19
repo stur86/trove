@@ -167,3 +167,108 @@ def test_import_replace_returns_correct_counts(data_dir):
     assert result.gems_imported == 2
     assert result.documents_renamed == {}
     assert result.gems_renamed == {}
+
+
+# ── import_bundle — Add mode ──────────────────────────────────────────────────
+
+def test_import_add_no_conflicts_imports_all(data_dir):
+    from backend.bundle.service import export_bundle, import_bundle
+    from backend.bundle.models import ImportMode
+    _make_folder()
+    _make_document("doc1", "f1", data_dir)
+    _make_gem("gem1")
+    bundle = export_bundle()
+
+    # Clear everything, then import in Add mode into empty state
+    from backend.tasks.repository import delete_task
+    from backend.documents.repository import delete_folder as df
+    delete_task("gem1")
+    df("f1")
+    import_bundle(bundle, ImportMode.ADD)
+
+    from backend.tasks.repository import list_tasks
+    from backend.documents.repository import list_documents
+    assert any(g.id == "gem1" for g in list_tasks())
+    assert any(d.id == "doc1" for d in list_documents())
+
+
+def test_import_add_skips_existing_folder(data_dir):
+    """If a folder already exists, keep the existing name (don't overwrite)."""
+    from backend.bundle.service import export_bundle, import_bundle
+    from backend.bundle.models import ImportMode
+    _make_folder("f1", "Original Name")
+    bundle = export_bundle()
+
+    # Rename the folder, then import — original name should be preserved
+    from backend.documents.repository import update_folder
+    update_folder("f1", name="Renamed Locally")
+    result = import_bundle(bundle, ImportMode.ADD)
+
+    from backend.documents.repository import get_folder as gf
+    assert gf("f1").name == "Renamed Locally"
+    assert result.folders_created == 0
+
+
+def test_import_add_renames_document_on_collision(data_dir):
+    from backend.bundle.service import export_bundle, import_bundle
+    from backend.bundle.models import ImportMode
+    _make_folder()
+    _make_document("doc1", "f1", data_dir, content="From bundle")
+    bundle = export_bundle()
+
+    # doc1 already exists — Add should rename the incoming one
+    result = import_bundle(bundle, ImportMode.ADD)
+
+    assert "doc1" in result.documents_renamed
+    new_id = result.documents_renamed["doc1"]
+    assert new_id == "doc1-2"
+    assert (data_dir / "documents" / "f1" / "doc1-2.md").read_text() == "From bundle"
+
+
+def test_import_add_renames_gem_on_collision(data_dir):
+    from backend.bundle.service import export_bundle, import_bundle
+    from backend.bundle.models import ImportMode
+    _make_folder()
+    _make_gem("gem1")
+    bundle = export_bundle()
+
+    # gem1 already exists — Add should rename the incoming one
+    result = import_bundle(bundle, ImportMode.ADD)
+
+    assert "gem1" in result.gems_renamed
+    assert result.gems_renamed["gem1"] == "gem1-2"
+
+
+def test_import_add_rewrites_gem_doc_refs_after_rename(data_dir):
+    """When a document is renamed, gems that reference it are updated."""
+    from backend.bundle.service import export_bundle, import_bundle
+    from backend.bundle.models import ImportMode
+    from backend.tasks.repository import list_tasks
+    _make_folder()
+    _make_document("doc1", "f1", data_dir)
+    _make_gem("gem1", doc_ids=["doc1"])
+    bundle = export_bundle()
+
+    # doc1 now conflicts — it will be renamed to doc1-2
+    result = import_bundle(bundle, ImportMode.ADD)
+
+    renamed_gem_id = result.gems_renamed.get("gem1", "gem1")
+    tasks = {g.id: g for g in list_tasks()}
+    assert renamed_gem_id in tasks
+    assert "doc1-2" in tasks[renamed_gem_id].doc_ids
+
+
+def test_import_add_md_file_content_preserved(data_dir):
+    from backend.bundle.service import export_bundle, import_bundle
+    from backend.bundle.models import ImportMode
+    _make_folder("new-folder", "New Folder")
+    _make_document("new-doc", "new-folder", data_dir, content="Preserved text")
+    bundle = export_bundle()
+
+    # Import into a state without new-folder or new-doc
+    from backend.documents.repository import delete_folder as df
+    from backend.tasks.repository import list_tasks
+    df("new-folder")
+    import_bundle(bundle, ImportMode.ADD)
+
+    assert (data_dir / "documents" / "new-folder" / "new-doc.md").read_text() == "Preserved text"
