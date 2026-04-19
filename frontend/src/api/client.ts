@@ -121,3 +121,29 @@ export async function del(path: string, headers?: HeadersInit): Promise<void> {
   })
   if (!res.ok) throw new Error(`DELETE ${path} failed: ${res.status}`)
 }
+
+/**
+ * Make a GET request and return the response as a Blob (for file downloads).
+ * Handles session injection and 401 retry identically to get().
+ * @param path API path (e.g. "/app/admin/bundle/export")
+ */
+export async function getBlob(path: string): Promise<Blob> {
+  const res = await apiRequest(`${BASE}${path}`, {})
+  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`)
+  return res.blob()
+}
+
+/**
+ * Make a POST request with a FormData body (for multipart file uploads).
+ * Does NOT set Content-Type — the browser sets it automatically with the boundary.
+ * @param path API path
+ * @param form FormData to send
+ */
+export async function postFormData(path: string, form: FormData): Promise<Response> {
+  const res = await apiRequest(`${BASE}${path}`, {
+    method: 'POST',
+    body: form,
+  })
+  if (!res.ok) throw new Error(`POST ${path} failed: ${res.status}`)
+  return res
+}
