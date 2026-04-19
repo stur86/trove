@@ -52,9 +52,11 @@ def clear_caches():
 
 
 @pytest.fixture(autouse=True)
-def disable_global_ollama(monkeypatch):
-    """Force TROVE_USE_GLOBAL_OLLAMA=0 for all tests regardless of .env."""
+def disable_real_systems(monkeypatch):
+    """Force tests to use mocks"""
     monkeypatch.setenv("TROVE_USE_GLOBAL_OLLAMA", "0")
+    monkeypatch.setenv("TROVE_FAKE_OLLAMA", "1")
+    monkeypatch.setenv("TROVE_FAKE_SYSTEM", "1")
 
 
 
