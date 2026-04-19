@@ -171,7 +171,8 @@ export async function* readSSEStream(response: Response): AsyncGenerator<string>
       const data = line.slice(6)
       if (data === '[DONE]') return
       if (isError) throw new Error(data)
-      yield data
+      // Chunks are JSON-encoded by the backend so newlines survive SSE framing.
+      yield JSON.parse(data) as string
     }
   }
 }
