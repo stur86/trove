@@ -12,13 +12,14 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Alert, Button, Label, Select, Spinner, TabItem, Tabs, RangeSlider } from 'flowbite-react'
+import { Alert, Button, Label, Modal, ModalBody, ModalFooter, ModalHeader, Select, Spinner, TabItem, Tabs, RangeSlider } from 'flowbite-react'
 import { appApi } from '../api/app'
 import AdminLogin, { isAllowedAdmin } from '../components/AdminLogin'
 import { type TroveConfig, configApi } from '../api/config'
 import { streamLines } from '../api/ollama'
 import { systemApi, type ModelInfo } from '../api/system'
 import { gemsApi, type UserTask } from '../api/tasks'
+import { bundleApi, type ImportResult } from '../api/bundle'
 import GemIcon from '../components/GemIcon'
 import DocumentsPanel from './DocumentsPanel'
 import { useTranslation } from '../i18n'
@@ -56,6 +57,15 @@ export default function AdminPanel() {
   const [gemDeleteId, setGemDeleteId] = useState<string | null>(null)
   const [logLines, setLogLines] = useState<string[]>([])
   const logEndRef = useRef<HTMLDivElement | null>(null)
+
+  // Bundle export/import state
+  const [exporting, setExporting] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importMode, setImportMode] = useState<'add' | 'replace'>('add')
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const [importError, setImportError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!authed) return
@@ -135,6 +145,38 @@ export default function AdminPanel() {
       )
     } catch {
       setSaveState('error')
+    }
+  }
+
+  /** Fetch the bundle ZIP from the server and trigger a browser download. */
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const blob = await bundleApi.exportBundle()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'trove-bundle.zip'
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  /** POST the chosen ZIP file to the import endpoint. */
+  async function handleImport() {
+    if (!importFile) return
+    setImporting(true)
+    setImportError(null)
+    setImportResult(null)
+    try {
+      const result = await bundleApi.importBundle(importFile, importMode)
+      setImportResult(result)
+    } catch (e) {
+      setImportError(String(e))
+    } finally {
+      setImporting(false)
     }
   }
 
@@ -284,6 +326,25 @@ export default function AdminPanel() {
                 )}
 
                 {saveState === 'error' && <Alert color="failure">Failed to save. Check credentials.</Alert>}
+
+                {/* Data section — export and import bundle */}
+                <div className="border-t border-gray-200 pt-6 flex flex-col gap-4">
+                  <Label className="text-base font-semibold text-gray-800">Data</Label>
+                  <div className="flex gap-3">
+                    <Button color="light" disabled={exporting} onClick={handleExport}>
+                      {exporting ? <><Spinner size="sm" className="mr-2" />Exporting…</> : 'Export bundle'}
+                    </Button>
+                    <Button color="light" onClick={() => {
+                      setImportFile(null)
+                      setImportMode('add')
+                      setImportResult(null)
+                      setImportError(null)
+                      setShowImportModal(true)
+                    }}>
+                      Import bundle
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
           </TabItem>
@@ -365,6 +426,85 @@ export default function AdminPanel() {
 
         </Tabs>
       </div>
+
+      {/* Import bundle modal */}
+      <Modal show={showImportModal} onClose={() => setShowImportModal(false)} size="md">
+        <ModalHeader>Import bundle</ModalHeader>
+        <ModalBody>
+          <div className="flex flex-col gap-4">
+            {/* Mode selector */}
+            <div className="flex flex-col gap-2">
+              <Label>Import mode</Label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="import-mode"
+                    value="add"
+                    checked={importMode === 'add'}
+                    onChange={() => setImportMode('add')}
+                  />
+                  <span className="text-sm text-gray-700">Add — merge with existing data</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="import-mode"
+                    value="replace"
+                    checked={importMode === 'replace'}
+                    onChange={() => setImportMode('replace')}
+                  />
+                  <span className="text-sm text-gray-700">Replace — wipe and reimport</span>
+                </label>
+              </div>
+              {importMode === 'replace' && (
+                <Alert color="warning">
+                  This will permanently delete all current gems and documents before importing.
+                </Alert>
+              )}
+            </div>
+
+            {/* File picker */}
+            <div>
+              <Label htmlFor="bundle-file">Bundle ZIP file</Label>
+              <input
+                id="bundle-file"
+                type="file"
+                accept=".zip"
+                className="mt-1 block w-full text-sm text-gray-500"
+                onChange={e => setImportFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
+
+            {/* Result feedback */}
+            {importResult && (
+              <Alert color="success">
+                Import complete: {importResult.gems_imported} gem{importResult.gems_imported !== 1 ? 's' : ''} and{' '}
+                {importResult.documents_imported} document{importResult.documents_imported !== 1 ? 's' : ''} imported.
+                {Object.keys(importResult.documents_renamed).length > 0 && (
+                  <> {Object.keys(importResult.documents_renamed).length} document{Object.keys(importResult.documents_renamed).length !== 1 ? 's' : ''} renamed.</>
+                )}
+                {Object.keys(importResult.gems_renamed).length > 0 && (
+                  <> {Object.keys(importResult.gems_renamed).length} gem{Object.keys(importResult.gems_renamed).length !== 1 ? 's' : ''} renamed.</>
+                )}
+              </Alert>
+            )}
+            {importError && <Alert color="failure">{importError}</Alert>}
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button
+            color="blue"
+            disabled={!importFile || importing}
+            onClick={handleImport}
+          >
+            {importing ? <><Spinner size="sm" className="mr-2" />Importing…</> : 'Import'}
+          </Button>
+          <Button color="light" onClick={() => setShowImportModal(false)}>
+            Cancel
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   )
 }

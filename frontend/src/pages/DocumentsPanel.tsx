@@ -166,6 +166,24 @@ export default function DocumentsPanel() {
     }
   }
 
+  // ── Download handlers ─────────────────────────────────────────────────────
+
+  async function handleDownloadFolder(folder: Folder) {
+    try {
+      await documentsApi.downloadFolder(folder.id)
+    } catch (e) {
+      setFolderError(String(e))
+    }
+  }
+
+  async function handleDownloadDocument(doc: Document) {
+    try {
+      await documentsApi.downloadDocument(doc.id)
+    } catch (e) {
+      setDocError(String(e))
+    }
+  }
+
   // ── Properties card handlers ──────────────────────────────────────────────
 
   async function handlePropNameBlur() {
@@ -387,6 +405,15 @@ export default function DocumentsPanel() {
                         ✎
                       </button>
                       <button
+                        onClick={e => { e.stopPropagation(); handleDownloadFolder(folder) }}
+                        title="Download folder as ZIP"
+                        className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 transition-opacity p-1"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                      <button
                         className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity text-lg leading-none"
                         onClick={e => { e.stopPropagation(); setFolderToDelete(folder) }}
                         title={t('admin.documents.delete_folder')}
@@ -433,14 +460,23 @@ export default function DocumentsPanel() {
               {documents.map(doc => (
                 <div
                   key={doc.id}
-                  className={`px-3 py-2 rounded cursor-pointer text-sm truncate ${
+                  className={`group flex items-center gap-1 px-3 py-2 rounded cursor-pointer text-sm ${
                     selectedDoc?.id === doc.id
                       ? 'bg-blue-50 text-blue-700 font-medium'
                       : 'hover:bg-gray-100 text-gray-700'
                   }`}
                   onClick={() => { setSelectedDoc(doc); setDeleteConfirm(false) }}
                 >
-                  {doc.name}
+                  <span className="flex-1 truncate">{doc.name}</span>
+                  <button
+                    onClick={e => { e.stopPropagation(); handleDownloadDocument(doc) }}
+                    title="Download as markdown"
+                    className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 transition-opacity p-1 shrink-0"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
                 </div>
               ))}
             </div>

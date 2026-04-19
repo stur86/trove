@@ -144,4 +144,14 @@ export const documentsApi = {
     await delay()
     documents = documents.filter(d => d.id !== id)
   },
+
+  downloadFolder: async (_folderId: string): Promise<void> => {
+    await delay()
+    // No-op in mock mode — no real files to download.
+  },
+
+  downloadDocument: async (_docId: string): Promise<void> => {
+    await delay()
+    // No-op in mock mode — no real files to download.
+  },
 }

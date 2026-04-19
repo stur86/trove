@@ -400,6 +400,7 @@ async def test_process_document_ai_failure_falls_back_to_name(data_dir, config_d
 # ── Router tests (Task 5) ─────────────────────────────────────────────────────
 
 import io  # noqa: E402
+import zipfile  # noqa: E402
 
 from fastapi.testclient import TestClient  # noqa: E402
 
@@ -664,3 +665,49 @@ def test_upload_without_name_falls_back_to_filename(doc_client):
         )
     assert res.status_code == 200
     assert res.json()["document"]["name"] == "original-file.txt"
+
+
+# ── Download endpoints (Task 9) ───────────────────────────────────────────────
+
+def test_download_folder_returns_zip(doc_client, data_dir):
+    doc_client.post("/api/app/admin/folders", json={"name": "My Folder"})
+    # Insert a document and its .md file
+    now = datetime.now(timezone.utc)
+    save_folder(Folder(id="my-folder", name="My Folder"))
+    save_document(Document(id="d1", folder_id="my-folder", name="d1.txt",
+                           description="", mime_type="text/plain", created_at=now))
+    md_dir = data_dir / "documents" / "my-folder"
+    md_dir.mkdir(parents=True, exist_ok=True)
+    (md_dir / "d1.md").write_text("hello")
+
+    res = doc_client.get("/api/app/admin/folders/my-folder/download")
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "application/zip"
+    with zipfile.ZipFile(io.BytesIO(res.content)) as zf:
+        assert "d1.md" in zf.namelist()
+        assert zf.read("d1.md") == b"hello"
+
+
+def test_download_folder_not_found(doc_client):
+    res = doc_client.get("/api/app/admin/folders/missing/download")
+    assert res.status_code == 404
+
+
+def test_download_document_returns_markdown(doc_client, data_dir):
+    now = datetime.now(timezone.utc)
+    save_folder(Folder(id="f1", name="F1"))
+    save_document(Document(id="d1", folder_id="f1", name="d1.txt",
+                           description="", mime_type="text/plain", created_at=now))
+    md_dir = data_dir / "documents" / "f1"
+    md_dir.mkdir(parents=True, exist_ok=True)
+    (md_dir / "d1.md").write_text("# Document")
+
+    res = doc_client.get("/api/app/admin/documents/d1/download")
+    assert res.status_code == 200
+    assert "text/markdown" in res.headers["content-type"]
+    assert res.content == b"# Document"
+
+
+def test_download_document_not_found(doc_client):
+    res = doc_client.get("/api/app/admin/documents/missing/download")
+    assert res.status_code == 404

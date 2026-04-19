@@ -4,7 +4,7 @@
  * Exports documentsApi — switches to the mock implementation when
  * VITE_MOCK_API=1 is set in the environment.
  */
-import { del, get, patch, post } from './client'
+import { del, get, getBlob, patch, post } from './client'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,6 +33,21 @@ export interface Document {
 export type UploadResult =
   | { status: 'ok'; document: Document }
   | { status: 'needs_description'; word_count: number; num_ctx: number }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Trigger a browser file download from a Blob without navigating away.
+ * Creates a temporary <a> element, clicks it, then revokes the object URL.
+ */
+function _triggerDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 // ── Real API implementation ───────────────────────────────────────────────────
 
@@ -117,6 +132,18 @@ const _realDocumentsApi = {
   /** Delete a document and its markdown file. */
   deleteDocument: (id: string): Promise<void> =>
     del(`/app/admin/documents/${id}`),
+
+  /** Download all documents in a folder as a ZIP of .md files. */
+  downloadFolder: async (folderId: string): Promise<void> => {
+    const blob = await getBlob(`/app/admin/folders/${folderId}/download`)
+    _triggerDownload(blob, `${folderId}.zip`)
+  },
+
+  /** Download a single document as its converted markdown file. */
+  downloadDocument: async (docId: string): Promise<void> => {
+    const blob = await getBlob(`/app/admin/documents/${docId}/download`)
+    _triggerDownload(blob, `${docId}.md`)
+  },
 }
 
 // ── Mock selector ─────────────────────────────────────────────────────────────

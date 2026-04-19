@@ -1,7 +1,7 @@
 """Tests for UserTask SQLite persistence."""
 import pytest
 from backend.tasks.models import ChoiceArg, GemHue, OutputMode, StringArg, UserTask
-from backend.tasks.repository import delete_task, list_tasks, load_task, save_task
+from backend.tasks.repository import delete_task, list_tasks, load_task, save_task, task_id_exists
 
 
 @pytest.fixture
@@ -159,3 +159,16 @@ def test_existing_task_without_doc_fields_loads_with_defaults(data_dir):
     loaded = load_task("legacy")
     assert loaded.doc_folder_ids == ()
     assert loaded.doc_ids == ()
+
+
+def test_task_id_exists_false_when_absent(data_dir):
+    assert task_id_exists("nonexistent") is False
+
+
+def test_task_id_exists_true_when_present(data_dir):
+    task = UserTask(
+        id="my-gem", name="My Gem", template="hi",
+        hue=GemHue.INDIGO, output_mode=OutputMode.TEXT,
+    )
+    save_task(task)
+    assert task_id_exists("my-gem") is True
