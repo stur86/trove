@@ -57,7 +57,9 @@ curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL="$UV_DIR" 
 UV="$UV_DIR/uv"
 
 # ── Download wheel ───────────────────────────────────────────────────────────
-WHEEL_PATH="$INSTALL_DIR/trove-${VERSION}.whl"
+# Use the full filename from the URL to preserve the required Python/ABI/platform tags.
+WHEEL_FILENAME=$(basename "$WHEEL_URL")
+WHEEL_PATH="$INSTALL_DIR/$WHEEL_FILENAME"
 echo "Downloading Trove wheel..."
 curl -LsSf "$WHEEL_URL" -o "$WHEEL_PATH"
 
