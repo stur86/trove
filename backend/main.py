@@ -31,6 +31,7 @@ from backend.ollama.router import router as ollama_router
 from backend.ollama.service import RealOllamaService
 from backend.session import session_store
 from backend.system.router import router as system_router
+from backend.version import __version__
 
 load_dotenv()  # Must run before os.getenv calls below
 setup_ollama_log_buffer()
@@ -107,7 +108,7 @@ def _create_app_with_mode(mode: AppMode) -> FastAPI:
     Args:
         mode (AppMode): The operating mode of the application (setup or app).
     """
-    application = FastAPI(title="Trove", version="0.1.0", lifespan=lifespan)
+    application = FastAPI(title="Trove", version=__version__, lifespan=lifespan)
 
     application.add_middleware(SessionMiddleware)
 
