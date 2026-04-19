@@ -97,3 +97,73 @@ def test_export_bundle_manifest_has_gems_and_folders(data_dir):
     assert any(d["id"] == "policy" for d in manifest["documents"])
     assert any(g["id"] == "summarise" for g in manifest["gems"])
     assert manifest["gems"][0]["doc_folder_ids"] == ["hr"]
+
+
+# ── import_bundle — Replace mode ──────────────────────────────────────────────
+
+def test_import_replace_wipes_existing_gems(data_dir):
+    from backend.bundle.service import export_bundle, import_bundle
+    from backend.bundle.models import ImportMode
+    _make_folder()
+    _make_gem("old-gem")
+    bundle = export_bundle()
+
+    # Add a new gem that is NOT in the bundle
+    _make_gem("extra-gem")
+    result = import_bundle(bundle, ImportMode.REPLACE)
+
+    from backend.tasks.repository import list_tasks
+    ids = {g.id for g in list_tasks()}
+    assert "old-gem" in ids
+    assert "extra-gem" not in ids
+    assert result.gems_imported == 1
+
+
+def test_import_replace_wipes_existing_documents(data_dir):
+    from backend.bundle.service import export_bundle, import_bundle
+    from backend.bundle.models import ImportMode
+    _make_folder()
+    _make_document("doc1", "f1", data_dir)
+    bundle = export_bundle()
+
+    # Add a document not in the bundle
+    _make_document("extra-doc", "f1", data_dir)
+    import_bundle(bundle, ImportMode.REPLACE)
+
+    from backend.documents.repository import list_documents
+    ids = {d.id for d in list_documents()}
+    assert "doc1" in ids
+    assert "extra-doc" not in ids
+
+
+def test_import_replace_restores_md_files(data_dir):
+    from backend.bundle.service import export_bundle, import_bundle
+    from backend.bundle.models import ImportMode
+    _make_folder()
+    _make_document("doc1", "f1", data_dir, content="Original content")
+    bundle = export_bundle()
+
+    # Overwrite the md file then replace
+    (data_dir / "documents" / "f1" / "doc1.md").write_text("corrupted")
+    import_bundle(bundle, ImportMode.REPLACE)
+
+    assert (data_dir / "documents" / "f1" / "doc1.md").read_text() == "Original content"
+
+
+def test_import_replace_returns_correct_counts(data_dir):
+    from backend.bundle.service import export_bundle, import_bundle
+    from backend.bundle.models import ImportMode
+    _make_folder("f1")
+    _make_folder("f2")
+    _make_document("d1", "f1", data_dir)
+    _make_document("d2", "f2", data_dir)
+    _make_gem("gem1")
+    _make_gem("gem2")
+    bundle = export_bundle()
+    result = import_bundle(bundle, ImportMode.REPLACE)
+
+    assert result.folders_created == 2
+    assert result.documents_imported == 2
+    assert result.gems_imported == 2
+    assert result.documents_renamed == {}
+    assert result.gems_renamed == {}
