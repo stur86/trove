@@ -1,0 +1,21 @@
+digraph {
+    rankdir=UD
+
+    User_1 [shape=box, label="User 👤", fillcolor=lightblue, style=filled]
+    User_2 [shape=box, label="User 👤", fillcolor=lightblue, style=filled]
+    User_3 [shape=box, label="User 👤", fillcolor=lightblue, style=filled]
+
+    subgraph cluster_localhost {
+        label="Localhost 🏠 (server machine)"
+        fillcolor=lightgreen
+        style=filled
+        Server [shape=box, label="Trove Server 🖥️ (fixed LAN IP)", fillcolor=white, style=filled]
+        Admin [shape=box, label="Admin 🛠️", fillcolor=white, style=filled]
+        Admin -> Server [label="Creates Gems, Uploads Documents"]
+        { rank=same; Server; Admin }
+    }
+
+    User_1 -> Server [label="Runs Gems"]
+    User_2 -> Server [label="Runs Gems"]
+    User_3 -> Server [label="Runs Gems"]
+}
