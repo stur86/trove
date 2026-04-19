@@ -23,57 +23,75 @@ graph TB
 
   style local_fe fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
 
-  %% ── Backend — Setup server ────────────────────────────────────────────
-  subgraph setup_srv["🔒  Setup server  ·  port 7071  ·  localhost only"]
-    direction LR
-    ss_wizard["Setup wizard router<br/>(6-step installer)"]
-    ss_shared["Config · i18n · system<br/>Ollama install / pull / build"]
-  end
-
-  style setup_srv fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
-
-  %% ── Backend — App server ──────────────────────────────────────────────
-  subgraph app_srv["App server  ·  port 7770  ·  LAN + localhost"]
+  %% ── Backend ───────────────────────────────────────────────────────────
+  subgraph backend["Backend"]
     direction TB
 
-    subgraph admin_r["Admin routers  (require admin cookie)"]
+    %% Interface layer
+    subgraph ifaces["Interface layer"]
       direction LR
-      a_auth["Auth<br/>login / logout"]
-      a_gems["Gems<br/>CRUD"]
-      a_docs["Documents<br/>upload · Markitdown<br/>AI summary · download"]
-      a_bundle["Bundle<br/>export / import"]
+      setup_iface["Setup interface<br/>port 7071 · 🔒 localhost only"]
+      exec_iface["Execution interface<br/>port 7770 · LAN + localhost"]
     end
 
-    subgraph public_r["Public routers"]
+    style setup_iface fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    style exec_iface  fill:#eef2ff,stroke:#6366f1,color:#1e1b4b
+
+    %% Router layer
+    subgraph routers["Router layer"]
       direction LR
-      p_session["Session<br/>tokens"]
-      p_runner["Gem runner<br/>Pydantic AI · SSE stream"]
-      p_config["Config · i18n<br/>System · Ollama"]
+
+      subgraph r_setup_only["Setup only"]
+        r_setup["Setup wizard<br/>(6-step installer)"]
+      end
+
+      subgraph r_exec_only["Execution only"]
+        direction LR
+        r_auth["Auth · Session"]
+        r_gems["Gems<br/>task runner · SSE"]
+        r_docs["Documents<br/>Markitdown · AI summary"]
+        r_bundle["Bundle<br/>export · import"]
+      end
+
+      subgraph r_shared["Shared"]
+        direction LR
+        r_config["Config · i18n"]
+        r_system["System checks"]
+        r_ollama_r["Ollama<br/>install · pull · build"]
+      end
     end
+
+    style r_setup_only fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    style r_exec_only  fill:#eef2ff,stroke:#6366f1,color:#1e1b4b
+    style r_shared     fill:#f0fdf4,stroke:#22c55e,color:#14532d
+
+    %% Interface → router connections
+    setup_iface --> r_setup_only
+    setup_iface --> r_shared
+
+    exec_iface --> r_exec_only
+    exec_iface --> r_shared
   end
 
-  style admin_r fill:#eef2ff,stroke:#6366f1,color:#1e1b4b
-  style public_r fill:#f0fdf4,stroke:#22c55e,color:#14532d
-
   %% ── External resources ────────────────────────────────────────────────
-  ollama[("🤖 Ollama server")]
+  ollama_srv[("🤖 Ollama server")]
   storage[("💾 SQLite DB<br/>+ file storage")]
 
-  style ollama fill:#fef3c7,stroke:#d97706,color:#78350f
-  style storage fill:#f1f5f9,stroke:#64748b,color:#1e293b
+  style ollama_srv fill:#fef3c7,stroke:#d97706,color:#78350f
+  style storage    fill:#f1f5f9,stroke:#64748b,color:#1e293b
 
-  %% ── Frontend → Backend connections ───────────────────────────────────
-  setup_page -- "port 7071" --> setup_srv
-  admin_page -- "port 7770<br/>(admin cookie)" --> admin_r
-  user_page  -- "port 7770" --> public_r
+  %% ── Frontend → backend ────────────────────────────────────────────────
+  setup_page --> setup_iface
+  admin_page --> exec_iface
+  user_page  --> exec_iface
 
-  %% ── Backend → External connections ───────────────────────────────────
-  ss_shared  -- "install / build" --> ollama
-  p_runner   -- "inference<br/>(SSE stream)" --> ollama
-  a_docs     -- "AI summary" --> ollama
+  %% ── Routers → external resources ──────────────────────────────────────
+  r_ollama_r --> ollama_srv
+  r_gems     -- "inference (SSE)" --> ollama_srv
+  r_docs     -- "AI summary" --> ollama_srv
 
-  ss_shared  --> storage
-  a_gems     --> storage
-  a_docs     --> storage
-  a_bundle   --> storage
-  p_session  --> storage
+  r_auth   --> storage
+  r_gems   --> storage
+  r_docs   --> storage
+  r_bundle --> storage
+  r_config --> storage
