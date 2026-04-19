@@ -4,6 +4,7 @@
  * Three tiers:
  *   1. Frontend — Setup wizard and Admin panel (localhost only), Gem runner (LAN)
  *   2. Backend  — Interface layer feeds a Router layer
+ *                 Shared routers are mounted on both interfaces.
  *   3. External — Ollama server and file/DB storage
  */
 
@@ -61,6 +62,7 @@ digraph trove_modules {
       label="Router layer"
       style=filled fillcolor="#f1f5f9" color="#cbd5e1"
 
+      /* Setup only */
       subgraph cluster_r_setup {
         label="Setup only"
         style=filled fillcolor="#ede9fe" color="#7c3aed" fontcolor="#4c1d95"
@@ -68,36 +70,49 @@ digraph trove_modules {
                  fillcolor="#7c3aed" fontcolor=white color="#5b21b6"]
       }
 
-      subgraph cluster_r_admin {
-        label="Admin only"
-        style=filled fillcolor="#eef2ff" color="#6366f1" fontcolor="#1e1b4b"
-        r_auth   [label="Auth · Session"               fillcolor="#4f46e5" fontcolor=white color="#3730a3"]
-        r_gems   [label="Gems\ntask runner · SSE"      fillcolor="#4f46e5" fontcolor=white color="#3730a3"]
-        r_docs   [label="Documents\nMarkitdown · AI"   fillcolor="#4f46e5" fontcolor=white color="#3730a3"]
-        r_bundle [label="Bundle\nexport · import"      fillcolor="#4f46e5" fontcolor=white color="#3730a3"]
-        { rank=same; r_auth; r_gems; r_docs; r_bundle }
+      /* App — public (no auth) */
+      subgraph cluster_r_public {
+        label="App \u2014 public"
+        style=filled fillcolor="#ecfdf5" color="#10b981" fontcolor="#064e3b"
+        r_session [label="Session\nstatus · capabilities" fillcolor="#059669" fontcolor=white color="#047857"]
+        r_runner  [label="Gem runner\nlist · run · SSE"   fillcolor="#059669" fontcolor=white color="#047857"]
+        { rank=same; r_session; r_runner }
       }
 
+      /* App — admin only (cookie required) */
+      subgraph cluster_r_admin {
+        label="App \u2014 admin only  (require cookie)"
+        style=filled fillcolor="#eef2ff" color="#6366f1" fontcolor="#1e1b4b"
+        r_auth       [label="Auth\nlogin · logout"              fillcolor="#4f46e5" fontcolor=white color="#3730a3"]
+        r_gems_admin [label="Gems admin\ncreate · edit · delete" fillcolor="#4f46e5" fontcolor=white color="#3730a3"]
+        r_docs       [label="Documents\nupload · Markitdown\nAI summary · download" fillcolor="#4f46e5" fontcolor=white color="#3730a3"]
+        r_bundle     [label="Bundle\nexport · import"           fillcolor="#4f46e5" fontcolor=white color="#3730a3"]
+        { rank=same; r_auth; r_gems_admin; r_docs; r_bundle }
+      }
+
+      /* Shared — mounted on both interfaces */
       subgraph cluster_r_shared {
-        label="Shared"
-        style=filled fillcolor="#f0fdf4" color="#22c55e" fontcolor="#14532d"
-        r_config  [label="Config · i18n" fillcolor="#16a34a" fontcolor=white color="#15803d"]
-        r_system  [label="System checks" fillcolor="#16a34a" fontcolor=white color="#15803d"]
-        r_ollama  [label="Ollama\ninstall · pull · build" fillcolor="#16a34a" fontcolor=white color="#15803d"]
+        label="Shared \u2014 both interfaces"
+        style=filled fillcolor="#fef9c3" color="#ca8a04" fontcolor="#713f12"
+        r_config  [label="Config · i18n"          fillcolor="#a16207" fontcolor=white color="#854d0e"]
+        r_system  [label="System checks"           fillcolor="#a16207" fontcolor=white color="#854d0e"]
+        r_ollama  [label="Ollama\ninstall · pull · build" fillcolor="#a16207" fontcolor=white color="#854d0e"]
         { rank=same; r_config; r_system; r_ollama }
       }
     }
 
-    /* Interface → router arrows (lhead draws arrow to cluster edge) */
-    setup_iface -> r_setup  [lhead=cluster_r_setup]
-    setup_iface -> r_config [lhead=cluster_r_shared]
-    exec_iface  -> r_auth   [lhead=cluster_r_admin]
-    exec_iface  -> r_config [lhead=cluster_r_shared style=dashed]
+    /* Interface → router group arrows */
+    setup_iface -> r_setup   [lhead=cluster_r_setup]
+    setup_iface -> r_config  [lhead=cluster_r_shared]
+
+    exec_iface  -> r_session [lhead=cluster_r_public]
+    exec_iface  -> r_auth    [lhead=cluster_r_admin]
+    exec_iface  -> r_config  [lhead=cluster_r_shared style=dashed]
   }
 
   /* ── External resources ───────────────────────────────────────────── */
 
-  ollama_srv [label="Ollama server" shape=cylinder
+  ollama_srv [label="Ollama server"          shape=cylinder
               fillcolor="#fef3c7" color="#d97706" fontcolor="#78350f"]
   storage    [label="SQLite DB + file storage" shape=cylinder
               fillcolor="#f1f5f9" color="#64748b" fontcolor="#1e293b"]
@@ -108,13 +123,14 @@ digraph trove_modules {
   user_page  -> exec_iface
 
   /* Routers → external */
-  r_ollama -> ollama_srv
-  r_gems   -> ollama_srv [label="inference (SSE)"]
-  r_docs   -> ollama_srv [label="AI summary"]
+  r_ollama     -> ollama_srv
+  r_runner     -> ollama_srv [label="inference (SSE)"]
+  r_docs       -> ollama_srv [label="AI summary"]
 
-  r_auth   -> storage
-  r_gems   -> storage
-  r_docs   -> storage
-  r_bundle -> storage
-  r_config -> storage
+  r_session    -> storage
+  r_auth       -> storage
+  r_gems_admin -> storage
+  r_docs       -> storage
+  r_bundle     -> storage
+  r_config     -> storage
 }
