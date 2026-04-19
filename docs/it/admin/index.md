@@ -20,6 +20,7 @@ La scheda Impostazioni mostra l'**URL LAN** — l'indirizzo che gli altri dispos
 
 ## Prossimi passi
 
+- [Installazione](installation.md)
 - [Gestire i Gem](gems.md)
 - [Gestire i documenti](documents.md)
 - [Riferimento impostazioni](settings.md)

@@ -20,6 +20,7 @@ The Settings tab shows the **LAN URL** — the address other devices should use 
 
 ## Next steps
 
+- [Installation](installation.md)
 - [Managing gems](gems.md)
 - [Managing documents](documents.md)
 - [Settings reference](settings.md)

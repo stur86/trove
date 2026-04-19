@@ -50,6 +50,7 @@ plugins:
             Running a gem: Eseguire un Gem
             Media input: Input multimediale
             Overview: Panoramica
+            Installation: Installazione
             Managing gems: Gestire i Gem
             Managing documents: Gestire i documenti
             Settings: Impostazioni
@@ -62,6 +63,7 @@ nav:
     - Media input: user/media-input.md
   - Admin guide:
     - Overview: admin/index.md
+    - Installation: admin/installation.md
     - Managing gems: admin/gems.md
     - Managing documents: admin/documents.md
     - Settings: admin/settings.md
