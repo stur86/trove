@@ -22,10 +22,10 @@ This section is written for the person setting Trove up. You do not need program
 Open a terminal and run this single command:
 
 ```bash
-curl -LsSf https://github.com/stur86/trove/releases/latest/download/install.sh | bash
+curl -LsSf https://raw.githubusercontent.com/stur86/trove/main/install.sh | bash
 ```
 
-This downloads and installs Trove and all its dependencies. It takes a few minutes.
+This fetches the installer, downloads the latest Trove release, and installs everything. It takes a few minutes.
 
 > If you see `trove: command not found` afterwards, the installer will have printed a command to fix this. Run that command, then open a new terminal window.
 
