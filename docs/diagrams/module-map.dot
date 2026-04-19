@@ -1,0 +1,120 @@
+/* Trove — module map
+ * Graphviz DOT format.  Render with:  dot -Tsvg module-map.dot -o module-map.svg
+ *
+ * Three tiers:
+ *   1. Frontend — Setup wizard and Admin panel (localhost only), Gem runner (LAN)
+ *   2. Backend  — Interface layer feeds a Router layer
+ *   3. External — Ollama server and file/DB storage
+ */
+
+digraph trove_modules {
+  rankdir=TB
+  compound=true
+  nodesep=0.5
+  ranksep=0.7
+  fontname="Helvetica"
+  fontsize=11
+
+  node [fontname="Helvetica" fontsize=10 style=filled shape=box]
+  edge [fontname="Helvetica" fontsize=9 color="#6b7280" arrowsize=0.7]
+
+  /* ── Frontend ─────────────────────────────────────────────────────── */
+
+  subgraph cluster_frontend {
+    label="Frontend  (React · TypeScript · Vite)"
+    style=filled fillcolor="#f8fafc" color="#94a3b8" fontcolor="#1e293b"
+
+    subgraph cluster_localhost_fe {
+      label="Localhost only"
+      style=filled fillcolor="#ede9fe" color="#7c3aed" fontcolor="#4c1d95"
+
+      setup_page [label="Setup wizard"  fillcolor="#7c3aed" fontcolor=white color="#5b21b6"]
+      admin_page [label="Admin panel"   fillcolor="#7c3aed" fontcolor=white color="#5b21b6"]
+    }
+
+    user_page [label="Gem runner" fillcolor="#4f46e5" fontcolor=white color="#3730a3"]
+
+    { rank=same; setup_page; admin_page; user_page }
+  }
+
+  /* ── Backend ──────────────────────────────────────────────────────── */
+
+  subgraph cluster_backend {
+    label="Backend"
+    style=filled fillcolor="#f8fafc" color="#94a3b8" fontcolor="#1e293b"
+
+    /* Interface layer */
+    subgraph cluster_ifaces {
+      label="Interface layer"
+      style=filled fillcolor="#f1f5f9" color="#cbd5e1"
+
+      setup_iface [label="Setup interface\nport 7071 · localhost only"
+                   fillcolor="#7c3aed" fontcolor=white color="#5b21b6"]
+      exec_iface  [label="Execution interface\nport 7770 · LAN + localhost"
+                   fillcolor="#4f46e5" fontcolor=white color="#3730a3"]
+
+      { rank=same; setup_iface; exec_iface }
+    }
+
+    /* Router layer */
+    subgraph cluster_routers {
+      label="Router layer"
+      style=filled fillcolor="#f1f5f9" color="#cbd5e1"
+
+      subgraph cluster_r_setup {
+        label="Setup only"
+        style=filled fillcolor="#ede9fe" color="#7c3aed" fontcolor="#4c1d95"
+        r_setup [label="Setup wizard\n(6-step installer)"
+                 fillcolor="#7c3aed" fontcolor=white color="#5b21b6"]
+      }
+
+      subgraph cluster_r_admin {
+        label="Admin only"
+        style=filled fillcolor="#eef2ff" color="#6366f1" fontcolor="#1e1b4b"
+        r_auth   [label="Auth · Session"               fillcolor="#4f46e5" fontcolor=white color="#3730a3"]
+        r_gems   [label="Gems\ntask runner · SSE"      fillcolor="#4f46e5" fontcolor=white color="#3730a3"]
+        r_docs   [label="Documents\nMarkitdown · AI"   fillcolor="#4f46e5" fontcolor=white color="#3730a3"]
+        r_bundle [label="Bundle\nexport · import"      fillcolor="#4f46e5" fontcolor=white color="#3730a3"]
+        { rank=same; r_auth; r_gems; r_docs; r_bundle }
+      }
+
+      subgraph cluster_r_shared {
+        label="Shared"
+        style=filled fillcolor="#f0fdf4" color="#22c55e" fontcolor="#14532d"
+        r_config  [label="Config · i18n" fillcolor="#16a34a" fontcolor=white color="#15803d"]
+        r_system  [label="System checks" fillcolor="#16a34a" fontcolor=white color="#15803d"]
+        r_ollama  [label="Ollama\ninstall · pull · build" fillcolor="#16a34a" fontcolor=white color="#15803d"]
+        { rank=same; r_config; r_system; r_ollama }
+      }
+    }
+
+    /* Interface → router arrows (lhead draws arrow to cluster edge) */
+    setup_iface -> r_setup  [lhead=cluster_r_setup]
+    setup_iface -> r_config [lhead=cluster_r_shared]
+    exec_iface  -> r_auth   [lhead=cluster_r_admin]
+    exec_iface  -> r_config [lhead=cluster_r_shared style=dashed]
+  }
+
+  /* ── External resources ───────────────────────────────────────────── */
+
+  ollama_srv [label="Ollama server" shape=cylinder
+              fillcolor="#fef3c7" color="#d97706" fontcolor="#78350f"]
+  storage    [label="SQLite DB + file storage" shape=cylinder
+              fillcolor="#f1f5f9" color="#64748b" fontcolor="#1e293b"]
+
+  /* Frontend → backend */
+  setup_page -> setup_iface
+  admin_page -> exec_iface
+  user_page  -> exec_iface
+
+  /* Routers → external */
+  r_ollama -> ollama_srv
+  r_gems   -> ollama_srv [label="inference (SSE)"]
+  r_docs   -> ollama_srv [label="AI summary"]
+
+  r_auth   -> storage
+  r_gems   -> storage
+  r_docs   -> storage
+  r_bundle -> storage
+  r_config -> storage
+}
