@@ -22,6 +22,7 @@ import { gemsApi, type UserTask } from '../api/tasks'
 import { bundleApi, type ImportResult } from '../api/bundle'
 import GemIcon from '../components/GemIcon'
 import DocumentsPanel from './DocumentsPanel'
+import HelpBar from '../components/HelpBar'
 import { useTranslation } from '../i18n'
 
 /** Possible states for the save + build operation. */
@@ -254,6 +255,13 @@ export default function AdminPanel() {
                       <option key={m.tag} value={m.tag}>{MODEL_LABELS[m.tag] ?? m.tag}</option>
                     ))}
                   </Select>
+                  <div className="mt-2">
+                    <HelpBar
+                      prompt={t('help.model.prompt')}
+                      title={t('help.model.title')}
+                      content={t('help.model.content')}
+                    />
+                  </div>
                 </div>
 
                 {showAudioWarning && (
@@ -280,6 +288,13 @@ export default function AdminPanel() {
                       High context windows use a lot of extra memory. On some machines this can cause the server to slow down or become unresponsive. Try a short test run before using this setting with real users.
                     </Alert>
                   )}
+                  <div className="mt-2">
+                    <HelpBar
+                      prompt={t('help.ctx.prompt')}
+                      title={t('help.ctx.title')}
+                      content={t('help.ctx.content')}
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -335,6 +350,11 @@ export default function AdminPanel() {
                 {/* Data section — export and import bundle */}
                 <div className="border-t border-gray-200 pt-6 flex flex-col gap-4">
                   <Label className="text-base font-semibold text-gray-800">Data</Label>
+                  <HelpBar
+                    prompt={t('help.bundle.prompt')}
+                    title={t('help.bundle.title')}
+                    content={t('help.bundle.content')}
+                  />
                   <div className="flex gap-3">
                     <Button color="light" disabled={exporting} onClick={handleExport}>
                       {exporting ? <><Spinner size="sm" className="mr-2" />Exporting…</> : 'Export bundle'}
