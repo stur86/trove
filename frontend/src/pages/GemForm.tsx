@@ -17,16 +17,16 @@ import { useNavigate, useParams } from 'react-router-dom'
 import CheckboxTree from 'react-checkbox-tree'
 import 'react-checkbox-tree/lib/react-checkbox-tree.css'
 import {
-  Alert, Button, Checkbox, Label, Select, Spinner, Textarea, TextInput,
+  Alert, Button, Checkbox, Label, Spinner, Textarea, TextInput,
 } from 'flowbite-react'
 import {
-  gemsApi, GEM_HUES, type OutputMode, type TaskArg, type UserTask,
+  gemsApi, GEM_HUES, type TaskArg, type UserTask,
 } from '../api/tasks'
 import { documentsApi, type Folder, type Document } from '../api/documents'
 import { appApi } from '../api/app'
 import AdminLogin from '../components/AdminLogin'
 import GemIcon from '../components/GemIcon'
-import InfoButton from '../components/InfoButton'
+import HelpBar from '../components/HelpBar'
 import { useLocale, useTranslation } from '../i18n'
 
 /** Blank UserTask used as a starting point for the create form. */
@@ -276,6 +276,12 @@ export default function GemForm() {
 
         {error && <Alert color="failure">{error}</Alert>}
 
+        <HelpBar
+          prompt={t('help.gem.intro.prompt')}
+          title={t('help.gem.intro.title')}
+          content={t('help.gem.intro.content')}
+        />
+
         {/* Name — in create mode, also derives the id slug automatically */}
         <div>
           <div className="mb-1"><Label htmlFor="gem-name">Name</Label></div>
@@ -333,22 +339,8 @@ export default function GemForm() {
 
         {/* Template */}
         <div>
-          <div className="mb-1 flex items-center">
+          <div className="mb-1">
             <Label htmlFor="gem-template">Prompt template</Label>
-            <InfoButton title="Writing a good prompt template">
-              <p>
-                Use <code className="bg-gray-100 px-1 rounded font-mono text-xs">{'{{ variable_name }}'}</code> anywhere
-                in the text to create a field the user fills in before running the gem.
-                For example: <code className="bg-gray-100 px-1 rounded font-mono text-xs">Summarise the following in {'{{ language }}'}: {'{{ text }}'}</code>
-              </p>
-              <p><strong>Tips for a great prompt:</strong></p>
-              <ul className="list-disc list-inside flex flex-col gap-1">
-                <li>Be specific — tell the model exactly what you want it to do.</li>
-                <li>State the output format (bullet list, short paragraph, table…).</li>
-                <li>Give an example of a good answer if the task is tricky.</li>
-                <li>Keep it short — the model works best with clear, concise instructions.</li>
-              </ul>
-            </InfoButton>
           </div>
           <Textarea
             id="gem-template"
@@ -358,6 +350,13 @@ export default function GemForm() {
             rows={6}
             className="font-mono text-sm"
           />
+          <div className="mt-2">
+            <HelpBar
+              prompt={t('help.gem.template.prompt')}
+              title={t('help.gem.template.title')}
+              content={t('help.gem.template.content')}
+            />
+          </div>
         </div>
 
         {/* Detected variables — read-only, derived from template */}
@@ -418,23 +417,14 @@ export default function GemForm() {
           </div>
         </div>
 
-        {/* Output mode */}
-        <div>
-          <div className="mb-1"><Label htmlFor="output-mode">Output mode</Label></div>
-          <Select
-            id="output-mode"
-            value={gem.output_mode}
-            onChange={e => setGem(g => ({ ...g, output_mode: e.target.value as OutputMode }))}
-            className="w-48"
-          >
-            <option value="text">Text</option>
-            <option value="structured">Structured (JSON)</option>
-          </Select>
-        </div>
-
         {/* Document access */}
         <div className="flex flex-col gap-2">
           <Label>{t('gem.documents.section_title')}</Label>
+          <HelpBar
+            prompt={t('help.gem.documents.prompt')}
+            title={t('help.gem.documents.title')}
+            content={t('help.gem.documents.content')}
+          />
           <p className="text-xs text-gray-500">{t('gem.documents.section_hint')}</p>
           {allFolders.length === 0 ? (
             <p className="text-xs text-gray-400 italic">{t('gem.documents.no_folders')}</p>
