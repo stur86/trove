@@ -30,16 +30,26 @@ Key principles:
 ```
 trove/
 ├── backend/
-│   ├── main.py                  # FastAPI app, mounts all routers
+│   ├── main.py                  # FastAPI app, mounts all routers; two-mode (setup/app)
+│   ├── session.py               # ExpirableTokenDict — sliding-TTL session + admin stores
+│   ├── network.py               # LAN IP detection utility
+│   ├── db.py                    # SQLite database setup
 │   ├── config/                  # Server configuration (model, context window, locale)
 │   ├── i18n/                    # Locale file loading and API
 │   ├── system/                  # Hardware checks (RAM, disk, GPU)
-│   └── ollama/                  # Ollama install/pull/build SSE, status, Modelfile generation
+│   ├── ollama/                  # Ollama install/pull/build SSE, status, Modelfile generation
+│   ├── setup/                   # Setup wizard domain (router, service, models)
+│   ├── app/                     # App-mode router + auth (bcrypt, admin cookie)
+│   ├── tasks/                   # Task definitions, Jinja rendering, Pydantic AI runner
+│   ├── documents/               # Document library (upload, Markitdown, AI summary)
+│   └── bundle/                  # Export/import ZIP bundles
 ├── frontend/                    # Bun/React/Vite app
 │   ├── src/
-│   │   ├── api/                 # Typed API clients (config, system, ollama)
+│   │   ├── api/                 # Typed API clients + mock layer
 │   │   ├── i18n/                # useTranslation hook, locale cache
-│   │   └── pages/               # Setup.tsx, Admin.tsx
+│   │   ├── components/          # AdminLogin, GemIcon, InfoButton
+│   │   └── pages/               # SetupWizard, AdminPanel, DocumentsPanel, ManageDashboard,
+│   │                            #   GemForm, GemRunner, TaskShell
 ├── tests/                       # pytest tests, one file per domain
 ├── docs/                        # MkDocs Material source — EVERYTHING HERE IS PUBLISHED
 │   ├── en/                      # English content (user, admin, dev guides)
@@ -104,9 +114,12 @@ task test          # pytest -v
 - [x] Task definition system (Jinja templates, structured inputs, tool toggles)
 - [x] Pydantic AI agentic workflows
 - [x] Document library (upload, Markitdown conversion, folder structure, AI summary; PATCH rename/move endpoints; three-column admin UI with properties strip)
-- [ ] Auth (username/password, admin-created accounts)
-- [ ] Login and network security
-- [ ] Export/import tasks or knowledge bases
+- [x] Auth (bcrypt password hashing, HTTP Basic + admin session cookie, login restricted to localhost)
+- [x] Session token system (`X-Trove-Session` custom header, in-memory sliding-TTL store, issued at `/api/session`)
+- [x] Network security (CORS locked to dev origin, setup binds 127.0.0.1 only, app binds LAN)
+- [x] Export/import tasks and knowledge bases (bundle ZIP export/import via `/api/app/bundle`)
+- [x] Frontend login flow (`AdminLogin.tsx`, admin cookie, manage dashboard)
+- [x] Task runner UI (`GemRunner.tsx`, `GemForm.tsx`, `TaskShell.tsx`)
 - [ ] Expanded i18n support for longer text and simplified explanations available in-app for many steps
 - [x] Installation script (can be pulled from Github with a simple curl command, includes installing uv if necessary)
 - [ ] Library of helper tools that can be optionally allowed for a given Gem (date+time, calculator, )
