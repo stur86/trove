@@ -25,7 +25,7 @@ After changing the model or context window, click **Save & rebuild** to apply th
 
 ## Language
 
-The **Language** selector changes the display language for the entire Trove interface, including the user-facing home screen and gem runner. Currently supported: English, Italian.
+The **Language** selector changes the display language for the entire Trove interface, including the user-facing home screen and gem runner. Currently supported: English, French, German, Spanish, Portuguese, Chinese, Italian.
 
 ## Data
 
