@@ -236,7 +236,7 @@ async def stream_task(
     """
     prompt = render_prompt(task, values)
     parts = _build_parts(prompt, media)
-    agent = _agent or _make_agent(documents, task.tools if task.tools else None)
+    agent = _agent or _make_agent(documents, task.tools)
     filt = _ThinkFilter()
 
     async with agent.run_stream(parts) as response:
@@ -278,7 +278,7 @@ async def run_task(
     """
     prompt = render_prompt(task, values)
     parts = _build_parts(prompt, media)
-    agent = _agent or _make_agent(documents, task.tools if task.tools else None)
+    agent = _agent or _make_agent(documents, task.tools)
     result = await agent.run(parts)
     text: str = result.output
     return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()

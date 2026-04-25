@@ -295,6 +295,8 @@ def test_make_agent_with_tool_ids_registers_utility_tools():
     from pydantic_ai import Agent as PAAgent
     agent = _make_agent(tool_ids=frozenset({ToolId.DATETIME, ToolId.CALCULATOR}))
     assert isinstance(agent, PAAgent)
+    # _function_toolset is a pydantic_ai 1.x internal; if this fails after
+    # a pydantic_ai upgrade, inspect Agent for the updated tool registry name.
     tool_names = set(agent._function_toolset.tools)
     assert "get_current_datetime" in tool_names
     assert "calculate" in tool_names
