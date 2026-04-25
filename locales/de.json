@@ -161,5 +161,14 @@
   "help.gem.template.content": { "path": "help-gem-template.md" },
   "help.gem.documents.prompt": "Wie funktioniert der Dokumentenzugriff?",
   "help.gem.documents.title": "Dokumentenzugriff",
-  "help.gem.documents.content": { "path": "help-gem-documents.md" }
+  "help.gem.documents.content": { "path": "help-gem-documents.md" },
+  "gem.tools.section_title": "Werkzeuge",
+  "gem.tools.section_hint": "Erlaubt dem Modell, diese eingebauten Werkzeuge während einer Ausführung aufzurufen.",
+  "gem.tools.datetime": "Datum & Uhrzeit",
+  "gem.tools.datetime.description": "Ermöglicht dem Modell, das aktuelle Datum und die aktuelle Uhrzeit abzurufen.",
+  "gem.tools.calculator": "Taschenrechner",
+  "gem.tools.calculator.description": "Ermöglicht dem Modell, einen mathematischen Ausdruck auszuwerten.",
+  "help.gem.tools.prompt": "Was sind Werkzeuge?",
+  "help.gem.tools.title": "Werkzeuge",
+  "help.gem.tools.content": "Werkzeuge ermöglichen dem Modell, während einer Ausführung Aktionen durchzuführen – etwa das aktuelle Datum abrufen oder eine Berechnung durchführen – bevor es die Antwort schreibt. Aktivieren Sie nur Werkzeuge, die für das Gem relevant sind."
 }

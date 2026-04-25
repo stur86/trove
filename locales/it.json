@@ -161,5 +161,14 @@
   "help.gem.template.content": { "path": "help-gem-template.md" },
   "help.gem.documents.prompt": "How does document access work?",
   "help.gem.documents.title": "Document access",
-  "help.gem.documents.content": { "path": "help-gem-documents.md" }
+  "help.gem.documents.content": { "path": "help-gem-documents.md" },
+  "gem.tools.section_title": "Strumenti",
+  "gem.tools.section_hint": "Consente al modello di chiamare questi strumenti integrati durante un'esecuzione.",
+  "gem.tools.datetime": "Data e ora",
+  "gem.tools.datetime.description": "Consente al modello di consultare la data e l'ora correnti.",
+  "gem.tools.calculator": "Calcolatrice",
+  "gem.tools.calculator.description": "Consente al modello di valutare un'espressione matematica.",
+  "help.gem.tools.prompt": "Cosa sono gli strumenti?",
+  "help.gem.tools.title": "Strumenti",
+  "help.gem.tools.content": "Gli strumenti consentono al modello di eseguire azioni durante un'esecuzione — come controllare la data corrente o effettuare un calcolo — prima di scrivere la risposta. Attiva solo gli strumenti rilevanti per questo gem."
 }

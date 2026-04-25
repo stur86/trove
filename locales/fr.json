@@ -161,5 +161,14 @@
   "help.gem.template.content": { "path": "help-gem-template.md" },
   "help.gem.documents.prompt": "Comment fonctionne l'accès aux documents ?",
   "help.gem.documents.title": "Accès aux documents",
-  "help.gem.documents.content": { "path": "help-gem-documents.md" }
+  "help.gem.documents.content": { "path": "help-gem-documents.md" },
+  "gem.tools.section_title": "Outils",
+  "gem.tools.section_hint": "Autorise le modèle à appeler ces outils intégrés lors d'une exécution.",
+  "gem.tools.datetime": "Date et heure",
+  "gem.tools.datetime.description": "Permet au modèle de consulter la date et l'heure actuelles.",
+  "gem.tools.calculator": "Calculatrice",
+  "gem.tools.calculator.description": "Permet au modèle d'évaluer une expression mathématique.",
+  "help.gem.tools.prompt": "Que sont les outils ?",
+  "help.gem.tools.title": "Outils",
+  "help.gem.tools.content": "Les outils permettent au modèle d'effectuer des actions lors d'une exécution — comme vérifier la date actuelle ou effectuer un calcul — avant de rédiger sa réponse. N'activez que les outils pertinents pour ce gem."
 }
