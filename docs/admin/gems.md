@@ -17,6 +17,7 @@ A **Gem** is a reusable AI task with a fixed purpose. Users see gems as cards on
 | **Capabilities** | Tick *Accepts image input* if the task needs a photo or screenshot. |
 | **Output mode** | *Text* for plain output; *Structured (JSON)* for machine-readable output. |
 | **Document access** | Which document folders or individual files the AI can read when running this gem. |
+| **Tools** | Optional built-in capabilities the AI can call during a run (date/time, calculator). |
 
 4. Click **Create**.
 
@@ -48,6 +49,20 @@ Each gem can be given access to part of the document library using the folder an
 - **No access** (default) — leave all boxes unticked. The AI does not use the document library for this gem.
 
 When a gem has document access, the AI decides for itself whether to look up documents or answer from its own knowledge.
+
+## Tools
+
+Each gem can be given access to built-in tools that the AI can call during a run — for example, to look up the current time or evaluate a calculation — before writing its answer.
+
+| Tool | What it does |
+|---|---|
+| **Date & time** | Returns the current date and time. Enable this if users may ask questions like "What day is today?" or if the output depends on the current date. |
+| **Calculator** | Evaluates a mathematical expression (arithmetic, parentheses, powers). Enable this for gems that involve numeric reasoning or calculations. |
+
+Tools consume a small amount of context window space on every run. Only enable the tools that are genuinely relevant to what the gem does.
+
+!!! note "No trigonometric functions"
+    The calculator tool does not support trigonometric functions (sin, cos, tan). Standard arithmetic, parentheses, and exponentiation (^) are fully supported.
 
 ## Editing and deleting
 
