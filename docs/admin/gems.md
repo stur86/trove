@@ -57,7 +57,7 @@ Each gem can be given access to built-in tools that the AI can call during a run
 | Tool | What it does |
 |---|---|
 | **Date & time** | Returns the current date and time. Enable this if users may ask questions like "What day is today?" or if the output depends on the current date. |
-| **Calculator** | Evaluates a mathematical expression (arithmetic, parentheses, powers). Enable this for gems that involve numeric reasoning or calculations. |
+| **Calculator** | Evaluates a mathematical expression (arithmetic, parentheses, exponentiation). Enable this for gems that involve numeric reasoning or calculations. |
 
 Tools consume a small amount of context window space on every run. Only enable the tools that are genuinely relevant to what the gem does.
 
