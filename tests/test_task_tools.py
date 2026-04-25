@@ -14,7 +14,8 @@ def test_get_current_datetime_returns_string():
 
 def test_get_current_datetime_contains_year():
     result = get_current_datetime()
-    assert "2" in result  # year starts with 2 (e.g. 2026)
+    import re
+    assert re.match(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", result)
 
 
 # ── calculate ─────────────────────────────────────────────────────────────────
@@ -42,6 +43,11 @@ def test_calculate_division():
 def test_calculate_parentheses():
     result = calculate("(3 + 4) * 2")
     assert "14" in result
+
+
+def test_calculate_exponentiation():
+    result = calculate("2^3")
+    assert "8" in result
 
 
 def test_calculate_invalid_expression_returns_error_string():

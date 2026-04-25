@@ -14,13 +14,13 @@ from backend.tasks.models import ToolId
 
 
 def get_current_datetime() -> str:
-    """Return the current date and time.
+    """Return the current date and time in ISO format.
 
     Call this when the user asks about today's date, the current time,
     or anything requiring knowledge of when the conversation is taking place.
-    Returns a human-readable string such as 'Friday, 25 April 2026, 14:32:00'.
+    Returns a string in the format 'YYYY-MM-DD HH:MM:SS', e.g. '2026-04-25 14:32:00'.
     """
-    return datetime.now().strftime("%A, %d %B %Y, %H:%M:%S")
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def calculate(expression: str) -> str:

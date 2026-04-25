@@ -274,6 +274,36 @@ def test_import_add_md_file_content_preserved(data_dir):
     assert (data_dir / "documents" / "new-folder" / "new-doc.md").read_text() == "Preserved text"
 
 
+# ── tools field round-trip ────────────────────────────────────────────────────
+
+def test_bundle_preserves_gem_tools(data_dir):
+    """Tools set on a gem survives an export/import round-trip."""
+    from backend.bundle.service import export_bundle, import_bundle
+    from backend.bundle.models import ImportMode
+    from backend.tasks.models import ToolId
+    from backend.tasks.repository import list_tasks
+
+    _make_folder()
+    gem = UserTask(
+        id="calc-gem",
+        name="Calc Gem",
+        template="Go",
+        tools=frozenset({ToolId.CALCULATOR}),
+    )
+    save_task(gem)
+
+    bundle = export_bundle()
+
+    # Wipe and reimport so we test the full round-trip
+    from backend.tasks.repository import delete_task
+    delete_task("calc-gem")
+    import_bundle(bundle, ImportMode.ADD)
+
+    tasks = {t.id: t for t in list_tasks()}
+    assert "calc-gem" in tasks
+    assert ToolId.CALCULATOR in tasks["calc-gem"].tools
+
+
 # ── Router tests ──────────────────────────────────────────────────────────────
 
 import io as _io  # noqa: E402

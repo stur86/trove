@@ -53,6 +53,8 @@ class BundleGem(BaseModel, frozen=True):
     output_mode: str
     doc_folder_ids: list[str]
     doc_ids: list[str]
+    tools: list[str] = []
+    """Tool IDs enabled for this gem, stored as their string values."""
 
 
 class BundleManifest(BaseModel, frozen=True):

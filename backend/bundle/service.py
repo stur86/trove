@@ -32,7 +32,7 @@ from backend.documents.repository import (
     save_document,
     save_folder,
 )
-from backend.tasks.models import GemHue, OutputMode, TaskArg, UserTask
+from backend.tasks.models import GemHue, OutputMode, TaskArg, ToolId, UserTask
 from backend.tasks.repository import (
     delete_task,
     list_tasks,
@@ -89,6 +89,7 @@ def export_bundle() -> bytes:
                 output_mode=g.output_mode.value,
                 doc_folder_ids=list(g.doc_folder_ids),
                 doc_ids=list(g.doc_ids),
+                tools=[t.value for t in g.tools],
             )
             for g in gems
         ],
@@ -159,6 +160,7 @@ def _bundle_gem_to_user_task(
         output_mode=OutputMode(bg.output_mode),
         doc_folder_ids=tuple(bg.doc_folder_ids),
         doc_ids=new_doc_ids,
+        tools=frozenset(ToolId(t) for t in bg.tools),
     )
 
 
