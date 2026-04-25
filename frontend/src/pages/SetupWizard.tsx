@@ -50,6 +50,11 @@ function LanguageStep({ t, locale, onChangeLocale, onNext }: { t: TranslationFun
         <Select id="language-select" value={locale} onChange={e => void onChangeLocale(e.target.value)}>
           <option value="en">English</option>
           <option value="it">Italiano</option>
+          <option value="es">Español</option>
+          <option value="fr">Français</option>
+          <option value="de">Deutsch</option>
+          <option value="pt">Português</option>
+          <option value="zh">中文</option>
         </Select>
       </div>
       <div><Button color="blue" onClick={onNext}>{t('setup.welcome.begin')}</Button></div>
