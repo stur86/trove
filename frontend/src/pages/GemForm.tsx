@@ -20,7 +20,7 @@ import {
   Alert, Button, Checkbox, Label, Spinner, Textarea, TextInput,
 } from 'flowbite-react'
 import {
-  gemsApi, GEM_HUES, TOOL_IDS, type TaskArg, type ToolId, type UserTask,
+  gemsApi, GEM_HUES, TOOL_IDS, type TaskArg, type UserTask,
 } from '../api/tasks'
 import { documentsApi, type Folder, type Document } from '../api/documents'
 import { appApi } from '../api/app'
@@ -428,7 +428,7 @@ export default function GemForm() {
           />
           <p className="text-xs text-gray-500">{t('gem.tools.section_hint')}</p>
           <div className="flex flex-col gap-2">
-            {TOOL_IDS.map(({ id, labelKey, descKey }: { id: ToolId; labelKey: string; descKey: string }) => (
+            {TOOL_IDS.map(({ id, labelKey, descKey }) => (
               <div key={id} className="flex items-start gap-2">
                 <Checkbox
                   id={`tool-${id}`}
