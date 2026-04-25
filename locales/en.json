@@ -161,5 +161,14 @@
   "help.gem.template.content": { "path": "help-gem-template.md" },
   "help.gem.documents.prompt": "How does document access work?",
   "help.gem.documents.title": "Document access",
-  "help.gem.documents.content": { "path": "help-gem-documents.md" }
+  "help.gem.documents.content": { "path": "help-gem-documents.md" },
+  "gem.tools.section_title": "Tools",
+  "gem.tools.section_hint": "Allow the model to call these built-in tools during a run.",
+  "gem.tools.datetime": "Date & time",
+  "gem.tools.datetime.description": "Lets the model look up the current date and time.",
+  "gem.tools.calculator": "Calculator",
+  "gem.tools.calculator.description": "Lets the model evaluate a mathematical expression.",
+  "help.gem.tools.prompt": "What are tools?",
+  "help.gem.tools.title": "Tools",
+  "help.gem.tools.content": "Tools let the model perform actions during a run — like checking the current date or doing a calculation — before writing its answer. Only enable tools that are relevant to what this gem does."
 }
