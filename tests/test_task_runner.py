@@ -246,3 +246,55 @@ async def test_run_task_with_documents_runs_without_error(data_dir):
     agent = Agent(TestModel(custom_output_text="42"))
     result = await run_task(task, {}, documents=[doc], _agent=agent)
     assert result == "42"
+
+
+# ── Utility tool injection ────────────────────────────────────────────────────
+
+from backend.tasks.models import ToolId  # noqa: E402
+
+
+@pytest.mark.asyncio
+async def test_stream_task_with_datetime_tool_runs():
+    """Tools field on task is threaded through — agent runs without error."""
+    task = Task(template="What time is it?", tools=frozenset({ToolId.DATETIME}))
+    agent = Agent(TestModel(custom_output_text="It is noon."))
+    chunks = []
+    async for chunk in stream_task(task, {}, _agent=agent):
+        chunks.append(chunk)
+    assert "It is noon." in "".join(chunks)
+
+
+@pytest.mark.asyncio
+async def test_run_task_with_calculator_tool_returns_response():
+    task = Task(template="Calculate 2+2", tools=frozenset({ToolId.CALCULATOR}))
+    agent = Agent(TestModel(custom_output_text="4"))
+    result = await run_task(task, {}, _agent=agent)
+    assert result == "4"
+
+
+@pytest.mark.asyncio
+async def test_stream_task_with_both_tools_runs():
+    task = Task(template="Help", tools=frozenset({ToolId.DATETIME, ToolId.CALCULATOR}))
+    agent = Agent(TestModel(custom_output_text="Done."))
+    chunks = []
+    async for chunk in stream_task(task, {}, _agent=agent):
+        chunks.append(chunk)
+    assert "Done." in "".join(chunks)
+
+
+from backend.tasks.runner import _make_agent  # noqa: E402
+
+
+def test_make_agent_with_no_args_returns_agent():
+    from pydantic_ai import Agent as PAAgent
+    agent = _make_agent()
+    assert isinstance(agent, PAAgent)
+
+
+def test_make_agent_with_tool_ids_registers_utility_tools():
+    from pydantic_ai import Agent as PAAgent
+    agent = _make_agent(tool_ids=frozenset({ToolId.DATETIME, ToolId.CALCULATOR}))
+    assert isinstance(agent, PAAgent)
+    tool_names = set(agent._function_toolset.tools)
+    assert "get_current_datetime" in tool_names
+    assert "calculate" in tool_names

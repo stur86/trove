@@ -20,8 +20,9 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.ollama import OllamaProvider
 
 from backend.system.service import TROVE_OLLAMA_PORT
-from backend.tasks.models import MediaInput, Task
+from backend.tasks.models import MediaInput, Task, ToolId
 from backend.tasks.render import render_prompt
+from backend.tasks.tools import build_tool_functions
 
 if TYPE_CHECKING:
     from backend.documents.models import Document
@@ -81,24 +82,42 @@ def _build_document_tools(documents: list[Document]) -> list:
     return [get_table_of_contents, get_document]
 
 
-def _make_agent(documents: list[Document] | None = None) -> Agent:
+def _make_agent(
+    documents: list[Document] | None = None,
+    tool_ids: frozenset[ToolId] | None = None,
+) -> Agent:
     """Create a Pydantic AI Agent backed by the local trove_model Ollama model.
 
-    When documents are provided, the agent is configured with two tool functions
-    (get_table_of_contents and get_document) and a system prompt instructing the
-    model to use them.
+    When documents are provided, document-access tools and a guiding system
+    prompt are added. When tool_ids are provided, utility tool callables are
+    added — Pydantic AI derives their descriptions from docstrings and type
+    hints automatically.
 
     Args:
-        documents: Documents in scope for this run. None or empty → no tools injected.
+        documents: Documents in scope for this run. None or empty → no document tools.
+        tool_ids: Utility tool IDs to inject. None or empty → no utility tools.
     """
     model = OpenAIChatModel(
         "trove_model",
         provider=OllamaProvider(base_url=_OLLAMA_BASE_URL),
     )
-    if not documents:
+    tools: list = []
+    system_prompt: str | None = None
+
+    if documents:
+        tools.extend(_build_document_tools(documents))
+        system_prompt = _DOC_SYSTEM_PROMPT
+
+    if tool_ids:
+        tools.extend(build_tool_functions(tool_ids))
+
+    if not tools:
         return Agent(model)
-    tools = _build_document_tools(documents)
-    return Agent(model, tools=tools, system_prompt=_DOC_SYSTEM_PROMPT)
+
+    # Only pass system_prompt to Agent if it's non-None
+    if system_prompt:
+        return Agent(model, tools=tools, system_prompt=system_prompt)
+    return Agent(model, tools=tools)
 
 
 def _build_parts(prompt: str, media: MediaInput | None) -> str | list:
@@ -217,7 +236,7 @@ async def stream_task(
     """
     prompt = render_prompt(task, values)
     parts = _build_parts(prompt, media)
-    agent = _agent or _make_agent(documents)
+    agent = _agent or _make_agent(documents, task.tools if task.tools else None)
     filt = _ThinkFilter()
 
     async with agent.run_stream(parts) as response:
@@ -259,7 +278,7 @@ async def run_task(
     """
     prompt = render_prompt(task, values)
     parts = _build_parts(prompt, media)
-    agent = _agent or _make_agent(documents)
+    agent = _agent or _make_agent(documents, task.tools if task.tools else None)
     result = await agent.run(parts)
     text: str = result.output
     return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
