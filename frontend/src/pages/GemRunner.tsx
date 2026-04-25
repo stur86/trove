@@ -1,7 +1,7 @@
 /**
  * GemRunner — run a gem by filling its arguments and streaming the output.
  *
- * Phase 1 (form): Dynamic form built from UserTask.args. StringArg → TextInput.
+ * Phase 1 (form): Dynamic form built from UserTask.args. StringArg → Textarea.
  * ChoiceArg → Select. has_image → image picker button (modal: choose file / take
  * photo). has_audio → audio picker button (modal: choose file / record) — only
  * shown when the active model supports audio (capabilities.audio).
@@ -13,9 +13,11 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Button, Label, Modal, ModalBody, ModalHeader, Select, Spinner, TextInput } from 'flowbite-react'
+import { Button, Label, Modal, ModalBody, ModalHeader, Select, Spinner, Textarea } from 'flowbite-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import rehypeMathjax from 'rehype-mathjax'
 import { gemsApi, readSSEStream, type UserTask } from '../api/tasks'
 import { appApi } from '../api/app'
 import GemIcon from '../components/GemIcon'
@@ -294,11 +296,12 @@ export default function GemRunner() {
                   </Label>
                 </div>
                 {arg.type === 'string' ? (
-                  <TextInput
+                  <Textarea
                     id={`arg-${arg.name}`}
                     value={values[arg.name] ?? ''}
                     onChange={e => setValues(v => ({ ...v, [arg.name]: e.target.value }))}
                     placeholder={arg.default || arg.description}
+                    rows={3}
                   />
                 ) : (
                   <Select
@@ -396,25 +399,63 @@ export default function GemRunner() {
         {/* Output area — plain text while streaming, Markdown once complete */}
         {(phase === 'running' && output !== '') || phase === 'done' ? (
           <div className="flex flex-col gap-3">
-            <div
-              ref={outputRef}
-              className="bg-white border border-gray-200 rounded-lg p-4 min-h-32 max-h-[60vh] overflow-y-auto text-sm text-gray-800 leading-relaxed"
-            >
-              {phase === 'running' ? (
-                <span className="whitespace-pre-wrap">
-                  {output}
-                  <span
-                    className="inline-block w-0.5 h-3.5 bg-indigo-500 ml-0.5 align-middle animate-pulse"
-                    aria-hidden="true"
-                  />
-                </span>
-              ) : (
-                <div className="prose prose-sm max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {output}
-                  </ReactMarkdown>
+            <div className="relative">
+              {/* Copy / download action buttons — shown in top-right corner when done */}
+              {phase === 'done' && (
+                <div className="absolute top-2 right-2 z-10 flex gap-1">
+                  <button
+                    title={t('gem.output.copy')}
+                    onClick={() => navigator.clipboard.writeText(output)}
+                    className="p-1.5 rounded bg-white/80 hover:bg-gray-100 border border-gray-200 text-gray-500 hover:text-gray-800 transition-colors"
+                    aria-label={t('gem.output.copy')}
+                  >
+                    {/* Clipboard icon */}
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
+                      <rect x="9" y="2" width="10" height="4" rx="1" />
+                      <path d="M9 4H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-3" />
+                    </svg>
+                  </button>
+                  <button
+                    title={t('gem.output.download')}
+                    onClick={() => {
+                      const blob = new Blob([output], { type: 'text/plain' })
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = `${gem?.name ?? 'output'}.txt`
+                      a.click()
+                      URL.revokeObjectURL(url)
+                    }}
+                    className="p-1.5 rounded bg-white/80 hover:bg-gray-100 border border-gray-200 text-gray-500 hover:text-gray-800 transition-colors"
+                    aria-label={t('gem.output.download')}
+                  >
+                    {/* Download icon */}
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4" />
+                    </svg>
+                  </button>
                 </div>
               )}
+              <div
+                ref={outputRef}
+                className="bg-white border border-gray-200 rounded-lg p-4 min-h-32 max-h-[60vh] overflow-y-auto text-sm text-gray-800 leading-relaxed"
+              >
+                {phase === 'running' ? (
+                  <span className="whitespace-pre-wrap">
+                    {output}
+                    <span
+                      className="inline-block w-0.5 h-3.5 bg-indigo-500 ml-0.5 align-middle animate-pulse"
+                      aria-hidden="true"
+                    />
+                  </span>
+                ) : (
+                  <div className="prose prose-sm max-w-none">
+                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeMathjax]}>
+                      {output}
+                    </ReactMarkdown>
+                  </div>
+                )}
+              </div>
             </div>
             <Button color="light" onClick={handleRun}>
               {t('gem.run_again')}

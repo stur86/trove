@@ -16,6 +16,7 @@ import { Alert, Button, Label, Modal, ModalBody, ModalFooter, ModalHeader, Selec
 import { appApi } from '../api/app'
 import AdminLogin, { isAllowedAdmin } from '../components/AdminLogin'
 import { type TroveConfig, configApi } from '../api/config'
+import { i18nApi } from '../api/i18n'
 import { streamLines } from '../api/ollama'
 import { systemApi, type ModelInfo } from '../api/system'
 import { gemsApi, type UserTask } from '../api/tasks'
@@ -47,6 +48,7 @@ export default function AdminPanel() {
 
   const [config, setConfig] = useState<TroveConfig | null>(null)
   const [viableModels, setViableModels] = useState<ModelInfo[]>([])
+  const [availableLocales, setAvailableLocales] = useState<Record<string, string>>({})
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [buildLog, setBuildLog] = useState<string[]>([])
   const [networkUrl, setNetworkUrl] = useState<string | null>(null)
@@ -70,10 +72,11 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (!authed) return
-    Promise.all([configApi.get(), systemApi.check(), appApi.networkUrl()]).then(([c, sys, net]) => {
+    Promise.all([configApi.get(), systemApi.check(), appApi.networkUrl(), i18nApi.listLocales()]).then(([c, sys, net, locales]) => {
       setConfig(c)
       setViableModels(sys.viable_models)
       setNetworkUrl(net.url)
+      setAvailableLocales(locales)
     })
   }, [authed])
 
@@ -300,8 +303,9 @@ export default function AdminPanel() {
                 <div>
                   <div className="mb-2"><Label htmlFor="locale">{t('config.locale')}</Label></div>
                   <Select id="locale" value={config.locale} onChange={e => setConfig({ ...config, locale: e.target.value })}>
-                    <option value="en">English</option>
-                    <option value="it">Italiano</option>
+                    {Object.entries(availableLocales).map(([code, name]) => (
+                      <option key={code} value={code}>{name}</option>
+                    ))}
                   </Select>
                 </div>
 

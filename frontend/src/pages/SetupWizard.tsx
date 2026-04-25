@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Alert, Button, Label, Select, Spinner, Table, TableBody, TableCell, TableRow, TextInput } from 'flowbite-react'
 import { configApi } from '../api/config'
+import { i18nApi } from '../api/i18n'
 import { ollamaApi, streamLines } from '../api/ollama'
 import { setupApi, type SetupStatus } from '../api/setup'
 import { systemApi, type ModelInfo, type SystemCheck } from '../api/system'
@@ -41,20 +42,16 @@ function LogBox({ log, logEndRef }: { log: string[]; logEndRef: RefObject<HTMLDi
   ) : null
 }
 
-function LanguageStep({ t, locale, onChangeLocale, onNext }: { t: TranslationFunction; locale: string; onChangeLocale: (l: string) => Promise<void>; onNext: () => void }) {
+function LanguageStep({ t, locale, availableLocales, onChangeLocale, onNext }: { t: TranslationFunction; locale: string; availableLocales: Record<string, string>; onChangeLocale: (l: string) => Promise<void>; onNext: () => void }) {
   return (
     <>
       <h1 className="text-2xl font-bold">{t('setup.language.title')}</h1>
       <div>
         <div className="mb-2"><Label htmlFor="language-select">Language</Label></div>
         <Select id="language-select" value={locale} onChange={e => void onChangeLocale(e.target.value)}>
-          <option value="en">English</option>
-          <option value="it">Italiano</option>
-          <option value="es">Español</option>
-          <option value="fr">Français</option>
-          <option value="de">Deutsch</option>
-          <option value="pt">Português</option>
-          <option value="zh">中文</option>
+          {Object.entries(availableLocales).map(([code, name]) => (
+            <option key={code} value={code}>{name}</option>
+          ))}
         </Select>
       </div>
       <div><Button color="blue" onClick={onNext}>{t('setup.welcome.begin')}</Button></div>
@@ -255,6 +252,7 @@ export default function SetupWizard() {
   const [step, setStep] = useState(0)
   const [locale, setLocale] = useState('en')
   const { t, ready } = useTranslation(locale)
+  const [availableLocales, setAvailableLocales] = useState<Record<string, string>>({ en: 'English' })
   const [status, setStatus] = useState<SetupStatus | null>(null)
   const [system, setSystem] = useState<SystemCheck | null>(null)
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set())
@@ -271,6 +269,7 @@ export default function SetupWizard() {
     configApi.get().then(c => setLocale(c.locale))
     setupApi.status().then(setStatus)
     systemApi.check().then(setSystem)
+    i18nApi.listLocales().then(setAvailableLocales)
   }, [])
 
   useEffect(() => {
@@ -417,7 +416,7 @@ export default function SetupWizard() {
       <div className="max-w-2xl mx-auto px-6 py-10 flex flex-col gap-6">
 
         {step === 0 && (
-          <LanguageStep t={t} locale={locale} onChangeLocale={handleLanguageSelect} onNext={() => setStep(1)} />
+          <LanguageStep t={t} locale={locale} availableLocales={availableLocales} onChangeLocale={handleLanguageSelect} onNext={() => setStep(1)} />
         )}
 
         {step === 1 && (

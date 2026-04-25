@@ -68,6 +68,19 @@ def load_locale(locale: str) -> dict[str, str]:
     return result
 
 
-def list_locales() -> list[str]:
-    """Return the BCP-47 codes of all available locales (stems of .json files)."""
-    return [p.stem for p in LOCALES_DIR.glob("*.json")]
+def list_locales() -> dict[str, str]:
+    """Return a mapping of BCP-47 code → display name for all available locales.
+
+    The display name is read from the ``locale.name`` key in each JSON file.
+    Falls back to the code itself if the key is absent.
+    """
+    result: dict[str, str] = {}
+    for path in sorted(LOCALES_DIR.glob("*.json")):
+        code = path.stem
+        try:
+            data: dict[str, object] = json.loads(path.read_text())
+            name = data.get("locale.name", code)
+            result[code] = str(name)
+        except Exception:
+            result[code] = code
+    return result

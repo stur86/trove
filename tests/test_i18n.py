@@ -32,10 +32,17 @@ def test_list_locales_includes_en():
     assert "en" in locales
 
 
-def test_list_locales_returns_list_of_strings():
-    """Every entry returned by list_locales() must be a plain string BCP-47 code."""
+def test_list_locales_returns_dict_of_code_to_name():
+    """list_locales() must return a dict mapping BCP-47 codes to display names."""
     locales = list_locales()
-    assert all(isinstance(loc, str) for loc in locales)
+    assert isinstance(locales, dict)
+    assert all(isinstance(k, str) and isinstance(v, str) for k, v in locales.items())
+
+
+def test_list_locales_en_display_name_is_english():
+    """The English locale's display name must be 'English'."""
+    locales = list_locales()
+    assert locales["en"] == "English"
 
 
 def test_italian_locale_has_all_english_keys():

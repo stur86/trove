@@ -1,4 +1,5 @@
 {
+  "locale.name": "中文",
   "setup.title": "Trove 安装向导",
   "setup.system_check": "正在检查系统...",
   "setup.step_install": "安装 Ollama",
@@ -146,22 +147,34 @@
   "admin.documents.add_button": "添加",
   "help.model.prompt": "如何选择模型？",
   "help.model.title": "选择 AI 模型",
-  "help.model.content": { "path": "help-model.md" },
+  "help.model.content": {
+    "path": "help-model.md"
+  },
   "help.ctx.prompt": "什么是上下文窗口？",
   "help.ctx.title": "上下文窗口",
-  "help.ctx.content": { "path": "help-ctx.md" },
+  "help.ctx.content": {
+    "path": "help-ctx.md"
+  },
   "help.bundle.prompt": "什么是 Bundle？",
   "help.bundle.title": "导出和导入 Bundle",
-  "help.bundle.content": { "path": "help-bundle.md" },
+  "help.bundle.content": {
+    "path": "help-bundle.md"
+  },
   "help.gem.intro.prompt": "什么是 Gem？",
   "help.gem.intro.title": "什么是 Gem？",
-  "help.gem.intro.content": { "path": "help-gem-intro.md" },
+  "help.gem.intro.content": {
+    "path": "help-gem-intro.md"
+  },
   "help.gem.template.prompt": "如何编写好的提示模板？",
   "help.gem.template.title": "编写好的提示模板",
-  "help.gem.template.content": { "path": "help-gem-template.md" },
+  "help.gem.template.content": {
+    "path": "help-gem-template.md"
+  },
   "help.gem.documents.prompt": "文档访问如何工作？",
   "help.gem.documents.title": "文档访问",
-  "help.gem.documents.content": { "path": "help-gem-documents.md" },
+  "help.gem.documents.content": {
+    "path": "help-gem-documents.md"
+  },
   "gem.tools.section_title": "工具",
   "gem.tools.section_hint": "允许模型在运行期间调用这些内置工具。",
   "gem.tools.datetime": "日期和时间",
@@ -170,5 +183,7 @@
   "gem.tools.calculator.description": "允许模型计算数学表达式。",
   "help.gem.tools.prompt": "什么是工具？",
   "help.gem.tools.title": "工具",
-  "help.gem.tools.content": "工具允许模型在运行期间执行操作——例如查询当前日期或进行计算——然后再撰写答案。只启用与此 gem 相关的工具。"
+  "help.gem.tools.content": "工具允许模型在运行期间执行操作——例如查询当前日期或进行计算——然后再撰写答案。只启用与此 gem 相关的工具。",
+  "gem.output.copy": "复制到剪贴板",
+  "gem.output.download": "下载为文本"
 }

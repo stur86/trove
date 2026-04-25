@@ -15,8 +15,8 @@ router = APIRouter(prefix="/api/i18n", tags=["i18n"])
 
 
 @router.get("/locales")
-def get_locales() -> list[str]:
-    """Return the BCP-47 codes of every locale available on this server."""
+def get_locales() -> dict[str, str]:
+    """Return a mapping of BCP-47 code → display name for every available locale."""
     return list_locales()
 
 

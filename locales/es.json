@@ -1,4 +1,5 @@
 {
+  "locale.name": "Español",
   "setup.title": "Configuración de Trove",
   "setup.system_check": "Comprobando el sistema...",
   "setup.step_install": "Instalar Ollama",
@@ -146,22 +147,34 @@
   "admin.documents.add_button": "Añadir",
   "help.model.prompt": "¿Cómo elijo un modelo?",
   "help.model.title": "Elegir un modelo de IA",
-  "help.model.content": { "path": "help-model.md" },
+  "help.model.content": {
+    "path": "help-model.md"
+  },
   "help.ctx.prompt": "¿Qué es la ventana de contexto?",
   "help.ctx.title": "La ventana de contexto",
-  "help.ctx.content": { "path": "help-ctx.md" },
+  "help.ctx.content": {
+    "path": "help-ctx.md"
+  },
   "help.bundle.prompt": "¿Qué son los bundles?",
   "help.bundle.title": "Exportar e importar bundles",
-  "help.bundle.content": { "path": "help-bundle.md" },
+  "help.bundle.content": {
+    "path": "help-bundle.md"
+  },
   "help.gem.intro.prompt": "¿Qué es un Gem?",
   "help.gem.intro.title": "¿Qué es un Gem?",
-  "help.gem.intro.content": { "path": "help-gem-intro.md" },
+  "help.gem.intro.content": {
+    "path": "help-gem-intro.md"
+  },
   "help.gem.template.prompt": "¿Cómo escribo un buen prompt?",
   "help.gem.template.title": "Escribir una buena plantilla de prompt",
-  "help.gem.template.content": { "path": "help-gem-template.md" },
+  "help.gem.template.content": {
+    "path": "help-gem-template.md"
+  },
   "help.gem.documents.prompt": "¿Cómo funciona el acceso a documentos?",
   "help.gem.documents.title": "Acceso a documentos",
-  "help.gem.documents.content": { "path": "help-gem-documents.md" },
+  "help.gem.documents.content": {
+    "path": "help-gem-documents.md"
+  },
   "gem.tools.section_title": "Herramientas",
   "gem.tools.section_hint": "Permite al modelo llamar a estas herramientas integradas durante una ejecución.",
   "gem.tools.datetime": "Fecha y hora",
@@ -170,5 +183,7 @@
   "gem.tools.calculator.description": "Permite al modelo evaluar una expresión matemática.",
   "help.gem.tools.prompt": "¿Qué son las herramientas?",
   "help.gem.tools.title": "Herramientas",
-  "help.gem.tools.content": "Las herramientas permiten al modelo realizar acciones durante una ejecución —como consultar la fecha actual o hacer un cálculo— antes de escribir su respuesta. Activa solo las herramientas que sean relevantes para lo que hace este gem."
+  "help.gem.tools.content": "Las herramientas permiten al modelo realizar acciones durante una ejecución —como consultar la fecha actual o hacer un cálculo— antes de escribir su respuesta. Activa solo las herramientas que sean relevantes para lo que hace este gem.",
+  "gem.output.copy": "Copiar al portapapeles",
+  "gem.output.download": "Descargar como texto"
 }
