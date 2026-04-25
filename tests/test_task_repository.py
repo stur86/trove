@@ -204,3 +204,23 @@ def test_tools_multiple_tools_round_trip(data_dir):
     save_task(task)
     loaded = load_task("both-tools")
     assert loaded.tools == frozenset({ToolId.DATETIME, ToolId.CALCULATOR})
+
+
+def test_existing_task_without_tools_loads_with_empty_frozenset(data_dir):
+    """Tasks saved before the tools column existed default to empty frozenset."""
+    import sqlite3
+    from backend.db import get_db_path
+    from backend.tasks.repository import _ensure_table
+
+    with sqlite3.connect(str(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        _ensure_table(conn)
+        conn.execute(
+            "INSERT INTO tasks (id, name, description, hue, template, args, has_image, has_audio, output_mode)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("legacy-tools", "Legacy", "", "indigo", "Hi", "[]", 0, 0, "text"),
+        )
+        conn.commit()
+
+    loaded = load_task("legacy-tools")
+    assert loaded.tools == frozenset()
