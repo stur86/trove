@@ -10,7 +10,7 @@ import json
 from pydantic import TypeAdapter
 
 from backend.db import get_db
-from backend.tasks.models import TaskArg, UserTask
+from backend.tasks.models import TaskArg, ToolId, UserTask
 
 _arg_adapter: TypeAdapter[TaskArg] = TypeAdapter(TaskArg)
 
@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     has_audio       INTEGER NOT NULL DEFAULT 0,
     output_mode     TEXT NOT NULL DEFAULT 'text',
     doc_folder_ids  TEXT NOT NULL DEFAULT '[]',
-    doc_ids         TEXT NOT NULL DEFAULT '[]'
+    doc_ids         TEXT NOT NULL DEFAULT '[]',
+    tools           TEXT NOT NULL DEFAULT '[]'
 )
 """
 
@@ -53,6 +54,7 @@ def _row_to_user_task(row) -> UserTask:
     args = tuple(_arg_adapter.validate_python(a) for a in json.loads(row["args"]))
     doc_folder_ids = tuple(json.loads(row["doc_folder_ids"] or "[]"))
     doc_ids = tuple(json.loads(row["doc_ids"] or "[]"))
+    tools = frozenset(ToolId(t) for t in json.loads(row["tools"] or "[]"))
     return UserTask(
         id=row["id"],
         name=row["name"],
@@ -65,6 +67,7 @@ def _row_to_user_task(row) -> UserTask:
         output_mode=row["output_mode"],
         doc_folder_ids=doc_folder_ids,
         doc_ids=doc_ids,
+        tools=tools,
     )
 
 
@@ -78,13 +81,14 @@ def save_task(task: UserTask) -> None:
     args_json = json.dumps([arg.model_dump() for arg in task.args])
     doc_folder_ids_json = json.dumps(list(task.doc_folder_ids))
     doc_ids_json = json.dumps(list(task.doc_ids))
+    tools_json = json.dumps([tid.value for tid in task.tools])
     with get_db() as conn:
         _ensure_table(conn)
         conn.execute(
             """INSERT OR REPLACE INTO tasks
                (id, name, description, hue, template, args,
-                has_image, has_audio, output_mode, doc_folder_ids, doc_ids)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                has_image, has_audio, output_mode, doc_folder_ids, doc_ids, tools)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 task.id,
                 task.name,
@@ -97,6 +101,7 @@ def save_task(task: UserTask) -> None:
                 task.output_mode.value,
                 doc_folder_ids_json,
                 doc_ids_json,
+                tools_json,
             ),
         )
 

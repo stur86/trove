@@ -172,3 +172,35 @@ def test_task_id_exists_true_when_present(data_dir):
     )
     save_task(task)
     assert task_id_exists("my-gem") is True
+
+
+# ── tools round-trip ──────────────────────────────────────────────────────────
+
+from backend.tasks.models import ToolId  # noqa: E402
+
+
+def test_tools_default_is_empty_frozenset(data_dir):
+    task = UserTask(id="plain", name="Plain", template="Hi")
+    save_task(task)
+    loaded = load_task("plain")
+    assert loaded.tools == frozenset()
+
+
+def test_tools_single_tool_round_trip(data_dir):
+    task = UserTask(
+        id="calc-gem", name="Calc", template="Calculate.",
+        tools=frozenset({ToolId.CALCULATOR}),
+    )
+    save_task(task)
+    loaded = load_task("calc-gem")
+    assert loaded.tools == frozenset({ToolId.CALCULATOR})
+
+
+def test_tools_multiple_tools_round_trip(data_dir):
+    task = UserTask(
+        id="both-tools", name="Both", template="Go.",
+        tools=frozenset({ToolId.DATETIME, ToolId.CALCULATOR}),
+    )
+    save_task(task)
+    loaded = load_task("both-tools")
+    assert loaded.tools == frozenset({ToolId.DATETIME, ToolId.CALCULATOR})
