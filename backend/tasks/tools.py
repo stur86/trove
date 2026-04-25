@@ -26,7 +26,7 @@ def get_current_datetime() -> str:
 def calculate(expression: str) -> str:
     """Evaluate a mathematical expression and return the numeric result.
 
-    Supports arithmetic operators (+, -, *, /), parentheses, exponentiation (**),
+    Supports arithmetic operators (+, -, *, /), parentheses, exponentiation (^, e.g. 2^3),
     and common constants (e.g. pi). Does not support trigonometric functions.
     Returns an error message string if the expression cannot be evaluated.
 
