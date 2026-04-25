@@ -36,18 +36,17 @@ class Task(BaseModel, frozen=True):
 Owns all tool logic. Exports:
 
 - `build_tool_functions(tool_ids: frozenset[ToolId]) -> list[Callable]` — returns the callable(s) for the requested tool IDs in a stable order (ToolId enum order).
-- `build_tool_system_prompt(tool_ids: frozenset[ToolId]) -> str` — returns a combined system prompt fragment instructing the model to call the available tools.
 
-Internal implementations:
+Tool function implementations (these are the callables passed to the agent):
 
 - `get_current_datetime() -> str` — returns `datetime.now()` formatted as a human-readable string.
 - `calculate(expression: str) -> str` — passes the expression to `mathparse.parse()`; wraps exceptions and returns an error string rather than raising, so a bad expression doesn't crash the agent.
 
-A module-level `_TOOL_REGISTRY: dict[ToolId, Callable]` maps each ID to its callable. A `_TOOL_SYSTEM_PROMPTS: dict[ToolId, str]` maps each ID to a one-line system prompt fragment.
+Both functions carry precise docstrings and type hints. Pydantic AI reads these to generate the tool description for the model — no separate system prompt management is needed. A module-level `_TOOL_REGISTRY: dict[ToolId, Callable]` maps each ID to its callable.
 
 ### `backend/tasks/runner.py`
 
-`_make_agent()` gains a `tool_ids: frozenset[ToolId] | None = None` parameter. It combines document tools and utility tools into a single list, and concatenates their system prompt fragments into one string passed to `Agent(... system_prompt=...)`. No tools → `Agent(model)` unchanged.
+`_make_agent()` gains a `tool_ids: frozenset[ToolId] | None = None` parameter. It combines document tools and utility tools into a single list passed to `Agent(model, tools=tools, ...)`. Pydantic AI derives tool descriptions from each callable's docstring and type hints automatically — no manual system prompt construction for utility tools. The existing `_DOC_SYSTEM_PROMPT` is kept for document tools (it explains the document library concept, which is not self-evident from the function signatures alone). No tools → `Agent(model)` unchanged.
 
 `stream_task` and `run_task` both pass `task.tools` to `_make_agent()` — they already receive the full `Task` object, so no signature changes are needed.
 
