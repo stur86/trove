@@ -23,6 +23,27 @@ export const GEM_HUES: GemHue[] = [
   'violet', 'purple', 'fuchsia', 'rose',
 ]
 
+/** The two built-in utility tool identifiers. */
+export type ToolId = 'datetime' | 'calculator'
+
+/**
+ * Static catalogue of available tools.
+ * Keys reference locale strings for labels and descriptions.
+ * Update this list when new tools are added to the backend.
+ */
+export const TOOL_IDS: { id: ToolId; labelKey: string; descKey: string }[] = [
+  {
+    id: 'datetime',
+    labelKey: 'gem.tools.datetime',
+    descKey: 'gem.tools.datetime.description',
+  },
+  {
+    id: 'calculator',
+    labelKey: 'gem.tools.calculator',
+    descKey: 'gem.tools.calculator.description',
+  },
+]
+
 export type OutputMode = 'text' | 'structured'
 
 /** A free-text argument with an optional default. */
@@ -61,6 +82,8 @@ export interface UserTask {
   doc_folder_ids: string[]
   /** IDs of individually accessible documents outside of folder grants. */
   doc_ids: string[]
+  /** IDs of built-in utility tools enabled for this gem. */
+  tools: ToolId[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -43,6 +43,7 @@ function blankGem(): UserTask {
     output_mode: 'text',
     doc_folder_ids: [],
     doc_ids: [],
+    tools: [],
   }
 }
 
