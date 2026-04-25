@@ -418,6 +418,37 @@ export default function GemForm() {
           </div>
         </div>
 
+        {/* Tools */}
+        <div className="flex flex-col gap-2">
+          <Label>{t('gem.tools.section_title')}</Label>
+          <HelpBar
+            prompt={t('help.gem.tools.prompt')}
+            title={t('help.gem.tools.title')}
+            content={t('help.gem.tools.content')}
+          />
+          <p className="text-xs text-gray-500">{t('gem.tools.section_hint')}</p>
+          <div className="flex flex-col gap-2">
+            {TOOL_IDS.map(({ id, labelKey, descKey }: { id: ToolId; labelKey: string; descKey: string }) => (
+              <div key={id} className="flex items-start gap-2">
+                <Checkbox
+                  id={`tool-${id}`}
+                  checked={gem.tools.includes(id)}
+                  onChange={e => setGem(g => ({
+                    ...g,
+                    tools: e.target.checked
+                      ? [...g.tools, id]
+                      : g.tools.filter(tid => tid !== id),
+                  }))}
+                />
+                <div>
+                  <Label htmlFor={`tool-${id}`}>{t(labelKey)}</Label>
+                  <p className="text-xs text-gray-400 mt-0.5">{t(descKey)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Document access */}
         <div className="flex flex-col gap-2">
           <Label>{t('gem.documents.section_title')}</Label>
