@@ -20,7 +20,7 @@ import {
   Alert, Button, Checkbox, Label, Spinner, Textarea, TextInput,
 } from 'flowbite-react'
 import {
-  gemsApi, GEM_HUES, type TaskArg, type UserTask,
+  gemsApi, GEM_HUES, TOOL_IDS, type TaskArg, type ToolId, type UserTask,
 } from '../api/tasks'
 import { documentsApi, type Folder, type Document } from '../api/documents'
 import { appApi } from '../api/app'
