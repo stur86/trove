@@ -1970,6 +1970,15 @@ wheels = [
 ]
 
 [[package]]
+name = "mathparse"
+version = "0.2.8"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ec/33/e9b3e925c3e163281d3aff0f22a88b7ca55ef12f217df28b1f88dfcffff4/mathparse-0.2.8.tar.gz", hash = "sha256:704a9d56e4b4f65e4cd99fcc38dd02bc1a79cbfda19b166d9032811f776b1903", size = 31624, upload-time = "2026-03-24T12:19:34.406Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/69/d3/108e9dcba5b82f7beece54449d233943fe032cc1ff47066054568fca4616/mathparse-0.2.8-py3-none-any.whl", hash = "sha256:c20908efbac500f174fa75ffc497d9b39701edd13a56992ddeed31d07de7d605", size = 22647, upload-time = "2026-03-24T12:19:33.445Z" },
+]
+
+[[package]]
 name = "mcp"
 version = "1.27.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4151,6 +4160,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "jinja2" },
     { name = "markitdown", extra = ["all"] },
+    { name = "mathparse" },
     { name = "passlib", extra = ["bcrypt"] },
     { name = "psutil" },
     { name = "pydantic" },
@@ -4178,6 +4188,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "markitdown", extras = ["all"], specifier = ">=0.1" },
+    { name = "mathparse", specifier = ">=0.2.8" },
     { name = "passlib", extras = ["bcrypt"], specifier = ">=1.7" },
     { name = "psutil", specifier = ">=6.1" },
     { name = "pydantic", specifier = ">=2.10" },
