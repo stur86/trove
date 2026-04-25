@@ -169,3 +169,48 @@ def test_user_task_accepts_doc_fields():
     )
     assert task.doc_folder_ids == ("hr", "finance")
     assert task.doc_ids == ("policy-doc",)
+
+
+# ── ToolId and Task.tools (utility tools) ────────────────────────────────────
+
+from backend.tasks.models import ToolId  # noqa: E402
+
+
+def test_tool_id_values():
+    assert ToolId.DATETIME.value == "datetime"
+    assert ToolId.CALCULATOR.value == "calculator"
+
+
+def test_tool_id_has_two_members():
+    assert len(list(ToolId)) == 2
+
+
+def test_task_defaults_to_empty_tools():
+    task = Task(template="Hello")
+    assert task.tools == frozenset()
+
+
+def test_task_with_single_tool():
+    task = Task(template="Hello", tools=frozenset({ToolId.DATETIME}))
+    assert ToolId.DATETIME in task.tools
+    assert ToolId.CALCULATOR not in task.tools
+
+
+def test_task_with_multiple_tools():
+    task = Task(template="Hello", tools=frozenset({ToolId.DATETIME, ToolId.CALCULATOR}))
+    assert ToolId.DATETIME in task.tools
+    assert ToolId.CALCULATOR in task.tools
+
+
+def test_task_is_frozen_with_tools():
+    task = Task(template="Hello", tools=frozenset({ToolId.DATETIME}))
+    with pytest.raises(ValidationError):
+        task.tools = frozenset()  # type: ignore[misc]
+
+
+def test_user_task_inherits_tools_field():
+    task = UserTask(
+        id="t1", name="T", template="Hi",
+        tools=frozenset({ToolId.CALCULATOR}),
+    )
+    assert ToolId.CALCULATOR in task.tools

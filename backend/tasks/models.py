@@ -62,6 +62,15 @@ class OutputMode(str, Enum):
     STRUCTURED = "structured"  # JSON output — reserved for later
 
 
+class ToolId(str, Enum):
+    """Identifiers for the built-in utility tools available to gem agents."""
+
+    DATETIME = "datetime"
+    """Tool that returns the current date and time."""
+    CALCULATOR = "calculator"
+    """Tool that evaluates a mathematical expression using mathparse."""
+
+
 class GemHue(str, Enum):
     """
     16 preconfigured display colours for user-facing Gems.
@@ -110,6 +119,8 @@ class Task(BaseModel, frozen=True):
     """Task accepts an audio input passed alongside the prompt (mock for now)."""
     output_mode: OutputMode = OutputMode.TEXT
     """Expected output format. STRUCTURED is reserved and not yet implemented."""
+    tools: frozenset[ToolId] = frozenset()
+    """Set of utility tool IDs enabled for this task. Empty means no tools injected."""
 
 
 class UserTask(Task, frozen=True):
