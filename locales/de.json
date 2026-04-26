@@ -145,6 +145,8 @@
   "admin.documents.cancel": "Abbrechen",
   "admin.documents.upload_button": "Hochladen",
   "admin.documents.add_button": "Hinzufügen",
+  "admin.documents.choose_file": "Datei auswählen",
+  "admin.documents.no_file_selected": "Keine Datei ausgewählt",
   "help.model.prompt": "Wie wähle ich ein Modell?",
   "help.model.title": "Ein KI-Modell auswählen",
   "help.model.content": {

@@ -145,6 +145,8 @@
   "admin.documents.cancel": "Cancelar",
   "admin.documents.upload_button": "Subir",
   "admin.documents.add_button": "Añadir",
+  "admin.documents.choose_file": "Elegir archivo",
+  "admin.documents.no_file_selected": "Ningún archivo seleccionado",
   "help.model.prompt": "¿Cómo elijo un modelo?",
   "help.model.title": "Elegir un modelo de IA",
   "help.model.content": {
