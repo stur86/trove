@@ -145,6 +145,8 @@
   "admin.documents.cancel": "Cancel",
   "admin.documents.upload_button": "Upload",
   "admin.documents.add_button": "Add",
+  "admin.documents.choose_file": "Choose file",
+  "admin.documents.no_file_selected": "No file selected",
   "help.model.prompt": "How do I choose a model?",
   "help.model.title": "Choosing an AI model",
   "help.model.content": {
