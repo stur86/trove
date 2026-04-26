@@ -4,7 +4,7 @@
  * Exports documentsApi — switches to the mock implementation when
  * VITE_MOCK_API=1 is set in the environment.
  */
-import { del, get, getBlob, patch, post } from './client'
+import { del, get, getBlob, patch, post, postFormData } from './client'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,12 +87,7 @@ const _realDocumentsApi = {
     form.append('folder_id', folder_id)
     if (name) form.append('name', name)
     if (description) form.append('description', description)
-    const res = await fetch('/api/app/admin/documents/upload', {
-      method: 'POST',
-      body: form,
-      credentials: 'include',
-    })
-    if (!res.ok) throw new Error(`Upload failed: ${res.status}`)
+    const res = await postFormData('/app/admin/documents/upload', form)
     return res.json()
   },
 

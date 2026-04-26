@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Alert,
   Button,
+  FileInput,
   Label,
   Modal,
   ModalBody,
@@ -585,11 +586,9 @@ export default function DocumentsPanel() {
               <>
                 <div>
                   <Label className="mb-1 block">{t('admin.documents.upload_file')}</Label>
-                  <input
+                  <FileInput
                     ref={fileInputRef}
-                    type="file"
                     accept=".pdf,.docx,.pptx,.xlsx,.txt,.md,.html,.htm"
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
                     onChange={e => setUploadFile(e.target.files?.[0] ?? null)}
                   />
                 </div>
