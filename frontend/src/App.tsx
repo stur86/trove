@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Spinner } from 'flowbite-react'
 import { get } from './api/client'
 import { fetchSession } from './api/session'
-import AdminPanel from './pages/AdminPanel'
-import GemForm from './pages/GemForm'
-import GemRunner from './pages/GemRunner'
-import ManageDashboard from './pages/ManageDashboard'
-import SetupWizard from './pages/SetupWizard'
-import TaskShell from './pages/TaskShell'
+
+const AdminPanel = lazy(() => import('./pages/AdminPanel'))
+const GemForm = lazy(() => import('./pages/GemForm'))
+const GemRunner = lazy(() => import('./pages/GemRunner'))
+const ManageDashboard = lazy(() => import('./pages/ManageDashboard'))
+const SetupWizard = lazy(() => import('./pages/SetupWizard'))
+const TaskShell = lazy(() => import('./pages/TaskShell'))
 
 /**
  * Root application component.
@@ -57,24 +58,30 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        {mode === 'setup' ? (
-          <>
-            <Route path="/" element={<SetupWizard />} />
-            <Route path="/manage" element={<ManageDashboard />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </>
-        ) : (
-          <>
-            <Route path="/" element={<TaskShell />} />
-            <Route path="/gems/:id" element={<GemRunner />} />
-            <Route path="/admin" element={<AdminPanel />} />
-            <Route path="/admin/gems/new" element={<GemForm />} />
-            <Route path="/admin/gems/:id/edit" element={<GemForm />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </>
-        )}
-      </Routes>
+      <Suspense fallback={
+        <div className="flex items-center justify-center min-h-screen bg-gray-900">
+          <Spinner size="lg" />
+        </div>
+      }>
+        <Routes>
+          {mode === 'setup' ? (
+            <>
+              <Route path="/" element={<SetupWizard />} />
+              <Route path="/manage" element={<ManageDashboard />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </>
+          ) : (
+            <>
+              <Route path="/" element={<TaskShell />} />
+              <Route path="/gems/:id" element={<GemRunner />} />
+              <Route path="/admin" element={<AdminPanel />} />
+              <Route path="/admin/gems/new" element={<GemForm />} />
+              <Route path="/admin/gems/:id/edit" element={<GemForm />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </>
+          )}
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }

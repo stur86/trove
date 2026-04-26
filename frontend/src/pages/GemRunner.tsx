@@ -17,7 +17,8 @@ import { Button, Label, Modal, ModalBody, ModalHeader, Select, Spinner, Textarea
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
-import rehypeMathjax from 'rehype-mathjax'
+import rehypeKatex from 'rehype-katex'
+import 'katex/dist/katex.min.css'
 import { gemsApi, readSSEStream, type UserTask } from '../api/tasks'
 import { appApi } from '../api/app'
 import GemIcon from '../components/GemIcon'
@@ -450,7 +451,7 @@ export default function GemRunner() {
                   </span>
                 ) : (
                   <div className="prose prose-sm max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeMathjax]}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
                       {output}
                     </ReactMarkdown>
                   </div>
