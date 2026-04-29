@@ -8,7 +8,9 @@ is required.
 from collections.abc import Callable
 from datetime import datetime
 
-from mathparse import mathparse as _mathparse
+from parsimathious import ExpressionParser as _ExpressionParser
+
+_parser = _ExpressionParser()
 
 from backend.tasks.models import ToolId
 
@@ -27,14 +29,15 @@ def calculate(expression: str) -> str:
     """Evaluate a mathematical expression and return the numeric result.
 
     Supports arithmetic operators (+, -, *, /), parentheses, exponentiation (^, e.g. 2^3),
-    and common constants (e.g. pi). Does not support trigonometric functions.
+    constants (pi, e), complex numbers (e.g. 2+3i), and functions including
+    sin, cos, tan, log, sqrt, exp, log10, abs, floor, ceil, round, and their inverses.
     Returns an error message string if the expression cannot be evaluated.
 
     Args:
         expression: A mathematical expression as a string, e.g. '(3 + 4) * 2'.
     """
     try:
-        result = _mathparse.parse(expression)
+        result = _parser(expression)
         return str(result)
     except Exception as exc:
         return f"Error: could not evaluate '{expression}': {exc}"

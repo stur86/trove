@@ -68,7 +68,7 @@ class ToolId(str, Enum):
     DATETIME = "datetime"
     """Tool that returns the current date and time."""
     CALCULATOR = "calculator"
-    """Tool that evaluates a mathematical expression using mathparse."""
+    """Tool that evaluates a mathematical expression."""
 
 
 class GemHue(str, Enum):

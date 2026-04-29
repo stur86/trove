@@ -1970,15 +1970,6 @@ wheels = [
 ]
 
 [[package]]
-name = "mathparse"
-version = "0.2.8"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ec/33/e9b3e925c3e163281d3aff0f22a88b7ca55ef12f217df28b1f88dfcffff4/mathparse-0.2.8.tar.gz", hash = "sha256:704a9d56e4b4f65e4cd99fcc38dd02bc1a79cbfda19b166d9032811f776b1903", size = 31624, upload-time = "2026-03-24T12:19:34.406Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/69/d3/108e9dcba5b82f7beece54449d233943fe032cc1ff47066054568fca4616/mathparse-0.2.8-py3-none-any.whl", hash = "sha256:c20908efbac500f174fa75ffc497d9b39701edd13a56992ddeed31d07de7d605", size = 22647, upload-time = "2026-03-24T12:19:33.445Z" },
-]
-
-[[package]]
 name = "mcp"
 version = "1.27.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2663,6 +2654,30 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/e4/a5/2f6ed612056819de445a433ca1f2821ac3dab7f150d569a59e9cc105de1d/pandas-3.0.2-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:734be7551687c00fbd760dc0522ed974f82ad230d4a10f54bf51b80d44a08702", size = 11815274, upload-time = "2026-03-31T06:48:22.695Z" },
     { url = "https://files.pythonhosted.org/packages/00/2f/b622683e99ec3ce00b0854bac9e80868592c5b051733f2cf3a868e5fea26/pandas-3.0.2-cp314-cp314t-win_amd64.whl", hash = "sha256:57a07209bebcbcf768d2d13c9b78b852f9a15978dac41b9e6421a81ad4cdd276", size = 10888530, upload-time = "2026-03-31T06:48:25.806Z" },
     { url = "https://files.pythonhosted.org/packages/cb/2b/f8434233fab2bd66a02ec014febe4e5adced20e2693e0e90a07d118ed30e/pandas-3.0.2-cp314-cp314t-win_arm64.whl", hash = "sha256:5371b72c2d4d415d08765f32d689217a43227484e81b2305b52076e328f6f482", size = 9455341, upload-time = "2026-03-31T06:48:28.418Z" },
+]
+
+[[package]]
+name = "parsimathious"
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "parsimonious" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ef/38/a832963cfc3567e71c02d57221057b3106cfb22371aee0e07d3acc7890a3/parsimathious-0.1.1.tar.gz", hash = "sha256:aa07dc9c62dba84098b04445372ec6c5e1c8b6200b9304e41c99abbcf6f507ff", size = 4051, upload-time = "2026-04-29T07:12:07.401Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/35/73/1c43d5ac13691f8754445d5367f9b48e977b7d78bb965d097d7f6e8bc15d/parsimathious-0.1.1-py3-none-any.whl", hash = "sha256:efcfaa968f23ccca9951fb15b353754a3f0f926f2efd164fb8a67f0dcbc21f1e", size = 5154, upload-time = "2026-04-29T07:12:06.046Z" },
+]
+
+[[package]]
+name = "parsimonious"
+version = "0.11.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "regex" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3c/0b/8a3b9f4a4943b56e67247c65e1b0564ec9bf0718b85f3fd9502d70afaf32/parsimonious-0.11.0.tar.gz", hash = "sha256:e080377d98957beec053580d38ae54fcdf7c470fb78670ba4bf8b5f9d5cad2a9", size = 54238, upload-time = "2025-11-12T01:33:48.172Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f1/a9/a10a10f12e50993b5a3568a1a90fd70b85f83edc451875d312bf60cd39b8/parsimonious-0.11.0-py3-none-any.whl", hash = "sha256:32e3818abf9f05b3b9f3b6d87d128645e30177e91f614d2277d88a0aea98fae2", size = 54351, upload-time = "2025-11-12T01:33:46.652Z" },
 ]
 
 [[package]]
@@ -4160,7 +4175,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "jinja2" },
     { name = "markitdown", extra = ["all"] },
-    { name = "mathparse" },
+    { name = "parsimathious" },
     { name = "passlib", extra = ["bcrypt"] },
     { name = "psutil" },
     { name = "pydantic" },
@@ -4188,7 +4203,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "markitdown", extras = ["all"], specifier = ">=0.1" },
-    { name = "mathparse", specifier = ">=0.2.8" },
+    { name = "parsimathious", specifier = ">=0.1.1" },
     { name = "passlib", extras = ["bcrypt"], specifier = ">=1.7" },
     { name = "psutil", specifier = ">=6.1" },
     { name = "pydantic", specifier = ">=2.10" },
