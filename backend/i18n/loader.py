@@ -13,9 +13,8 @@ locales/en/ when the locale-specific file is absent.
 import json
 from pathlib import Path
 
-# Locale files live at the project root, shared between backend and frontend dev server.
-# This file is at backend/i18n/loader.py — three parents up is the project root.
-LOCALES_DIR = Path(__file__).parent.parent.parent / "locales"
+# Locale files live alongside this module so they are included in the wheel.
+LOCALES_DIR = Path(__file__).parent / "locales"
 
 
 def _read_locale_file(rel_path: str, locale: str) -> str:

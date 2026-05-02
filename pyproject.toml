@@ -32,7 +32,7 @@ build-backend = "setuptools.build_meta"
 include = ["backend*"]
 
 [tool.setuptools.package-data]
-backend = ["static/**/*"]
+backend = ["static/**/*", "i18n/locales/**/*"]
 
 [tool.taskipy.tasks]
 # Run both servers together (recommended for development)

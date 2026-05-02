@@ -27,7 +27,7 @@ export default defineConfig({
         server.middlewares.use((req, res, next) => {
           if (!req.url?.startsWith('/locales/')) { next(); return }
           const filename = path.basename(req.url.split('?')[0])
-          const filePath = path.resolve(__dirname, '..', 'locales', filename)
+          const filePath = path.resolve(__dirname, '..', 'backend', 'i18n', 'locales', filename)
           if (fs.existsSync(filePath)) {
             res.setHeader('Content-Type', 'application/json; charset=utf-8')
             res.end(fs.readFileSync(filePath, 'utf-8'))

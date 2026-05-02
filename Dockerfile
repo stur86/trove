@@ -47,6 +47,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         bash \
         socat \
+        zstd \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the install script and the pre-built wheel from dist/.
