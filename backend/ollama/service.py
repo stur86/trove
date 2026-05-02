@@ -282,7 +282,7 @@ class RealOllamaService:
         install_dir.mkdir(parents=True, exist_ok=True)
 
         yield f"data: Downloading Ollama for {arch}...\n\n"
-        cmd = f"curl -fsSL '{url}' | tar x --no-same-owner -C --zstd '{install_dir}'"
+        cmd = f"curl -fsSL '{url}' | tar x --zstd --no-same-owner -C '{install_dir}'"
         process = sp.Popen(
             ["bash", "-c", cmd],
             stdout=sp.PIPE,
