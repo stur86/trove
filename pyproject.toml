@@ -47,6 +47,9 @@ start        = "trove start"
 # Build pipeline (incremental via doit — only rebuilds what changed)
 build        = "doit build_frontend"
 build-docker = "doit build_docker"
+# Run the Docker image (volumes persist models and config between runs)
+docker-setup = "docker run -it --rm -p 7071:7071 $(docker info 2>/dev/null | grep -q nvidia && echo '--gpus all') $([ -e /dev/kfd ] && echo '--device /dev/kfd') $([ -e /dev/dri ] && echo '--device /dev/dri') -v trove-ollama:/root/.ollama -v trove-config:/root/.config/trove trove setup"
+docker-start = "docker run -it --rm -p 7770:7770 $(docker info 2>/dev/null | grep -q nvidia && echo '--gpus all') $([ -e /dev/kfd ] && echo '--device /dev/kfd') $([ -e /dev/dri ] && echo '--device /dev/dri') -v trove-ollama:/root/.ollama -v trove-config:/root/.config/trove trove start"
 install-deps = "uv sync --group dev && cd frontend && bun install"
 install-docs = "uv sync --group docs"
 docs-build   = "uv run mkdocs build --strict"
