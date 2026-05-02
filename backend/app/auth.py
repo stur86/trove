@@ -13,15 +13,14 @@ Provides:
 import hmac
 from typing import Annotated
 
+import bcrypt
 from fastapi import Cookie, Depends, HTTPException
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from passlib.context import CryptContext
 
 from backend.config.service import load_config
 from backend.session import admin_store
 
 _security = HTTPBasic()
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Hosts permitted to call the admin login endpoint.
 # Extend this list if mDNS or a fixed hostname is added in future.
@@ -35,7 +34,7 @@ def hash_password(password: str) -> str:
     Call this during setup when writing credentials to config.json.
     Never call it on already-hashed input.
     """
-    return _pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
 def verify_password(plain: str, hashed: str) -> bool:
@@ -44,7 +43,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
     Returns True if they match, False otherwise.
     """
-    return _pwd_context.verify(plain, hashed)
+    return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
 def require_admin(

@@ -11,6 +11,7 @@ environment variable (set to 1 to use the fake). Load via python-dotenv.
 
 import logging
 import os
+import platform
 import shutil
 import subprocess as sp
 import threading
@@ -21,12 +22,25 @@ from pathlib import Path
 from typing import ClassVar, Protocol, runtime_checkable
 
 from backend.config.models import TroveConfig
-from backend.config.service import get_config_dir, load_config
+from backend.config.service import get_config_dir, get_ollama_bin_dir, load_config
 from backend.ollama.models import StartServiceResult
 from backend.system.service import TROVE_OLLAMA_PORT, is_ollama_service_running
 from backend.log_buffer import OLLAMA_LOGGER_NAME
 
 _ollama_logger = logging.getLogger(OLLAMA_LOGGER_NAME)
+
+
+def _ollama_binary() -> str | None:
+    """
+    Return the path to the ollama binary, or None if it is not available.
+
+    When TROVE_USE_GLOBAL_OLLAMA=1, delegates to the system PATH.
+    Otherwise, resolves to Trove's private installation directory.
+    """
+    if os.getenv("TROVE_USE_GLOBAL_OLLAMA") == "1":
+        return shutil.which("ollama")
+    candidate = get_ollama_bin_dir() / "ollama"
+    return str(candidate) if candidate.exists() else None
 
 
 class OllamaProcess:
@@ -39,10 +53,13 @@ class OllamaProcess:
     """
 
     def __init__(self, command: list[str], port: int = TROVE_OLLAMA_PORT):
+        binary = _ollama_binary()
+        if binary is None:
+            raise FileNotFoundError("Ollama binary not found; run setup first")
         proc_env = os.environ.copy()
         proc_env["OLLAMA_HOST"] = f"localhost:{port}"
         self.proc = sp.Popen(
-            ["ollama"] + command,
+            [binary] + command,
             stdout=sp.PIPE,
             stderr=sp.STDOUT,
             text=True,
@@ -107,7 +124,7 @@ def ensure_ollama_running() -> None:
     """
     if os.getenv("TROVE_USE_GLOBAL_OLLAMA") == "1":
         return  # global service mode — never spawn our own process
-    if not shutil.which("ollama"):
+    if not _ollama_binary():
         return  # not installed yet — setup will handle it
     if is_ollama_service_running():
         return  # already accepting requests on our port
@@ -221,19 +238,20 @@ class RealOllamaService:
         base model and the derived ``trove_model``, avoiding two subprocess calls.
 
         Keys:
-          installed (bool): whether the ollama binary is on the PATH.
+          installed (bool): whether the ollama binary is available.
           running (bool): whether the Ollama server is accepting requests.
           model_pulled (bool): whether the configured base model has been pulled.
           model_built (bool): whether trove_model has been created.
         """
-        installed = shutil.which("ollama") is not None
+        binary = _ollama_binary()
+        installed = binary is not None
         running = is_ollama_service_running() if installed else False
         config = load_config()
         model_pulled = False
         model_built = False
         if installed:
             # A single `ollama list` call is enough to check both models.
-            list_output = sp.run(["ollama", "list"], capture_output=True, text=True).stdout
+            list_output = sp.run([binary, "list"], capture_output=True, text=True).stdout
             model_pulled = config.base_model in list_output
             model_built = "trove_model" in list_output
         return {
@@ -245,13 +263,28 @@ class RealOllamaService:
 
     def stream_install(self) -> Iterator[str]:
         """
-        Run the official Ollama Linux install script and yield SSE-formatted lines.
+        Download and extract the Ollama binary into Trove's private bin directory.
+
+        Uses the official Ollama tar.zst package rather than the install script,
+        so no sudo, systemd, or system-wide changes are made. The binary and its
+        companion libraries land in ~/.config/trove/ (bin/ and lib/).
 
         Streams stdout+stderr line by line. Final event is [DONE] or [ERROR].
         """
-        yield "data: Starting Ollama installation...\n\n"
+        if os.getenv("TROVE_USE_GLOBAL_OLLAMA") == "1":
+            yield "data: [ERROR] TROVE_USE_GLOBAL_OLLAMA is set; Ollama must be managed externally.\n\n"
+            return
+
+        machine = platform.machine()
+        arch = "arm64" if machine == "aarch64" else "amd64"
+        url = f"https://ollama.com/download/ollama-linux-{arch}.tar.zst"
+        install_dir = get_config_dir()
+        install_dir.mkdir(parents=True, exist_ok=True)
+
+        yield f"data: Downloading Ollama for {arch}...\n\n"
+        cmd = f"curl -fsSL '{url}' | tar x --no-same-owner -C --zstd '{install_dir}'"
         process = sp.Popen(
-            ["bash", "-c", "curl -fsSL https://ollama.com/install.sh | sh"],
+            ["bash", "-c", cmd],
             stdout=sp.PIPE,
             stderr=sp.STDOUT,
             text=True,
@@ -262,13 +295,12 @@ class RealOllamaService:
         process.wait()
         if process.returncode == 0:
             yield "data: [DONE] Ollama installed successfully.\n\n"
-            if os.getenv("TROVE_USE_GLOBAL_OLLAMA") != "1":
-                # Immediately start our private Ollama instance so the next setup
-                # step (model pull) can proceed without a separate "Start" click.
-                yield "data: Starting Ollama service...\n\n"
-                ensure_ollama_running()
-                if is_ollama_service_running():
-                    yield f"data: Ollama is running on port {TROVE_OLLAMA_PORT}.\n\n"
+            # Immediately start the service so the next setup step (model pull)
+            # can proceed without a separate "Start" click.
+            yield "data: Starting Ollama service...\n\n"
+            ensure_ollama_running()
+            if is_ollama_service_running():
+                yield f"data: Ollama is running on port {TROVE_OLLAMA_PORT}.\n\n"
         else:
             yield f"data: [ERROR] Installation failed (exit {process.returncode}).\n\n"
 
@@ -285,7 +317,7 @@ class RealOllamaService:
         Otherwise, spawns ``ollama serve`` as a managed subprocess on
         Trove's private port (11435) and waits up to 10 s for readiness.
         """
-        if not shutil.which("ollama"):
+        if not _ollama_binary():
             return StartServiceResult(success=False, reason="not_installed")
 
         if os.getenv("TROVE_USE_GLOBAL_OLLAMA") == "1":

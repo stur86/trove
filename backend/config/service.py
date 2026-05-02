@@ -23,6 +23,17 @@ def get_config_dir() -> Path:
     return base / "trove"
 
 
+def get_ollama_bin_dir() -> Path:
+    """
+    Return the directory where Trove installs its private Ollama binary.
+
+    Resolves to ~/.config/trove/bin/. Trove installs the Ollama binary here
+    to keep it isolated from any system-wide Ollama installation.
+    The directory is not guaranteed to exist — stream_install creates it.
+    """
+    return get_config_dir() / "bin"
+
+
 def load_config() -> TroveConfig:
     """
     Load config from disk, returning defaults if the file doesn't exist yet.

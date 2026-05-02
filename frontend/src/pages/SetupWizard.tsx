@@ -176,7 +176,6 @@ function ModelsStep({ t, system, selectedModels, setSelectedModels, busy, onPull
               <p className="font-medium text-gray-900">{m.tag}</p>
               <p className="text-sm text-gray-500">
                 Min {m.min_ram_gb} GB RAM · Max {(m.max_ctx / 1024).toFixed(0)}K context
-                {m.audio && ' · Audio'}
                 {status.models_pulled.includes(m.tag) && (
                   <span className="ml-2 text-green-600">✓ downloaded</span>
                 )}

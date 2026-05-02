@@ -19,6 +19,7 @@ import { type TroveConfig, configApi } from '../api/config'
 import { i18nApi } from '../api/i18n'
 import { streamLines } from '../api/ollama'
 import { systemApi, type ModelInfo } from '../api/system'
+import { setupApi } from '../api/setup'
 import { gemsApi, type UserTask } from '../api/tasks'
 import { bundleApi, type ImportResult } from '../api/bundle'
 import GemIcon from '../components/GemIcon'
@@ -31,8 +32,8 @@ type SaveState = 'idle' | 'saving' | 'building' | 'done' | 'error'
 
 /** Human-readable labels for each Gemma 4 model variant. */
 const MODEL_LABELS: Record<string, string> = {
-  'gemma4:e2b': 'Gemma 4 E2B — 2.3B effective (fastest, audio)',
-  'gemma4:e4b': 'Gemma 4 E4B — 4.5B effective (balanced, audio)',
+  'gemma4:e2b': 'Gemma 4 E2B — 2.3B effective (fastest)',
+  'gemma4:e4b': 'Gemma 4 E4B — 4.5B effective (balanced)',
   'gemma4:26b': 'Gemma 4 26B MoE — 4B activated (efficient large)',
   'gemma4:31b': 'Gemma 4 31B — dense (most capable)',
 }
@@ -48,6 +49,7 @@ export default function AdminPanel() {
 
   const [config, setConfig] = useState<TroveConfig | null>(null)
   const [viableModels, setViableModels] = useState<ModelInfo[]>([])
+  const [pulledModelTags, setPulledModelTags] = useState<string[]>([])
   const [availableLocales, setAvailableLocales] = useState<Record<string, string>>({})
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [buildLog, setBuildLog] = useState<string[]>([])
@@ -72,11 +74,12 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (!authed) return
-    Promise.all([configApi.get(), systemApi.check(), appApi.networkUrl(), i18nApi.listLocales()]).then(([c, sys, net, locales]) => {
+    Promise.all([configApi.get(), systemApi.check(), appApi.networkUrl(), i18nApi.listLocales(), setupApi.status()]).then(([c, sys, net, locales, setup]) => {
       setConfig(c)
       setViableModels(sys.viable_models)
       setNetworkUrl(net.url)
       setAvailableLocales(locales)
+      setPulledModelTags(setup.models_pulled)
     })
   }, [authed])
 
@@ -207,7 +210,7 @@ export default function AdminPanel() {
   }
 
   // Cap num_ctx slider at the selected model's context limit
-  const selectedModel = viableModels.find(m => m.tag === config?.base_model)
+  const selectedModel = viableModels.find(m => m.tag === config?.base_model && pulledModelTags.includes(m.tag))
   const maxCtx = selectedModel?.max_ctx ?? 131072
 
   // Whether to open on the Gems tab (set by GemForm after create/update)
@@ -215,9 +218,10 @@ export default function AdminPanel() {
 
   // True when the selected model lacks audio AND at least one saved gem uses audio.
   // Shown as a warning so the admin knows those gems will be hidden from users.
-  const audioGemsExist = gems.some(g => g.has_audio)
-  const selectedModelSupportsAudio = ["gemma4:e2b", "gemma4:e4b"].includes(config?.base_model ?? '')
-  const showAudioWarning = audioGemsExist && !selectedModelSupportsAudio
+  // Audio warning is currently disabled since audio functionality was not implemented
+  // const audioGemsExist = gems.some(g => g.has_audio)
+  // const selectedModelSupportsAudio = ["gemma4:e2b", "gemma4:e4b"].includes(config?.base_model ?? '')
+  // const showAudioWarning = audioGemsExist && !selectedModelSupportsAudio
 
   // ── Admin panel ───────────────────────────────────────────────────────────
   return (
@@ -254,7 +258,10 @@ export default function AdminPanel() {
                       })
                     }}
                   >
-                    {(viableModels.length > 0 ? viableModels : [{ tag: config.base_model } as ModelInfo]).map(m => (
+                    {(viableModels.filter(m => pulledModelTags.includes(m.tag)).length > 0
+                      ? viableModels.filter(m => pulledModelTags.includes(m.tag))
+                      : [{ tag: config.base_model } as ModelInfo]
+                    ).map(m => (
                       <option key={m.tag} value={m.tag}>{MODEL_LABELS[m.tag] ?? m.tag}</option>
                     ))}
                   </Select>
@@ -266,12 +273,12 @@ export default function AdminPanel() {
                     />
                   </div>
                 </div>
-
-                {showAudioWarning && (
+                
+                {/* {showAudioWarning && (
                   <Alert color="warning">
                     {t('admin.settings.audio_warning')}
                   </Alert>
-                )}
+                )} */}
 
                 <div>
                   <div className="mb-2">

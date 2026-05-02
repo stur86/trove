@@ -10,7 +10,6 @@ Provides two commands launched via the `trove` script defined in
 Each command uses the appropriate factory function to create the FastAPI application.
 """
 import os
-import shutil
 from typing import Optional
 
 import typer
@@ -38,6 +37,7 @@ def _set_ollama_host() -> None:
     """
     from backend.system.service import TROVE_OLLAMA_PORT
     os.environ["OLLAMA_HOST"] = f"127.0.0.1:{TROVE_OLLAMA_PORT}"
+
 
 
 @cli.command()
@@ -86,9 +86,8 @@ def start(
     if frontend_dist:
         os.environ["TROVE_FRONTEND_DIST"] = frontend_dist
     _set_ollama_host()
-    if shutil.which("ollama"):
-        from backend.ollama.service import ensure_ollama_running
-        ensure_ollama_running()
+    from backend.ollama.service import ensure_ollama_running
+    ensure_ollama_running()
     uvicorn.run("backend.main:create_app_app", host=host, port=port, factory=True)
 
 if __name__ == "__main__":
