@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import ClassVar, Protocol, runtime_checkable
 
 from backend.config.models import TroveConfig
-from backend.config.service import get_config_dir, get_ollama_bin_dir, load_config
+from backend.config.service import get_config_dir, get_ollama_bin_dir, get_ollama_models_dir, load_config
 from backend.ollama.models import StartServiceResult
 from backend.system.service import TROVE_OLLAMA_PORT, is_ollama_service_running
 from backend.log_buffer import OLLAMA_LOGGER_NAME
@@ -58,6 +58,8 @@ class OllamaProcess:
             raise FileNotFoundError("Ollama binary not found; run setup first")
         proc_env = os.environ.copy()
         proc_env["OLLAMA_HOST"] = f"localhost:{port}"
+        if os.getenv("TROVE_USE_GLOBAL_OLLAMA") != "1":
+            proc_env["OLLAMA_MODELS"] = str(get_ollama_models_dir())
         self.proc = sp.Popen(
             [binary] + command,
             stdout=sp.PIPE,
@@ -65,6 +67,13 @@ class OllamaProcess:
             text=True,
             env=proc_env,
         )
+
+    @classmethod
+    def run(cls, command: list[str], port: int = TROVE_OLLAMA_PORT) -> tuple[str, int]:
+        """Run an ollama command synchronously, returning (output, returncode)."""
+        proc = cls(command, port=port)
+        output = proc.proc.stdout.read() if proc.proc.stdout else ""
+        return output, proc.wait()
 
     def pipe_output_to_log(self, logger: logging.Logger) -> None:
         """
@@ -243,15 +252,14 @@ class RealOllamaService:
           model_pulled (bool): whether the configured base model has been pulled.
           model_built (bool): whether trove_model has been created.
         """
-        binary = _ollama_binary()
-        installed = binary is not None
+        installed = _ollama_binary() is not None
         running = is_ollama_service_running() if installed else False
         config = load_config()
         model_pulled = False
         model_built = False
         if installed:
             # A single `ollama list` call is enough to check both models.
-            list_output = sp.run([binary, "list"], capture_output=True, text=True).stdout
+            list_output, _ = OllamaProcess.run(["list"])
             model_pulled = config.base_model in list_output
             model_built = "trove_model" in list_output
         return {

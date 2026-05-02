@@ -34,6 +34,18 @@ def get_ollama_bin_dir() -> Path:
     return get_config_dir() / "bin"
 
 
+def get_ollama_models_dir() -> Path:
+    """
+    Return the directory where Trove stores its private Ollama model files.
+
+    Resolves to ~/.config/trove/models/. Passed as OLLAMA_MODELS to every
+    Ollama subprocess so model storage is isolated from any system-wide
+    Ollama installation.
+    The directory is not guaranteed to exist — Ollama creates it on first use.
+    """
+    return get_config_dir() / "models"
+
+
 def load_config() -> TroveConfig:
     """
     Load config from disk, returning defaults if the file doesn't exist yet.
