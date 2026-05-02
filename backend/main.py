@@ -85,8 +85,8 @@ def _find_frontend_dist() -> Path | None:
 
     Resolution order:
     1. TROVE_FRONTEND_DIST env var (set by CLI --frontend-dist flag)
-    2. backend/static/ next to this file (installed wheel)
-    3. frontend/dist/ relative to repo root (dev mode)
+    2. backend/static/ next to this file (wheel install or local build)
+    3. frontend/dist/ relative to repo root (legacy fallback)
     """
     import os
     override = os.environ.get("TROVE_FRONTEND_DIST")

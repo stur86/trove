@@ -56,6 +56,9 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'dist',
+    // Output directly into backend/static so the Python wheel includes the
+    // compiled frontend as package-data without a separate copy step.
+    outDir: '../backend/static',
+    emptyOutDir: true,
   },
 })

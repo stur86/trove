@@ -30,5 +30,9 @@ backend/static/
 .superpowers/
 .worktrees/
 
+# doit build system
+.doit.db*
+.docker-built
+
 # Experiments and debug code
 stubs/

@@ -60,8 +60,8 @@ All tests use fake services and an in-memory/temp-directory config, so no Ollama
 ## Production build
 
 ```bash
-task build          # compiles frontend into frontend/dist/
-trove start         # serves frontend/dist/ as static files + FastAPI on port 7770
+task build          # compiles frontend into backend/static/
+trove start         # serves backend/static/ as static files + FastAPI on port 7770
 ```
 
 ## First-time setup wizard
