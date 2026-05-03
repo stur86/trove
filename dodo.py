@@ -66,7 +66,10 @@ def task_build_wheel():
     """Build the Python wheel (includes the compiled frontend as package-data)."""
     version = _version()
     wheel = f"dist/trove-{version}-py3-none-any.whl"
-    sources = _files("backend/**/*.py") + ["pyproject.toml", "backend/static/index.html"]
+    sources = _files("backend/**/*.py") + [
+        "pyproject.toml",
+        "backend/static/index.html",
+    ]
     return {
         "actions": ["uv build --wheel"],
         "file_dep": sources,
@@ -89,4 +92,16 @@ def task_build_docker():
         "file_dep": [wheel, "Dockerfile", "docker-entrypoint.sh", "install.sh"],
         "targets": [".docker-built"],
         "clean": ["rm -f .docker-built"],
+    }
+
+
+def task_build_dot_pngs():
+    """Build .png files from .dot source files."""
+    sources = _files("docs/diagrams/*.dot")
+    targets = [s[:-4] + ".png" for s in sources]
+    return {
+        "actions": [f"dot -Tpng {s} -o {t}" for s, t in zip(sources, targets)],
+        "file_dep": sources,
+        "targets": targets,
+        "clean": [f"rm -f {t}" for t in targets],
     }

@@ -15,6 +15,7 @@ digraph trove_modules {
   ranksep=0.7
   fontname="Helvetica"
   fontsize=11
+  dpi=100
 
   node [fontname="Helvetica" fontsize=10 style=filled shape=box]
   edge [fontname="Helvetica" fontsize=9 color="#6b7280" arrowsize=0.7]

@@ -36,3 +36,6 @@ backend/static/
 
 # Experiments and debug code
 stubs/
+
+# Build diagrams
+docs/diagrams/*.png
