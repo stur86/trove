@@ -14,10 +14,13 @@ import os
 import platform
 import shutil
 import subprocess as sp
+import tempfile
 import threading
 import time
 from functools import lru_cache
 from collections.abc import Iterator
+
+import httpx
 from pathlib import Path
 from typing import ClassVar, Protocol, runtime_checkable
 
@@ -290,27 +293,66 @@ class RealOllamaService:
         install_dir.mkdir(parents=True, exist_ok=True)
 
         yield f"data: Downloading Ollama for {arch}...\n\n"
-        cmd = f"curl -fsSL '{url}' | tar x --zstd --no-same-owner -C '{install_dir}'"
-        process = sp.Popen(
-            ["bash", "-c", cmd],
-            stdout=sp.PIPE,
-            stderr=sp.STDOUT,
-            text=True,
-        )
-        stdout = process.stdout or []
-        for line in stdout:
-            yield f"data: {line.rstrip()}\n\n"
-        process.wait()
-        if process.returncode == 0:
-            yield "data: [DONE] Ollama installed successfully.\n\n"
-            # Immediately start the service so the next setup step (model pull)
-            # can proceed without a separate "Start" click.
-            yield "data: Starting Ollama service...\n\n"
-            ensure_ollama_running()
-            if is_ollama_service_running():
-                yield f"data: Ollama is running on port {TROVE_OLLAMA_PORT}.\n\n"
-        else:
-            yield f"data: [ERROR] Installation failed (exit {process.returncode}).\n\n"
+
+        # Download to a temp file with streaming progress, then extract separately.
+        # This gives the user feedback during the large download rather than
+        # silently blocking on a piped curl | tar command.
+        tmp_fd, tmp_name = tempfile.mkstemp(suffix=".tar.zst", dir=install_dir)
+        tmp_path = Path(tmp_name)
+        try:
+            with httpx.Client(follow_redirects=True, timeout=None) as client:
+                with client.stream("GET", url) as response:
+                    response.raise_for_status()
+                    total = int(response.headers.get("content-length", 0))
+                    downloaded = 0
+                    last_pct = -1
+                    last_mb = -1
+                    with os.fdopen(tmp_fd, "wb") as f:
+                        for chunk in response.iter_bytes(chunk_size=1024 * 1024):
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            if total:
+                                pct = downloaded * 100 // total
+                                if pct >= last_pct + 5:
+                                    last_pct = pct
+                                    yield (
+                                        f"data: Downloading... "
+                                        f"{downloaded // (1024 * 1024)} MB"
+                                        f" / {total // (1024 * 1024)} MB"
+                                        f" ({pct}%)\n\n"
+                                    )
+                            else:
+                                mb = downloaded // (1024 * 1024)
+                                if mb > last_mb:
+                                    last_mb = mb
+                                    yield f"data: Downloading... {mb} MB\n\n"
+
+            yield "data: Download complete. Extracting...\n\n"
+            result = sp.run(
+                [
+                    "tar", "x", "--zstd", "--no-same-owner",
+                    "-C", str(install_dir),
+                    "-f", str(tmp_path),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                yield f"data: [ERROR] Extraction failed: {result.stderr.strip()}\n\n"
+                return
+        except httpx.HTTPError as exc:
+            yield f"data: [ERROR] Download failed: {exc}\n\n"
+            return
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+        yield "data: [DONE] Ollama installed successfully.\n\n"
+        # Immediately start the service so the next setup step (model pull)
+        # can proceed without a separate "Start" click.
+        yield "data: Starting Ollama service...\n\n"
+        ensure_ollama_running()
+        if is_ollama_service_running():
+            yield f"data: Ollama is running on port {TROVE_OLLAMA_PORT}.\n\n"
 
     def start_service(self) -> StartServiceResult:
         """
