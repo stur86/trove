@@ -19,6 +19,7 @@ type Props = {
 }
 
 /** Returns true if the current hostname is allowed for admin access. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function isAllowedAdmin(): boolean {
   return ['localhost', '127.0.0.1'].includes(window.location.hostname);
 }

@@ -8,7 +8,7 @@ import type { TroveConfig } from '../config'
 import { mockSSELines } from './_stream'
 
 export const appApi = {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   login: async (_username: string, _password: string): Promise<void> => {
     await new Promise(r => setTimeout(r, 150))
   },

@@ -279,9 +279,8 @@ export default function SetupWizard() {
   useEffect(() => {
     if (step !== 2 || ollamaStartAttempted.current) return
     ollamaStartAttempted.current = true
+    // eslint-disable-next-line react-hooks/immutability -- handleStartOllama only calls stable setters and module-level API wrappers
     void handleStartOllama()
-    // handleStartOllama only calls stable setters and module-level API wrappers.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step])
 
   /** Append a log line, filtering [DONE] events and formatting errors. */

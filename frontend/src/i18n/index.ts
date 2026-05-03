@@ -55,7 +55,7 @@ let _localeFetch: Promise<string> | null = null
 export function useLocale(): string {
   const [locale, setLocale] = useState<string>(_localeCache ?? 'en')
   useEffect(() => {
-    if (_localeCache) { setLocale(_localeCache); return }
+    if (_localeCache) return  // useState already initialised with the cached value
     if (!_localeFetch) {
       _localeFetch = fetch('/api/config')
         .then(r => r.json())

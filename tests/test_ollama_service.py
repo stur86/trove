@@ -122,8 +122,9 @@ def test_real_start_service_already_running(monkeypatch):
     assert result.success is True
 
 
-def test_real_start_service_spawns_and_stores_process():
+def test_real_start_service_spawns_and_stores_process(monkeypatch):
     """start_service spawns ollama serve and stores the handle when not running."""
+    monkeypatch.delenv("TROVE_USE_GLOBAL_OLLAMA", raising=False)
     RealOllamaService._serve_process = None
     svc = RealOllamaService()
     mock_proc = MagicMock()
@@ -134,7 +135,7 @@ def test_real_start_service_spawns_and_stores_process():
     wrapper = MagicMock()
     wrapper.proc = mock_proc
     wrapper.pipe_output_to_log = MagicMock()
-    with patch("backend.ollama.service.shutil.which", return_value="/usr/bin/ollama"):
+    with patch("backend.ollama.service._ollama_binary", return_value="/fake/ollama"):
         with patch("backend.ollama.service.OllamaProcess", return_value=wrapper):
             with patch("backend.ollama.service.is_ollama_service_running", side_effect=side_effects):
                 with patch("backend.ollama.service.time.sleep"):
@@ -143,13 +144,14 @@ def test_real_start_service_spawns_and_stores_process():
     assert RealOllamaService._serve_process.proc is mock_proc
 
 
-def test_real_start_service_timeout():
+def test_real_start_service_timeout(monkeypatch):
     """start_service returns timeout when ollama serve never becomes ready."""
+    monkeypatch.delenv("TROVE_USE_GLOBAL_OLLAMA", raising=False)
     RealOllamaService._serve_process = None
     svc = RealOllamaService()
     wrapper = MagicMock()
     wrapper.pipe_output_to_log = MagicMock()
-    with patch("backend.ollama.service.shutil.which", return_value="/usr/bin/ollama"):
+    with patch("backend.ollama.service._ollama_binary", return_value="/fake/ollama"):
         with patch("backend.ollama.service.OllamaProcess", return_value=wrapper):
             with patch("backend.ollama.service.is_ollama_service_running", return_value=False):
                 with patch("backend.ollama.service.time.sleep"):
@@ -175,10 +177,12 @@ def test_real_stream_pull_yields_done():
 
 def test_ollamaprocess_uses_sp_popen(monkeypatch):
     # Ensure OllamaProcess delegates to sp.Popen internally
+    monkeypatch.delenv("TROVE_USE_GLOBAL_OLLAMA", raising=False)
     mock_sub = MagicMock()
     mock_sub.stdout = iter(["line1\n"])
     monkeypatch.setattr("backend.ollama.service.sp.Popen", lambda *args, **kwargs: mock_sub)
-    proc = OllamaProcess(["pull", "gemma4:e4b"], port=11435)
+    with patch("backend.ollama.service._ollama_binary", return_value="/fake/ollama"):
+        proc = OllamaProcess(["pull", "gemma4:e4b"], port=11435)
     assert proc.proc is mock_sub
 
 
