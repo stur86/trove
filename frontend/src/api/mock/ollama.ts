@@ -18,6 +18,11 @@ export const ollamaApi = {
     }
   },
 
+  listModels: async (): Promise<{ models: string[] }> => {
+    await new Promise(r => setTimeout(r, 50))
+    return { models: ['gemma4:e4b'] }
+  },
+
   install: (): Promise<Response> =>
     mockSSELines([
       'Downloading Ollama installer…',

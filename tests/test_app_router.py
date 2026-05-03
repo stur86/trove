@@ -196,3 +196,12 @@ def test_logs_returns_lines_with_admin_cookie(app_client_with_admin, admin_token
     response = app_client_with_admin.get("/api/app/admin/logs")
     assert response.status_code == 200
     assert "lines" in response.json()
+
+
+def test_ollama_list_available_in_app_mode(app_client):
+    """GET /api/ollama/list must be accessible in app mode and return a models list."""
+    response = app_client.get("/api/ollama/list")
+    assert response.status_code == 200
+    data = response.json()
+    assert "models" in data
+    assert isinstance(data["models"], list)

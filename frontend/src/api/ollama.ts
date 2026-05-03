@@ -69,6 +69,8 @@ export function streamLines(
 export const ollamaApi = import.meta.env.VITE_MOCK_API ? _mockOllamaApi : {
   /** Get current Ollama installation status. */
   status: () => get<OllamaStatus>('/ollama/status'),
+  /** List model tags that have been pulled locally. */
+  listModels: () => get<{ models: string[] }>('/ollama/list'),
   /** Start Ollama install; returns a streaming Response. */
   install: () => post('/ollama/install'),
   /** Start the Ollama service and return whether it is now reachable. */

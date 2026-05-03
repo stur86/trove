@@ -17,9 +17,8 @@ import { appApi } from '../api/app'
 import AdminLogin, { isAllowedAdmin } from '../components/AdminLogin'
 import { type TroveConfig, configApi } from '../api/config'
 import { i18nApi } from '../api/i18n'
-import { streamLines } from '../api/ollama'
+import { streamLines, ollamaApi } from '../api/ollama'
 import { systemApi, type ModelInfo } from '../api/system'
-import { setupApi } from '../api/setup'
 import { gemsApi, type UserTask } from '../api/tasks'
 import { bundleApi, type ImportResult } from '../api/bundle'
 import GemIcon from '../components/GemIcon'
@@ -74,12 +73,12 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (!authed) return
-    Promise.all([configApi.get(), systemApi.check(), appApi.networkUrl(), i18nApi.listLocales(), setupApi.status()]).then(([c, sys, net, locales, setup]) => {
+    Promise.all([configApi.get(), systemApi.check(), appApi.networkUrl(), i18nApi.listLocales(), ollamaApi.listModels()]).then(([c, sys, net, locales, pulled]) => {
       setConfig(c)
       setViableModels(sys.viable_models)
       setNetworkUrl(net.url)
       setAvailableLocales(locales)
-      setPulledModelTags(setup.models_pulled)
+      setPulledModelTags(pulled.models)
     })
   }, [authed])
 

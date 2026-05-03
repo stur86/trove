@@ -197,6 +197,10 @@ class OllamaService(Protocol):
         """Return installation status: installed, running, model_built."""
         ...
 
+    def list_pulled_models(self) -> list[str]:
+        """Return the list of Ollama model tags available locally."""
+        ...
+
     def stream_install(self) -> Iterator[str]:
         """Install Ollama and yield SSE-formatted progress lines."""
         ...
@@ -271,6 +275,24 @@ class RealOllamaService:
             "model_pulled": model_pulled,
             "model_built": model_built,
         }
+
+    def list_pulled_models(self) -> list[str]:
+        """
+        Return model tags currently available locally by running ``ollama list``.
+
+        Returns an empty list if the binary is absent or the command fails.
+        """
+        if _ollama_binary() is None:
+            return []
+        try:
+            list_output, rc = OllamaProcess.run(["list"])
+        except FileNotFoundError:
+            return []
+        if rc != 0:
+            return []
+        # Output: "NAME\tID\tSIZE\tMODIFIED\n<tag>\t..."
+        lines = list_output.strip().splitlines()[1:]  # skip header row
+        return [line.split()[0] for line in lines if line.strip()]
 
     def stream_install(self) -> Iterator[str]:
         """
@@ -497,6 +519,10 @@ class FakeOllamaService:
         for line in lines:
             yield f"data: {line}\n\n"
         yield "data: [DONE] Model pulled successfully.\n\n"
+
+    def list_pulled_models(self) -> list[str]:
+        """Return a fixed list of fake pulled model tags for dev/test mode."""
+        return ["gemma4:e4b"]
 
     def build_trove_model(self) -> Iterator[str]:
         """Yield fake trove_model build output."""

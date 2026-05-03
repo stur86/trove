@@ -5,6 +5,7 @@ Uses FakeOllamaService for streaming tests and patches RealOllamaService
 methods for unit tests. No real Ollama installation is required or touched.
 """
 import pytest
+import httpx
 from unittest.mock import MagicMock, patch
 
 from backend.config.models import TroveConfig
@@ -33,9 +34,12 @@ def test_generate_modelfile_path(config_dir):
 
 # --- RealOllamaService.get_status ---
 
-def test_real_get_status_not_installed():
+def test_real_get_status_not_installed(config_dir, monkeypatch):
+    # Ensure we're not in global-ollama mode so _ollama_binary checks the file path.
+    monkeypatch.delenv("TROVE_USE_GLOBAL_OLLAMA", raising=False)
     svc = RealOllamaService()
-    with patch("backend.ollama.service.shutil.which", return_value=None):
+    # config_dir redirects XDG_CONFIG_HOME so no real binary exists at that path.
+    with patch("backend.ollama.service._ollama_binary", return_value=None):
         status = svc.get_status()
     assert status["installed"] is False
     assert status["running"] is False
@@ -43,15 +47,14 @@ def test_real_get_status_not_installed():
     assert status["model_built"] is False
 
 
-def test_real_get_status_installed_and_running():
+def test_real_get_status_installed_and_running(monkeypatch):
+    monkeypatch.delenv("TROVE_USE_GLOBAL_OLLAMA", raising=False)
     svc = RealOllamaService()
-    # stdout includes both the base model and trove_model; config is patched to
-    # avoid reading the real ~/.config/trove/config.json during the test.
-    mock_list = MagicMock(returncode=0, stdout="NAME\ngemma4:e4b:latest\ntrove_model:latest\n")
+    # `ollama list` output includes both the base model and trove_model.
+    fake_list_output = "NAME\ngemma4:e4b:latest\ntrove_model:latest\n"
     mock_config = TroveConfig()  # defaults: base_model="gemma4:e4b"
-    with patch("backend.ollama.service.shutil.which", return_value="/usr/bin/ollama"):
-        with patch("backend.ollama.service.sp", autospec=True) as mock_sp:
-            mock_sp.run.return_value = mock_list
+    with patch("backend.ollama.service._ollama_binary", return_value="/fake/ollama"):
+        with patch.object(OllamaProcess, "run", return_value=(fake_list_output, 0)):
             with patch("backend.ollama.service.is_ollama_service_running", return_value=True):
                 with patch("backend.ollama.service.load_config", return_value=mock_config):
                     status = svc.get_status()
@@ -63,45 +66,57 @@ def test_real_get_status_installed_and_running():
 
 # --- RealOllamaService streaming ---
 
-def test_real_stream_install_yields_done():
+def _mock_httpx_client(iter_bytes=None):
+    """Return a mock httpx.Client context manager with an empty streaming response."""
+    mock_response = MagicMock()
+    mock_response.raise_for_status = MagicMock()
+    mock_response.headers = {"content-length": "0"}
+    mock_response.iter_bytes = MagicMock(return_value=iter(iter_bytes or []))
+    mock_response.__enter__ = MagicMock(return_value=mock_response)
+    mock_response.__exit__ = MagicMock(return_value=False)
+    mock_client = MagicMock()
+    mock_client.stream = MagicMock(return_value=mock_response)
+    mock_client.__enter__ = MagicMock(return_value=mock_client)
+    mock_client.__exit__ = MagicMock(return_value=False)
+    return mock_client
+
+
+def test_real_stream_install_yields_done(config_dir, monkeypatch):
+    monkeypatch.delenv("TROVE_USE_GLOBAL_OLLAMA", raising=False)
     svc = RealOllamaService()
-    mock_proc = MagicMock()
-    mock_proc.stdout = iter(["Installing...\n"])
-    mock_proc.returncode = 0
-    mock_proc.wait = lambda: None
-    with patch("backend.ollama.service.sp", autospec=True) as mock_sp:
-        mock_sp.Popen.return_value = mock_proc
-        with patch("backend.ollama.service.ensure_ollama_running", return_value=True):
-            events = list(svc.stream_install())
+    with patch("backend.ollama.service.httpx.Client", return_value=_mock_httpx_client()):
+        with patch("backend.ollama.service.sp.run", return_value=MagicMock(returncode=0)):
+            with patch("backend.ollama.service.ensure_ollama_running"):
+                with patch("backend.ollama.service.is_ollama_service_running", return_value=False):
+                    events = list(svc.stream_install())
     assert any("[DONE]" in e for e in events)
 
 
-def test_real_stream_install_yields_error_on_failure():
+def test_real_stream_install_yields_error_on_failure(config_dir, monkeypatch):
+    # Successful download but failed tar extraction → [ERROR].
+    monkeypatch.delenv("TROVE_USE_GLOBAL_OLLAMA", raising=False)
     svc = RealOllamaService()
-    mock_proc = MagicMock()
-    mock_proc.stdout = iter([])
-    mock_proc.returncode = 1
-    mock_proc.wait = lambda: None
-    with patch("backend.ollama.service.sp", autospec=True) as mock_sp:
-        mock_sp.Popen.return_value = mock_proc
-        with patch("backend.ollama.service.ensure_ollama_running", return_value=False):
+    with patch("backend.ollama.service.httpx.Client", return_value=_mock_httpx_client()):
+        with patch("backend.ollama.service.sp.run", return_value=MagicMock(returncode=1, stderr="bad archive")):
             events = list(svc.stream_install())
     assert any("[ERROR]" in e for e in events)
 
 
-def test_real_start_service_not_installed():
+def test_real_start_service_not_installed(monkeypatch):
     """start_service returns not_installed when the binary is absent."""
+    monkeypatch.delenv("TROVE_USE_GLOBAL_OLLAMA", raising=False)
     svc = RealOllamaService()
-    with patch("backend.ollama.service.shutil.which", return_value=None):
+    with patch("backend.ollama.service._ollama_binary", return_value=None):
         result = svc.start_service()
     assert result.success is False
     assert result.reason == "not_installed"
 
 
-def test_real_start_service_already_running():
+def test_real_start_service_already_running(monkeypatch):
     """start_service returns success when Ollama is already up."""
+    monkeypatch.delenv("TROVE_USE_GLOBAL_OLLAMA", raising=False)
     svc = RealOllamaService()
-    with patch("backend.ollama.service.shutil.which", return_value="/usr/bin/ollama"):
+    with patch("backend.ollama.service._ollama_binary", return_value="/fake/ollama"):
         with patch("backend.ollama.service.is_ollama_service_running", return_value=True):
             result = svc.start_service()
     assert result.success is True
@@ -167,6 +182,39 @@ def test_ollamaprocess_uses_sp_popen(monkeypatch):
     assert proc.proc is mock_sub
 
 
+# --- RealOllamaService.list_pulled_models ---
+
+def test_real_list_pulled_models_binary_absent():
+    """Returns empty list when the Ollama binary is not installed."""
+    svc = RealOllamaService()
+    with patch("backend.ollama.service._ollama_binary", return_value=None):
+        result = svc.list_pulled_models()
+    assert result == []
+
+
+def test_real_list_pulled_models_returns_parsed_tags():
+    """Parses first-column tags from `ollama list` output."""
+    svc = RealOllamaService()
+    fake_output = (
+        "NAME\tID\tSIZE\tMODIFIED\n"
+        "gemma4:e4b:latest\tabc123\t4 GB\t2 minutes ago\n"
+        "trove_model:latest\tdef456\t4 GB\t1 minute ago\n"
+    )
+    with patch("backend.ollama.service._ollama_binary", return_value="/bin/ollama"):
+        with patch.object(OllamaProcess, "run", return_value=(fake_output, 0)):
+            result = svc.list_pulled_models()
+    assert result == ["gemma4:e4b:latest", "trove_model:latest"]
+
+
+def test_real_list_pulled_models_command_failure():
+    """Returns empty list when `ollama list` exits with a non-zero code."""
+    svc = RealOllamaService()
+    with patch("backend.ollama.service._ollama_binary", return_value="/bin/ollama"):
+        with patch.object(OllamaProcess, "run", return_value=("", 1)):
+            result = svc.list_pulled_models()
+    assert result == []
+
+
 # --- FakeOllamaService ---
 
 def test_fake_get_status_returns_all_true():
@@ -176,6 +224,14 @@ def test_fake_get_status_returns_all_true():
     assert status["running"] is True
     assert status["model_pulled"] is True
     assert status["model_built"] is True
+
+
+def test_fake_list_pulled_models_returns_list():
+    """Fake service returns a non-empty list of model tags."""
+    svc = FakeOllamaService()
+    result = svc.list_pulled_models()
+    assert isinstance(result, list)
+    assert len(result) > 0
 
 
 def test_fake_stream_install_yields_done():

@@ -45,18 +45,7 @@ def get_status(
     by ManageDashboard to populate the status cards.
     """
     ollama_status = ollama.get_status()
-
-    # List pulled models by running `ollama list` if Ollama is installed.
-    models_pulled: list[str] = []
-    if shutil.which("ollama"):
-        result = subprocess.run(
-            ["ollama", "list"], capture_output=True, text=True
-        )
-        if result.returncode == 0:
-            # Output: "NAME\tID\tSIZE\tMODIFIED\n<tag>\t..."
-            lines = result.stdout.strip().splitlines()[1:]  # skip header
-            models_pulled = [line.split()[0] for line in lines if line.strip()]
-
+    models_pulled = ollama.list_pulled_models()
     config = load_config()
     return SetupStatus(
         ollama_installed=ollama_status["installed"],

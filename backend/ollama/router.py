@@ -24,6 +24,14 @@ def ollama_status(
     return service.get_status()
 
 
+@router.get("/list")
+def list_models(
+    service: Annotated[OllamaService, Depends(get_ollama_service)],
+) -> dict:
+    """Return the list of Ollama model tags currently available locally."""
+    return {"models": service.list_pulled_models()}
+
+
 @router.post("/install")
 def install_ollama(
     service: Annotated[OllamaService, Depends(get_ollama_service)],
