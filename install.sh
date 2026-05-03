@@ -11,7 +11,7 @@ PREFIX=""
 LOCAL_WHEEL=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --prefix) PREFIX="$2"; shift 2 ;;
+    --prefix) PREFIX=$(realpath "$2"); shift 2 ;;
     --local)  LOCAL_WHEEL="$2"; shift 2 ;;
     *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
