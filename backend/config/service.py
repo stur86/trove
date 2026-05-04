@@ -1,49 +1,11 @@
 """
 Config persistence service.
 
-Reads and writes TroveConfig to ~/.config/trove/config.json,
-following the XDG Base Directory Specification.
+Reads and writes TroveConfig to the Trove config directory.
+Path resolution is centralised in backend.paths.
 """
-import os
-from pathlib import Path
-
 from backend.config.models import TroveConfig
-
-
-def get_config_dir() -> Path:
-    """
-    Return the Trove config directory, respecting the XDG Base Directory spec.
-
-    Uses $XDG_CONFIG_HOME if set, otherwise defaults to ~/.config.
-    The returned path is ~/.config/trove (or $XDG_CONFIG_HOME/trove).
-    The directory is not guaranteed to exist — callers must create it if needed.
-    """
-    xdg = os.environ.get("XDG_CONFIG_HOME")
-    base = Path(xdg) if xdg else Path.home() / ".config"
-    return base / "trove"
-
-
-def get_ollama_bin_dir() -> Path:
-    """
-    Return the directory where Trove installs its private Ollama binary.
-
-    Resolves to ~/.config/trove/bin/. Trove installs the Ollama binary here
-    to keep it isolated from any system-wide Ollama installation.
-    The directory is not guaranteed to exist — stream_install creates it.
-    """
-    return get_config_dir() / "bin"
-
-
-def get_ollama_models_dir() -> Path:
-    """
-    Return the directory where Trove stores its private Ollama model files.
-
-    Resolves to ~/.config/trove/models/. Passed as OLLAMA_MODELS to every
-    Ollama subprocess so model storage is isolated from any system-wide
-    Ollama installation.
-    The directory is not guaranteed to exist — Ollama creates it on first use.
-    """
-    return get_config_dir() / "models"
+from backend.paths import get_config_dir
 
 
 def load_config() -> TroveConfig:

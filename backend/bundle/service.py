@@ -21,7 +21,7 @@ from backend.bundle.models import (
     ImportMode,
     ImportResult,
 )
-from backend.db import get_data_dir
+from backend.paths import get_config_dir
 from backend.documents.models import Document, Folder
 from backend.documents.repository import (
     delete_folder,
@@ -59,7 +59,7 @@ def export_bundle() -> bytes:
     folders = list_folders()
     documents = list_documents()
     gems = list_tasks()
-    data_dir = get_data_dir()
+    data_dir = get_config_dir()
 
     manifest = BundleManifest(
         version=1,
@@ -220,7 +220,7 @@ def import_bundle(zip_bytes: bytes, mode: ImportMode) -> ImportResult:
         zipfile.BadZipFile: If zip_bytes is not a valid ZIP.
         KeyError:           If manifest.json is missing from the archive.
     """
-    data_dir = get_data_dir()
+    data_dir = get_config_dir()
     buf = io.BytesIO(zip_bytes)
 
     with zipfile.ZipFile(buf, "r") as zf:

@@ -211,8 +211,8 @@ def test_get_table_of_contents_lists_all_docs():
     assert "Second document." in result
 
 
-def test_get_document_returns_file_content(data_dir):
-    doc_dir = data_dir / "documents" / "f1"
+def test_get_document_returns_file_content(config_dir):
+    doc_dir = config_dir / "documents" / "f1"
     doc_dir.mkdir(parents=True)
     (doc_dir / "d1.md").write_text("# Hello\nThis is the content.")
 
@@ -221,14 +221,14 @@ def test_get_document_returns_file_content(data_dir):
     assert "This is the content." in result
 
 
-def test_get_document_out_of_scope_returns_error_string(data_dir):
+def test_get_document_out_of_scope_returns_error_string(config_dir):
     _, get_fn = _build_document_tools([_make_doc("d1")])
     result = get_fn("not-in-scope")
     assert "not" in result.lower() or "error" in result.lower()
 
 
 @pytest.mark.asyncio
-async def test_stream_task_with_documents_runs_without_error(data_dir):
+async def test_stream_task_with_documents_runs_without_error(config_dir):
     """Documents param accepted — agent runs normally (tool calls not asserted here)."""
     doc = _make_doc("d1")
     task = Task(template="Answer the question")
@@ -240,7 +240,7 @@ async def test_stream_task_with_documents_runs_without_error(data_dir):
 
 
 @pytest.mark.asyncio
-async def test_run_task_with_documents_runs_without_error(data_dir):
+async def test_run_task_with_documents_runs_without_error(config_dir):
     doc = _make_doc("d1")
     task = Task(template="Answer")
     agent = Agent(TestModel(custom_output_text="42"))

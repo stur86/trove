@@ -14,7 +14,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from backend.app.auth import require_admin_cookie
-from backend.db import get_data_dir
+from backend.paths import get_config_dir
 from backend.documents.models import Document, Folder
 from backend.documents.repository import (
     delete_document,
@@ -107,7 +107,7 @@ def remove_folder(folder_id: str) -> None:
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Folder '{folder_id}' not found")
     deleted_doc_ids = delete_folder(folder_id)
-    data_dir = get_data_dir()
+    data_dir = get_config_dir()
     for doc_id in deleted_doc_ids:
         (data_dir / "documents" / folder_id / f"{doc_id}.md").unlink(missing_ok=True)
     try:
@@ -129,7 +129,7 @@ def download_folder(folder_id: str) -> Response:
         raise HTTPException(status_code=404, detail=f"Folder '{folder_id}' not found")
 
     docs = list_documents(folder_id)
-    data_dir = get_data_dir()
+    data_dir = get_config_dir()
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -267,7 +267,7 @@ def remove_document(doc_id: str) -> None:
     folder_id = delete_document(doc_id)
     if folder_id is None:
         raise HTTPException(status_code=404, detail=f"Document '{doc_id}' not found")
-    (get_data_dir() / "documents" / folder_id / f"{doc_id}.md").unlink(missing_ok=True)
+    (get_config_dir() / "documents" / folder_id / f"{doc_id}.md").unlink(missing_ok=True)
 
 
 @router.get("/admin/documents/{doc_id}/download", dependencies=[Depends(require_admin_cookie)])
@@ -281,7 +281,7 @@ def download_document(doc_id: str) -> Response:
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Document '{doc_id}' not found")
 
-    md_path = get_data_dir() / "documents" / doc.folder_id / f"{doc_id}.md"
+    md_path = get_config_dir() / "documents" / doc.folder_id / f"{doc_id}.md"
     if not md_path.exists():
         raise HTTPException(status_code=404, detail=f"Markdown file for '{doc_id}' not found on disk")
 
@@ -331,7 +331,7 @@ def update_doc(doc_id: str, req: UpdateDocumentRequest) -> Document:
     )
 
     if req.folder_id is not None and req.folder_id != old_doc.folder_id:
-        data_dir = get_data_dir()
+        data_dir = get_config_dir()
         old_path = data_dir / "documents" / old_doc.folder_id / f"{doc_id}.md"
         new_dir = data_dir / "documents" / req.folder_id
         new_dir.mkdir(parents=True, exist_ok=True)

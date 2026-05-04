@@ -52,10 +52,10 @@ def _build_document_tools(documents: list[Document]) -> list:
     Args:
         documents: The full list of documents accessible to this run.
     """
-    from backend.db import get_data_dir
+    from backend.paths import get_config_dir
 
     doc_map = {doc.id: doc for doc in documents}
-    data_dir = get_data_dir()
+    data_dir = get_config_dir()
 
     def get_table_of_contents() -> str:
         """Return a list of all accessible documents with their one-line descriptions."""

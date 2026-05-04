@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from backend.config.service import load_config
-from backend.db import get_data_dir
+from backend.paths import get_config_dir
 from backend.documents.models import Document
 from backend.documents.repository import document_id_exists, save_document
 
@@ -113,7 +113,7 @@ async def process_document(
         description = await _ai_summary(content, name)
 
     # Write markdown to disk
-    doc_dir = get_data_dir() / "documents" / folder_id
+    doc_dir = get_config_dir() / "documents" / folder_id
     doc_dir.mkdir(parents=True, exist_ok=True)
     (doc_dir / f"{doc_id}.md").write_text(content, encoding="utf-8")
 

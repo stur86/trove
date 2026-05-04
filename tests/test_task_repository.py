@@ -28,7 +28,7 @@ def choice_task():
     )
 
 
-def test_save_and_load_task(data_dir, sample_task):
+def test_save_and_load_task(config_dir, sample_task):
     save_task(sample_task)
     loaded = load_task("greet")
     assert loaded.id == "greet"
@@ -37,12 +37,12 @@ def test_save_and_load_task(data_dir, sample_task):
     assert loaded.description == "Greet someone"
 
 
-def test_load_task_raises_key_error_when_missing(data_dir):
+def test_load_task_raises_key_error_when_missing(config_dir):
     with pytest.raises(KeyError):
         load_task("nonexistent")
 
 
-def test_save_task_overwrites_existing(data_dir, sample_task):
+def test_save_task_overwrites_existing(config_dir, sample_task):
     save_task(sample_task)
     updated = UserTask(id="greet", name="Greeting v2", template="Hi, {{ name }}!")
     save_task(updated)
@@ -50,7 +50,7 @@ def test_save_task_overwrites_existing(data_dir, sample_task):
     assert loaded.name == "Greeting v2"
 
 
-def test_args_round_trip_string(data_dir, sample_task):
+def test_args_round_trip_string(config_dir, sample_task):
     save_task(sample_task)
     loaded = load_task("greet")
     assert len(loaded.args) == 1
@@ -60,7 +60,7 @@ def test_args_round_trip_string(data_dir, sample_task):
     assert arg.default == "World"
 
 
-def test_args_round_trip_choice(data_dir, choice_task):
+def test_args_round_trip_choice(config_dir, choice_task):
     save_task(choice_task)
     loaded = load_task("translate")
     lang_arg = loaded.args[1]
@@ -70,7 +70,7 @@ def test_args_round_trip_choice(data_dir, choice_task):
     assert lang_arg.default == "French"
 
 
-def test_task_flags_round_trip(data_dir):
+def test_task_flags_round_trip(config_dir):
     task = UserTask(id="vision", name="Vision", template="Describe.", has_image=True)
     save_task(task)
     loaded = load_task("vision")
@@ -78,32 +78,32 @@ def test_task_flags_round_trip(data_dir):
     assert loaded.has_audio is False
 
 
-def test_output_mode_round_trip(data_dir):
+def test_output_mode_round_trip(config_dir):
     task = UserTask(id="structured", name="Structured", template="JSON.", output_mode=OutputMode.STRUCTURED)
     save_task(task)
     loaded = load_task("structured")
     assert loaded.output_mode == OutputMode.STRUCTURED
 
 
-def test_hue_round_trip(data_dir):
+def test_hue_round_trip(config_dir):
     task = UserTask(id="emerald-gem", name="Emerald", template="Hi", hue=GemHue.EMERALD)
     save_task(task)
     loaded = load_task("emerald-gem")
     assert loaded.hue == GemHue.EMERALD
 
 
-def test_default_hue_is_indigo(data_dir):
+def test_default_hue_is_indigo(config_dir):
     task = UserTask(id="default-gem", name="Default", template="Hi")
     save_task(task)
     loaded = load_task("default-gem")
     assert loaded.hue == GemHue.INDIGO
 
 
-def test_list_tasks_empty(data_dir):
+def test_list_tasks_empty(config_dir):
     assert list_tasks() == []
 
 
-def test_list_tasks_returns_all(data_dir, sample_task, choice_task):
+def test_list_tasks_returns_all(config_dir, sample_task, choice_task):
     save_task(sample_task)
     save_task(choice_task)
     tasks = list_tasks()
@@ -111,20 +111,20 @@ def test_list_tasks_returns_all(data_dir, sample_task, choice_task):
     assert {t.id for t in tasks} == {"greet", "translate"}
 
 
-def test_delete_task(data_dir, sample_task):
+def test_delete_task(config_dir, sample_task):
     save_task(sample_task)
     delete_task("greet")
     with pytest.raises(KeyError):
         load_task("greet")
 
 
-def test_delete_task_nonexistent_is_noop(data_dir):
+def test_delete_task_nonexistent_is_noop(config_dir):
     delete_task("does-not-exist")  # should not raise
 
 
 # ── doc fields round-trip (Task 6) ───────────────────────────────────────────
 
-def test_save_and_load_task_with_doc_fields(data_dir):
+def test_save_and_load_task_with_doc_fields(config_dir):
     task = UserTask(
         id="t1",
         name="T1",
@@ -138,7 +138,7 @@ def test_save_and_load_task_with_doc_fields(data_dir):
     assert loaded.doc_ids == ("policy-doc",)
 
 
-def test_existing_task_without_doc_fields_loads_with_defaults(data_dir):
+def test_existing_task_without_doc_fields_loads_with_defaults(config_dir):
     """Tasks saved before doc columns existed default to empty tuples."""
     import sqlite3
     from backend.db import get_db_path
@@ -161,11 +161,11 @@ def test_existing_task_without_doc_fields_loads_with_defaults(data_dir):
     assert loaded.doc_ids == ()
 
 
-def test_task_id_exists_false_when_absent(data_dir):
+def test_task_id_exists_false_when_absent(config_dir):
     assert task_id_exists("nonexistent") is False
 
 
-def test_task_id_exists_true_when_present(data_dir):
+def test_task_id_exists_true_when_present(config_dir):
     task = UserTask(
         id="my-gem", name="My Gem", template="hi",
         hue=GemHue.INDIGO, output_mode=OutputMode.TEXT,
@@ -179,14 +179,14 @@ def test_task_id_exists_true_when_present(data_dir):
 from backend.tasks.models import ToolId  # noqa: E402
 
 
-def test_tools_default_is_empty_frozenset(data_dir):
+def test_tools_default_is_empty_frozenset(config_dir):
     task = UserTask(id="plain", name="Plain", template="Hi")
     save_task(task)
     loaded = load_task("plain")
     assert loaded.tools == frozenset()
 
 
-def test_tools_single_tool_round_trip(data_dir):
+def test_tools_single_tool_round_trip(config_dir):
     task = UserTask(
         id="calc-gem", name="Calc", template="Calculate.",
         tools=frozenset({ToolId.CALCULATOR}),
@@ -196,7 +196,7 @@ def test_tools_single_tool_round_trip(data_dir):
     assert loaded.tools == frozenset({ToolId.CALCULATOR})
 
 
-def test_tools_multiple_tools_round_trip(data_dir):
+def test_tools_multiple_tools_round_trip(config_dir):
     task = UserTask(
         id="both-tools", name="Both", template="Go.",
         tools=frozenset({ToolId.DATETIME, ToolId.CALCULATOR}),
@@ -206,7 +206,7 @@ def test_tools_multiple_tools_round_trip(data_dir):
     assert loaded.tools == frozenset({ToolId.DATETIME, ToolId.CALCULATOR})
 
 
-def test_existing_task_without_tools_loads_with_empty_frozenset(data_dir):
+def test_existing_task_without_tools_loads_with_empty_frozenset(config_dir):
     """Tasks saved before the tools column existed default to empty frozenset."""
     import sqlite3
     from backend.db import get_db_path

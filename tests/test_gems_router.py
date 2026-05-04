@@ -7,7 +7,7 @@ from backend.tasks.repository import save_task
 
 
 @pytest.fixture
-def client(config_dir, data_dir, monkeypatch, session_token):
+def client(config_dir, monkeypatch, session_token):
     """App-mode TestClient without admin cookie (for testing unauthenticated access)."""
     monkeypatch.setenv("TROVE_FAKE_OLLAMA", "1")
     monkeypatch.setenv("TROVE_FAKE_SYSTEM", "1")
@@ -28,7 +28,7 @@ def authed_client(client, admin_token):
 
 
 @pytest.fixture
-def sample_gem(data_dir):
+def sample_gem(config_dir):
     task = UserTask(
         id="hello",
         name="Hello Gem",
@@ -271,7 +271,7 @@ def _make_sample_doc(doc_id: str, folder_id: str = "f1") -> Document:
 
 
 @pytest.fixture
-def gem_with_docs(data_dir):
+def gem_with_docs(config_dir):
     """A gem that has doc access, plus the corresponding DB records."""
     save_folder(Folder(id="f1", name="F1"))
     save_document(_make_sample_doc("d1"))

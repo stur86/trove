@@ -25,7 +25,8 @@ from pathlib import Path
 from typing import ClassVar, Protocol, runtime_checkable
 
 from backend.config.models import TroveConfig
-from backend.config.service import get_config_dir, get_ollama_bin_dir, get_ollama_models_dir, load_config
+from backend.config.service import load_config
+from backend.paths import get_config_dir, get_install_dir, get_ollama_bin_dir, get_ollama_models_dir
 from backend.ollama.models import StartServiceResult
 from backend.system.service import TROVE_OLLAMA_PORT, is_ollama_service_running
 from backend.log_buffer import OLLAMA_LOGGER_NAME
@@ -300,7 +301,7 @@ class RealOllamaService:
 
         Uses the official Ollama tar.zst package rather than the install script,
         so no sudo, systemd, or system-wide changes are made. The binary and its
-        companion libraries land in ~/.config/trove/ (bin/ and lib/).
+        companion libraries land in the Trove install directory (bin/ and lib/).
 
         Streams stdout+stderr line by line. Final event is [DONE] or [ERROR].
         """
@@ -311,7 +312,7 @@ class RealOllamaService:
         machine = platform.machine()
         arch = "arm64" if machine == "aarch64" else "amd64"
         url = f"https://ollama.com/download/ollama-linux-{arch}.tar.zst"
-        install_dir = get_config_dir()
+        install_dir = get_install_dir()
         install_dir.mkdir(parents=True, exist_ok=True)
 
         yield f"data: Downloading Ollama for {arch}...\n\n"

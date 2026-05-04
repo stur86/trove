@@ -1,13 +1,10 @@
 """
 Shared pytest fixtures for the Trove test suite.
 
-config_dir: redirects XDG_CONFIG_HOME to tmp_path/config so tests never
-            touch the real ~/.config/trove/.
-data_dir:   redirects XDG_DATA_HOME  to tmp_path/data  so tests never
-            touch the real ~/.local/share/trove/.
-
-Using separate subdirectories means both fixtures can be used together
-in the same test without conflicts.
+config_dir: redirects XDG_CONFIG_HOME to a temp directory so tests never
+            touch the real ~/.config/trove/. All user-facing paths (config,
+            db, documents) and, when TROVE_INSTALL_DIR is unset, Ollama
+            runtime paths resolve under this directory.
 """
 import pytest
 from backend.ollama.service import get_ollama_service
@@ -24,17 +21,6 @@ def config_dir(tmp_path, monkeypatch):
     config_path = xdg / "trove"
     config_path.mkdir()
     return config_path
-
-
-@pytest.fixture
-def data_dir(tmp_path, monkeypatch):
-    """Redirect XDG_DATA_HOME to a temp subdirectory for DB tests."""
-    xdg = tmp_path / "data"
-    xdg.mkdir()
-    monkeypatch.setenv("XDG_DATA_HOME", str(xdg))
-    data_path = xdg / "trove"
-    data_path.mkdir()
-    return data_path
 
 
 def _clear_lru_caches():

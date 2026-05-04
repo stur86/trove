@@ -1,22 +1,8 @@
-"""Tests for the config domain: XDG path resolution, load/save persistence."""
+"""Tests for the config domain: load/save persistence."""
 import json
 import pytest
-from pathlib import Path
 from backend.config.models import TroveConfig
-from backend.config.service import get_config_dir, load_config, save_config
-
-
-def test_get_config_dir_default(tmp_path, monkeypatch):
-    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    result = get_config_dir()
-    assert result == tmp_path / ".config" / "trove"
-
-
-def test_get_config_dir_xdg(tmp_path, monkeypatch):
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    result = get_config_dir()
-    assert result == tmp_path / "trove"
+from backend.config.service import load_config, save_config
 
 
 def test_load_config_returns_defaults_when_no_file(config_dir):

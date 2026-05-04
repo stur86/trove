@@ -23,7 +23,7 @@ def _make_folder(folder_id: str = "f1", name: str = "F1") -> Folder:
 def _make_document(
     doc_id: str,
     folder_id: str,
-    data_dir,
+    config_dir,
     content: str = "Some content.",
 ) -> Document:
     doc = Document(
@@ -35,7 +35,7 @@ def _make_document(
         created_at=datetime.now(timezone.utc),
     )
     save_document(doc)
-    doc_dir = data_dir / "documents" / folder_id
+    doc_dir = config_dir / "documents" / folder_id
     doc_dir.mkdir(parents=True, exist_ok=True)
     (doc_dir / f"{doc_id}.md").write_text(content, encoding="utf-8")
     return doc
@@ -57,14 +57,14 @@ def _make_gem(gem_id: str, doc_folder_ids=(), doc_ids=()) -> UserTask:
 
 # ── export_bundle ─────────────────────────────────────────────────────────────
 
-def test_export_bundle_is_valid_zip(data_dir):
+def test_export_bundle_is_valid_zip(config_dir):
     from backend.bundle.service import export_bundle
     _make_folder()
     zip_bytes = export_bundle()
     assert zipfile.is_zipfile(io.BytesIO(zip_bytes))
 
 
-def test_export_bundle_contains_manifest(data_dir):
+def test_export_bundle_contains_manifest(config_dir):
     from backend.bundle.service import export_bundle
     _make_folder()
     zip_bytes = export_bundle()
@@ -75,20 +75,20 @@ def test_export_bundle_contains_manifest(data_dir):
     assert "exported_at" in manifest
 
 
-def test_export_bundle_includes_document_content(data_dir):
+def test_export_bundle_includes_document_content(config_dir):
     from backend.bundle.service import export_bundle
     _make_folder()
-    _make_document("doc1", "f1", data_dir, content="Hello world")
+    _make_document("doc1", "f1", config_dir, content="Hello world")
     zip_bytes = export_bundle()
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         assert "documents/f1/doc1.md" in zf.namelist()
         assert zf.read("documents/f1/doc1.md").decode() == "Hello world"
 
 
-def test_export_bundle_manifest_has_gems_and_folders(data_dir):
+def test_export_bundle_manifest_has_gems_and_folders(config_dir):
     from backend.bundle.service import export_bundle
     _make_folder("hr", "HR")
-    _make_document("policy", "hr", data_dir)
+    _make_document("policy", "hr", config_dir)
     _make_gem("summarise", doc_folder_ids=["hr"])
     zip_bytes = export_bundle()
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
@@ -101,7 +101,7 @@ def test_export_bundle_manifest_has_gems_and_folders(data_dir):
 
 # ── import_bundle — Replace mode ──────────────────────────────────────────────
 
-def test_import_replace_wipes_existing_gems(data_dir):
+def test_import_replace_wipes_existing_gems(config_dir):
     from backend.bundle.service import export_bundle, import_bundle
     from backend.bundle.models import ImportMode
     _make_folder()
@@ -119,15 +119,15 @@ def test_import_replace_wipes_existing_gems(data_dir):
     assert result.gems_imported == 1
 
 
-def test_import_replace_wipes_existing_documents(data_dir):
+def test_import_replace_wipes_existing_documents(config_dir):
     from backend.bundle.service import export_bundle, import_bundle
     from backend.bundle.models import ImportMode
     _make_folder()
-    _make_document("doc1", "f1", data_dir)
+    _make_document("doc1", "f1", config_dir)
     bundle = export_bundle()
 
     # Add a document not in the bundle
-    _make_document("extra-doc", "f1", data_dir)
+    _make_document("extra-doc", "f1", config_dir)
     import_bundle(bundle, ImportMode.REPLACE)
 
     from backend.documents.repository import list_documents
@@ -136,27 +136,27 @@ def test_import_replace_wipes_existing_documents(data_dir):
     assert "extra-doc" not in ids
 
 
-def test_import_replace_restores_md_files(data_dir):
+def test_import_replace_restores_md_files(config_dir):
     from backend.bundle.service import export_bundle, import_bundle
     from backend.bundle.models import ImportMode
     _make_folder()
-    _make_document("doc1", "f1", data_dir, content="Original content")
+    _make_document("doc1", "f1", config_dir, content="Original content")
     bundle = export_bundle()
 
     # Overwrite the md file then replace
-    (data_dir / "documents" / "f1" / "doc1.md").write_text("corrupted")
+    (config_dir / "documents" / "f1" / "doc1.md").write_text("corrupted")
     import_bundle(bundle, ImportMode.REPLACE)
 
-    assert (data_dir / "documents" / "f1" / "doc1.md").read_text() == "Original content"
+    assert (config_dir / "documents" / "f1" / "doc1.md").read_text() == "Original content"
 
 
-def test_import_replace_returns_correct_counts(data_dir):
+def test_import_replace_returns_correct_counts(config_dir):
     from backend.bundle.service import export_bundle, import_bundle
     from backend.bundle.models import ImportMode
     _make_folder("f1")
     _make_folder("f2")
-    _make_document("d1", "f1", data_dir)
-    _make_document("d2", "f2", data_dir)
+    _make_document("d1", "f1", config_dir)
+    _make_document("d2", "f2", config_dir)
     _make_gem("gem1")
     _make_gem("gem2")
     bundle = export_bundle()
@@ -171,11 +171,11 @@ def test_import_replace_returns_correct_counts(data_dir):
 
 # ── import_bundle — Add mode ──────────────────────────────────────────────────
 
-def test_import_add_no_conflicts_imports_all(data_dir):
+def test_import_add_no_conflicts_imports_all(config_dir):
     from backend.bundle.service import export_bundle, import_bundle
     from backend.bundle.models import ImportMode
     _make_folder()
-    _make_document("doc1", "f1", data_dir)
+    _make_document("doc1", "f1", config_dir)
     _make_gem("gem1")
     bundle = export_bundle()
 
@@ -192,7 +192,7 @@ def test_import_add_no_conflicts_imports_all(data_dir):
     assert any(d.id == "doc1" for d in list_documents())
 
 
-def test_import_add_skips_existing_folder(data_dir):
+def test_import_add_skips_existing_folder(config_dir):
     """If a folder already exists, keep the existing name (don't overwrite)."""
     from backend.bundle.service import export_bundle, import_bundle
     from backend.bundle.models import ImportMode
@@ -209,11 +209,11 @@ def test_import_add_skips_existing_folder(data_dir):
     assert result.folders_created == 0
 
 
-def test_import_add_renames_document_on_collision(data_dir):
+def test_import_add_renames_document_on_collision(config_dir):
     from backend.bundle.service import export_bundle, import_bundle
     from backend.bundle.models import ImportMode
     _make_folder()
-    _make_document("doc1", "f1", data_dir, content="From bundle")
+    _make_document("doc1", "f1", config_dir, content="From bundle")
     bundle = export_bundle()
 
     # doc1 already exists — Add should rename the incoming one
@@ -222,10 +222,10 @@ def test_import_add_renames_document_on_collision(data_dir):
     assert "doc1" in result.documents_renamed
     new_id = result.documents_renamed["doc1"]
     assert new_id == "doc1-2"
-    assert (data_dir / "documents" / "f1" / "doc1-2.md").read_text() == "From bundle"
+    assert (config_dir / "documents" / "f1" / "doc1-2.md").read_text() == "From bundle"
 
 
-def test_import_add_renames_gem_on_collision(data_dir):
+def test_import_add_renames_gem_on_collision(config_dir):
     from backend.bundle.service import export_bundle, import_bundle
     from backend.bundle.models import ImportMode
     _make_folder()
@@ -239,13 +239,13 @@ def test_import_add_renames_gem_on_collision(data_dir):
     assert result.gems_renamed["gem1"] == "gem1-2"
 
 
-def test_import_add_rewrites_gem_doc_refs_after_rename(data_dir):
+def test_import_add_rewrites_gem_doc_refs_after_rename(config_dir):
     """When a document is renamed, gems that reference it are updated."""
     from backend.bundle.service import export_bundle, import_bundle
     from backend.bundle.models import ImportMode
     from backend.tasks.repository import list_tasks
     _make_folder()
-    _make_document("doc1", "f1", data_dir)
+    _make_document("doc1", "f1", config_dir)
     _make_gem("gem1", doc_ids=["doc1"])
     bundle = export_bundle()
 
@@ -258,11 +258,11 @@ def test_import_add_rewrites_gem_doc_refs_after_rename(data_dir):
     assert "doc1-2" in tasks[renamed_gem_id].doc_ids
 
 
-def test_import_add_md_file_content_preserved(data_dir):
+def test_import_add_md_file_content_preserved(config_dir):
     from backend.bundle.service import export_bundle, import_bundle
     from backend.bundle.models import ImportMode
     _make_folder("new-folder", "New Folder")
-    _make_document("new-doc", "new-folder", data_dir, content="Preserved text")
+    _make_document("new-doc", "new-folder", config_dir, content="Preserved text")
     bundle = export_bundle()
 
     # Import into a state without new-folder or new-doc
@@ -271,12 +271,12 @@ def test_import_add_md_file_content_preserved(data_dir):
     df("new-folder")
     import_bundle(bundle, ImportMode.ADD)
 
-    assert (data_dir / "documents" / "new-folder" / "new-doc.md").read_text() == "Preserved text"
+    assert (config_dir / "documents" / "new-folder" / "new-doc.md").read_text() == "Preserved text"
 
 
 # ── tools field round-trip ────────────────────────────────────────────────────
 
-def test_bundle_preserves_gem_tools(data_dir):
+def test_bundle_preserves_gem_tools(config_dir):
     """Tools set on a gem survives an export/import round-trip."""
     from backend.bundle.service import export_bundle, import_bundle
     from backend.bundle.models import ImportMode
@@ -312,7 +312,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 
 @pytest.fixture
-def bundle_client(config_dir, data_dir, monkeypatch, session_token, admin_token):
+def bundle_client(config_dir, monkeypatch, session_token, admin_token):
     """App-mode TestClient with session + admin cookie pre-set."""
     monkeypatch.setenv("TROVE_FAKE_OLLAMA", "1")
     monkeypatch.setenv("TROVE_FAKE_SYSTEM", "1")
@@ -326,7 +326,7 @@ def bundle_client(config_dir, data_dir, monkeypatch, session_token, admin_token)
     return client
 
 
-def test_export_endpoint_returns_zip(bundle_client, data_dir):
+def test_export_endpoint_returns_zip(bundle_client, config_dir):
     _make_folder()
     res = bundle_client.get("/api/app/admin/bundle/export")
     assert res.status_code == 200
@@ -334,7 +334,7 @@ def test_export_endpoint_returns_zip(bundle_client, data_dir):
     assert zipfile.is_zipfile(_io.BytesIO(res.content))
 
 
-def test_export_endpoint_requires_admin(bundle_client, data_dir, session_token):
+def test_export_endpoint_requires_admin(bundle_client, config_dir, session_token):
     """Without an admin cookie, export returns 401 or 403."""
     from fastapi.testclient import TestClient
     from backend.main import create_app_app
@@ -343,7 +343,7 @@ def test_export_endpoint_requires_admin(bundle_client, data_dir, session_token):
     assert res.status_code in (401, 403)
 
 
-def test_import_endpoint_replace_mode(bundle_client, data_dir):
+def test_import_endpoint_replace_mode(bundle_client, config_dir):
     """POST a bundle ZIP to the import endpoint in replace mode."""
     _make_folder()
     _make_gem("existing-gem")
@@ -363,7 +363,7 @@ def test_import_endpoint_replace_mode(bundle_client, data_dir):
     assert data["gems_renamed"] == {}
 
 
-def test_import_endpoint_add_mode(bundle_client, data_dir):
+def test_import_endpoint_add_mode(bundle_client, config_dir):
     _make_folder()
     _make_gem("gem-a")
     bundle_bytes = bundle_client.get("/api/app/admin/bundle/export").content

@@ -72,29 +72,29 @@ from backend.documents.repository import (  # noqa: E402
 
 # ── Folder CRUD ───────────────────────────────────────────────────────────────
 
-def test_save_and_get_folder(data_dir):
+def test_save_and_get_folder(config_dir):
     f = Folder(id="hr", name="HR")
     save_folder(f)
     assert get_folder("hr") == f
 
 
-def test_get_folder_missing_raises(data_dir):
+def test_get_folder_missing_raises(config_dir):
     with pytest.raises(KeyError):
         get_folder("does-not-exist")
 
 
-def test_list_folders_empty(data_dir):
+def test_list_folders_empty(config_dir):
     assert list_folders() == []
 
 
-def test_list_folders_returns_all_ordered(data_dir):
+def test_list_folders_returns_all_ordered(config_dir):
     save_folder(Folder(id="b", name="Beta"))
     save_folder(Folder(id="a", name="Alpha"))
     names = [f.name for f in list_folders()]
     assert names == ["Alpha", "Beta"]
 
 
-def test_delete_folder_removes_folder_and_documents(data_dir):
+def test_delete_folder_removes_folder_and_documents(config_dir):
     now = datetime.now(timezone.utc)
     save_folder(Folder(id="f1", name="F1"))
     save_document(Document(id="d1", folder_id="f1", name="d1.txt",
@@ -110,7 +110,7 @@ def test_delete_folder_removes_folder_and_documents(data_dir):
 
 # ── update_folder ─────────────────────────────────────────────────────────────
 
-def test_update_folder_changes_name(data_dir):
+def test_update_folder_changes_name(config_dir):
     save_folder(Folder(id="hr", name="HR"))
     updated = update_folder("hr", name="Human Resources")
     assert updated.id == "hr"
@@ -119,14 +119,14 @@ def test_update_folder_changes_name(data_dir):
     assert get_folder("hr").name == "Human Resources"
 
 
-def test_update_folder_not_found_raises(data_dir):
+def test_update_folder_not_found_raises(config_dir):
     with pytest.raises(KeyError):
         update_folder("missing", name="Anything")
 
 
 # ── update_document ───────────────────────────────────────────────────────────
 
-def test_update_document_name(data_dir):
+def test_update_document_name(config_dir):
     now = datetime.now(timezone.utc)
     save_folder(Folder(id="f1", name="F1"))
     save_document(Document(id="d1", folder_id="f1", name="old.txt",
@@ -137,7 +137,7 @@ def test_update_document_name(data_dir):
     assert get_document("d1").name == "new.txt"
 
 
-def test_update_document_description(data_dir):
+def test_update_document_description(config_dir):
     now = datetime.now(timezone.utc)
     save_folder(Folder(id="f1", name="F1"))
     save_document(Document(id="d1", folder_id="f1", name="doc.txt",
@@ -147,7 +147,7 @@ def test_update_document_description(data_dir):
     assert updated.name == "doc.txt"  # unchanged
 
 
-def test_update_document_folder_id(data_dir):
+def test_update_document_folder_id(config_dir):
     now = datetime.now(timezone.utc)
     save_folder(Folder(id="f1", name="F1"))
     save_folder(Folder(id="f2", name="F2"))
@@ -158,14 +158,14 @@ def test_update_document_folder_id(data_dir):
     assert list_documents("f2")[0].id == "d1"
 
 
-def test_update_document_not_found_raises(data_dir):
+def test_update_document_not_found_raises(config_dir):
     with pytest.raises(KeyError):
         update_document("missing", name="anything")
 
 
 # ── Document CRUD ─────────────────────────────────────────────────────────────
 
-def test_save_and_get_document(data_dir):
+def test_save_and_get_document(config_dir):
     now = datetime.now(timezone.utc)
     save_folder(Folder(id="f1", name="F1"))
     doc = Document(id="doc1", folder_id="f1", name="doc1.pdf",
@@ -176,17 +176,17 @@ def test_save_and_get_document(data_dir):
     assert loaded.folder_id == "f1"
 
 
-def test_get_document_missing_raises(data_dir):
+def test_get_document_missing_raises(config_dir):
     with pytest.raises(KeyError):
         get_document("missing")
 
 
-def test_list_documents_empty(data_dir):
+def test_list_documents_empty(config_dir):
     save_folder(Folder(id="f1", name="F1"))
     assert list_documents("f1") == []
 
 
-def test_list_documents_filtered_by_folder(data_dir):
+def test_list_documents_filtered_by_folder(config_dir):
     now = datetime.now(timezone.utc)
     save_folder(Folder(id="f1", name="F1"))
     save_folder(Folder(id="f2", name="F2"))
@@ -198,7 +198,7 @@ def test_list_documents_filtered_by_folder(data_dir):
     assert [d.id for d in list_documents("f2")] == ["d2"]
 
 
-def test_delete_document_returns_folder_id(data_dir):
+def test_delete_document_returns_folder_id(config_dir):
     now = datetime.now(timezone.utc)
     save_folder(Folder(id="f1", name="F1"))
     save_document(Document(id="d1", folder_id="f1", name="d1", description="",
@@ -209,11 +209,11 @@ def test_delete_document_returns_folder_id(data_dir):
         get_document("d1")
 
 
-def test_delete_document_missing_returns_none(data_dir):
+def test_delete_document_missing_returns_none(config_dir):
     assert delete_document("missing") is None
 
 
-def test_document_id_exists(data_dir):
+def test_document_id_exists(config_dir):
     now = datetime.now(timezone.utc)
     save_folder(Folder(id="f1", name="F1"))
     save_document(Document(id="d1", folder_id="f1", name="d1", description="",
@@ -224,11 +224,11 @@ def test_document_id_exists(data_dir):
 
 # ── resolve_documents ─────────────────────────────────────────────────────────
 
-def test_resolve_documents_empty_inputs(data_dir):
+def test_resolve_documents_empty_inputs(config_dir):
     assert resolve_documents([], []) == []
 
 
-def test_resolve_documents_by_folder(data_dir):
+def test_resolve_documents_by_folder(config_dir):
     now = datetime.now(timezone.utc)
     save_folder(Folder(id="f1", name="F1"))
     save_document(Document(id="d1", folder_id="f1", name="Alpha", description="",
@@ -239,7 +239,7 @@ def test_resolve_documents_by_folder(data_dir):
     assert {d.id for d in docs} == {"d1", "d2"}
 
 
-def test_resolve_documents_by_id(data_dir):
+def test_resolve_documents_by_id(config_dir):
     now = datetime.now(timezone.utc)
     save_folder(Folder(id="f1", name="F1"))
     save_document(Document(id="d1", folder_id="f1", name="d1", description="",
@@ -250,7 +250,7 @@ def test_resolve_documents_by_id(data_dir):
     assert [d.id for d in docs] == ["d1"]
 
 
-def test_resolve_documents_deduplicates_overlap(data_dir):
+def test_resolve_documents_deduplicates_overlap(config_dir):
     now = datetime.now(timezone.utc)
     save_folder(Folder(id="f1", name="F1"))
     save_document(Document(id="d1", folder_id="f1", name="d1", description="",
@@ -290,11 +290,11 @@ def test_slugify_empty_stem_returns_document():
 
 # ── _unique_id ────────────────────────────────────────────────────────────────
 
-def test_unique_id_no_collision(data_dir):
+def test_unique_id_no_collision(config_dir):
     assert _unique_id("new-doc") == "new-doc"
 
 
-def test_unique_id_collision_appends_suffix(data_dir):
+def test_unique_id_collision_appends_suffix(config_dir):
     now = datetime.now(timezone.utc)
     save_folder(Folder(id="f1", name="F1"))
     save_document(Document(id="my-doc", folder_id="f1", name="my-doc.pdf",
@@ -302,7 +302,7 @@ def test_unique_id_collision_appends_suffix(data_dir):
     assert _unique_id("my-doc") == "my-doc-2"
 
 
-def test_unique_id_multiple_collisions(data_dir):
+def test_unique_id_multiple_collisions(config_dir):
     now = datetime.now(timezone.utc)
     save_folder(Folder(id="f1", name="F1"))
     for suffix in ["my-doc", "my-doc-2"]:
@@ -314,8 +314,7 @@ def test_unique_id_multiple_collisions(data_dir):
 # ── process_document ──────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_process_document_short_doc_uses_ai_summary(data_dir, config_dir, monkeypatch):
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_dir.parent))
+async def test_process_document_short_doc_uses_ai_summary(config_dir):
     from backend.config.service import save_config
     from backend.config.models import TroveConfig
     save_config(TroveConfig(num_ctx=8192))
@@ -331,14 +330,13 @@ async def test_process_document_short_doc_uses_ai_summary(data_dir, config_dir, 
 
     assert doc.id == "test-doc"
     assert doc.description == "An AI summary."
-    md_path = data_dir / "documents" / "f1" / "test-doc.md"
+    md_path = config_dir / "documents" / "f1" / "test-doc.md"
     assert md_path.exists()
     assert md_path.read_text() == "Short content with few words."
 
 
 @pytest.mark.asyncio
-async def test_process_document_supplied_description_skips_ai(data_dir, config_dir, monkeypatch):
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_dir.parent))
+async def test_process_document_supplied_description_skips_ai(config_dir):
     from backend.config.service import save_config
     from backend.config.models import TroveConfig
     save_config(TroveConfig(num_ctx=512))  # minimum valid; 300 words × 2 = 600 > 512
@@ -359,8 +357,7 @@ async def test_process_document_supplied_description_skips_ai(data_dir, config_d
 
 
 @pytest.mark.asyncio
-async def test_process_document_too_long_raises(data_dir, config_dir, monkeypatch):
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_dir.parent))
+async def test_process_document_too_long_raises(config_dir):
     from backend.config.service import save_config
     from backend.config.models import TroveConfig
     save_config(TroveConfig(num_ctx=512))  # 300 words × 2 = 600 > 512
@@ -380,8 +377,7 @@ async def test_process_document_too_long_raises(data_dir, config_dir, monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_process_document_ai_failure_falls_back_to_name(data_dir, config_dir, monkeypatch):
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_dir.parent))
+async def test_process_document_ai_failure_falls_back_to_name(config_dir):
     from backend.config.service import save_config
     from backend.config.models import TroveConfig
     save_config(TroveConfig(num_ctx=8192))
@@ -406,7 +402,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 
 @pytest.fixture
-def doc_client(config_dir, data_dir, monkeypatch, session_token, admin_token):
+def doc_client(config_dir, monkeypatch, session_token, admin_token):
     """App-mode TestClient with admin cookie pre-set."""
     monkeypatch.setenv("TROVE_FAKE_OLLAMA", "1")
     monkeypatch.setenv("TROVE_FAKE_SYSTEM", "1")
@@ -530,13 +526,13 @@ def test_delete_document_not_found(doc_client):
     assert res.status_code == 404
 
 
-def test_delete_document_removes_it(doc_client, data_dir):
+def test_delete_document_removes_it(doc_client, config_dir):
     now = datetime.now(timezone.utc)
     save_folder(Folder(id="f1", name="F1"))
     save_document(Document(id="d1", folder_id="f1", name="d1.txt",
                            description="", mime_type="text/plain", created_at=now))
     # Create the markdown file
-    doc_dir = data_dir / "documents" / "f1"
+    doc_dir = config_dir / "documents" / "f1"
     doc_dir.mkdir(parents=True)
     (doc_dir / "d1.md").write_text("content")
 
@@ -574,42 +570,42 @@ def test_rename_folder_not_found(doc_client):
 
 # ── PATCH /admin/documents/{doc_id} ──────────────────────────────────────────
 
-def _upload_fake_doc(doc_client, folder_id: str, doc_id: str, name: str, data_dir):
+def _upload_fake_doc(doc_client, folder_id: str, doc_id: str, name: str, config_dir):
     """Helper: insert a document record and create its .md file on disk."""
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
     save_folder(Folder(id=folder_id, name=folder_id.upper()))
     save_document(Document(id=doc_id, folder_id=folder_id, name=name,
                            description="desc", mime_type="text/plain", created_at=now))
-    md_dir = data_dir / "documents" / folder_id
+    md_dir = config_dir / "documents" / folder_id
     md_dir.mkdir(parents=True, exist_ok=True)
     (md_dir / f"{doc_id}.md").write_text("content")
 
 
-def test_patch_document_name(doc_client, data_dir):
-    _upload_fake_doc(doc_client, "f1", "mydoc", "old.txt", data_dir)
+def test_patch_document_name(doc_client, config_dir):
+    _upload_fake_doc(doc_client, "f1", "mydoc", "old.txt", config_dir)
     res = doc_client.patch("/api/app/admin/documents/mydoc", json={"name": "new.txt"})
     assert res.status_code == 200
     assert res.json()["name"] == "new.txt"
     assert res.json()["description"] == "desc"
 
 
-def test_patch_document_description(doc_client, data_dir):
-    _upload_fake_doc(doc_client, "f1", "mydoc", "doc.txt", data_dir)
+def test_patch_document_description(doc_client, config_dir):
+    _upload_fake_doc(doc_client, "f1", "mydoc", "doc.txt", config_dir)
     res = doc_client.patch("/api/app/admin/documents/mydoc", json={"description": "new desc"})
     assert res.status_code == 200
     assert res.json()["description"] == "new desc"
 
 
-def test_patch_document_move(doc_client, data_dir):
+def test_patch_document_move(doc_client, config_dir):
     """Moving a document updates folder_id and moves the .md file on disk."""
-    _upload_fake_doc(doc_client, "f1", "mydoc", "doc.txt", data_dir)
+    _upload_fake_doc(doc_client, "f1", "mydoc", "doc.txt", config_dir)
     save_folder(Folder(id="f2", name="F2"))
     res = doc_client.patch("/api/app/admin/documents/mydoc", json={"folder_id": "f2"})
     assert res.status_code == 200
     assert res.json()["folder_id"] == "f2"
-    assert not (data_dir / "documents" / "f1" / "mydoc.md").exists()
-    assert (data_dir / "documents" / "f2" / "mydoc.md").exists()
+    assert not (config_dir / "documents" / "f1" / "mydoc.md").exists()
+    assert (config_dir / "documents" / "f2" / "mydoc.md").exists()
 
 
 def test_patch_document_not_found(doc_client):
@@ -617,8 +613,8 @@ def test_patch_document_not_found(doc_client):
     assert res.status_code == 404
 
 
-def test_patch_document_bad_folder(doc_client, data_dir):
-    _upload_fake_doc(doc_client, "f1", "mydoc", "doc.txt", data_dir)
+def test_patch_document_bad_folder(doc_client, config_dir):
+    _upload_fake_doc(doc_client, "f1", "mydoc", "doc.txt", config_dir)
     res = doc_client.patch("/api/app/admin/documents/mydoc", json={"folder_id": "nonexistent"})
     assert res.status_code == 400
 
@@ -669,14 +665,14 @@ def test_upload_without_name_falls_back_to_filename(doc_client):
 
 # ── Download endpoints (Task 9) ───────────────────────────────────────────────
 
-def test_download_folder_returns_zip(doc_client, data_dir):
+def test_download_folder_returns_zip(doc_client, config_dir):
     doc_client.post("/api/app/admin/folders", json={"name": "My Folder"})
     # Insert a document and its .md file
     now = datetime.now(timezone.utc)
     save_folder(Folder(id="my-folder", name="My Folder"))
     save_document(Document(id="d1", folder_id="my-folder", name="d1.txt",
                            description="", mime_type="text/plain", created_at=now))
-    md_dir = data_dir / "documents" / "my-folder"
+    md_dir = config_dir / "documents" / "my-folder"
     md_dir.mkdir(parents=True, exist_ok=True)
     (md_dir / "d1.md").write_text("hello")
 
@@ -693,12 +689,12 @@ def test_download_folder_not_found(doc_client):
     assert res.status_code == 404
 
 
-def test_download_document_returns_markdown(doc_client, data_dir):
+def test_download_document_returns_markdown(doc_client, config_dir):
     now = datetime.now(timezone.utc)
     save_folder(Folder(id="f1", name="F1"))
     save_document(Document(id="d1", folder_id="f1", name="d1.txt",
                            description="", mime_type="text/plain", created_at=now))
-    md_dir = data_dir / "documents" / "f1"
+    md_dir = config_dir / "documents" / "f1"
     md_dir.mkdir(parents=True, exist_ok=True)
     (md_dir / "d1.md").write_text("# Document")
 

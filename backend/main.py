@@ -36,6 +36,15 @@ from backend.version import __version__
 load_dotenv()  # Must run before os.getenv calls below
 setup_ollama_log_buffer()
 
+import logging as _logging
+_log = _logging.getLogger(__name__)
+
+from backend.paths import get_config_dir, get_install_dir, get_ollama_bin_dir, get_ollama_models_dir
+_log.info(
+    "Trove paths — config: %s | install: %s | ollama bin: %s | models: %s",
+    get_config_dir(), get_install_dir(), get_ollama_bin_dir(), get_ollama_models_dir(),
+)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Terminate any ollama serve process we spawned on shutdown."""
