@@ -63,6 +63,7 @@ export default function AdminPanel() {
   const logEndRef = useRef<HTMLDivElement | null>(null)
 
   // Bundle export/import state
+  const bundleFileRef = useRef<HTMLInputElement>(null)
   const [exporting, setExporting] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
@@ -463,7 +464,7 @@ export default function AdminPanel() {
       </div>
 
       {/* Import bundle modal */}
-      <Modal show={showImportModal} onClose={() => setShowImportModal(false)} size="md">
+      <Modal show={showImportModal} onClose={() => { setShowImportModal(false); setImportFile(null); if (bundleFileRef.current) bundleFileRef.current.value = '' }} size="md">
         <ModalHeader>Import bundle</ModalHeader>
         <ModalBody>
           <div className="flex flex-col gap-4">
@@ -501,12 +502,20 @@ export default function AdminPanel() {
 
             {/* File picker */}
             <div>
-              <Label htmlFor="bundle-file">Bundle ZIP file</Label>
+              <Label className="mb-1 block">Bundle ZIP file</Label>
+              <div className="flex items-center gap-3">
+                <Button size="sm" color="light" onClick={() => bundleFileRef.current?.click()}>
+                  Choose file
+                </Button>
+                <span className="text-sm text-gray-500 truncate">
+                  {importFile ? importFile.name : 'No file selected'}
+                </span>
+              </div>
               <input
-                id="bundle-file"
+                ref={bundleFileRef}
                 type="file"
                 accept=".zip"
-                className="mt-1 block w-full text-sm text-gray-500"
+                className="hidden"
                 onChange={e => setImportFile(e.target.files?.[0] ?? null)}
               />
             </div>
