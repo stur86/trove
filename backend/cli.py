@@ -9,6 +9,7 @@ Provides two commands launched via the `trove` script defined in
 
 Each command uses the appropriate factory function to create the FastAPI application.
 """
+import logging
 import os
 from typing import Optional
 
@@ -59,6 +60,7 @@ def setup(
     if frontend_dist:
         os.environ["TROVE_FRONTEND_DIST"] = frontend_dist
     _set_ollama_host()
+    logging.basicConfig(level=logging.INFO)
     uvicorn.run("backend.main:create_app_setup", host=host, port=port, factory=True)
 
 
@@ -86,6 +88,7 @@ def start(
     if frontend_dist:
         os.environ["TROVE_FRONTEND_DIST"] = frontend_dist
     _set_ollama_host()
+    logging.basicConfig(level=logging.INFO)
     from backend.ollama.service import ensure_ollama_running
     ensure_ollama_running()
     uvicorn.run("backend.main:create_app_app", host=host, port=port, factory=True)

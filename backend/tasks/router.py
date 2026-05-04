@@ -11,6 +11,7 @@ as a thin HTTP wrapper.
 import base64
 import binascii
 import json
+import logging
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -167,9 +168,7 @@ async def run_gem(gem_id: str, req: RunRequest) -> StreamingResponse:
                 # data: line and the continuation would be silently dropped).
                 yield f"data: {json.dumps(chunk)}\n\n"
         except Exception as exc:
-            # Emit an error event so the client can surface a meaningful message.
-            # Covers missing-argument ValueErrors as well as Ollama model errors
-            # (e.g. unsupported audio format, model unavailable).
+            logging.getLogger(__name__).error("Gem run failed", exc_info=True)
             yield f"event: error\ndata: {exc}\n\n"
         yield "data: [DONE]\n\n"
 

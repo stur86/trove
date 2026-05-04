@@ -141,8 +141,10 @@ export default function GemRunner() {
       // Only switch to 'done' once the full response has arrived so that
       // ReactMarkdown never tries to parse an incomplete token stream.
       setPhase('done')
-    } catch {
-      setOutput(t('gem.error.run'))
+    } catch (err) {
+      console.error('Gem run failed:', err)
+      const detail = err instanceof Error ? err.message : String(err)
+      setOutput(`${t('gem.error.run')}\n\n\`\`\`\n${detail}\n\`\`\``)
       setPhase('done')
     }
   }
