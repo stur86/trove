@@ -120,6 +120,28 @@ Steps that are already complete are skipped automatically.
 | Gemma 4 26B | 10 GB | High quality; no audio |
 | Gemma 4 31B | 20 GB | Best quality; no audio |
 
+### Uninstalling Trove
+
+The installer creates an uninstall script alongside the `trove` command. Run it to remove everything Trove installed:
+
+```bash
+trove-uninstall
+```
+
+You will see a warning listing exactly what will be deleted, and be asked to confirm before anything is removed. The script:
+
+- Stops and disables the systemd service (if you installed it during setup)
+- Deletes the Trove install directory (the virtual environment, uv, and application files)
+- Removes the `trove` and `trove-uninstall` commands from your PATH
+
+**Your configuration and data are not deleted automatically.** Tasks, documents, and settings stored in `~/.config/trove/` are left in place. To remove them completely:
+
+```bash
+rm -rf ~/.config/trove
+```
+
+Run that command only after `trove-uninstall` has finished.
+
 ### Troubleshooting
 
 **"trove: command not found"**

@@ -99,12 +99,79 @@ VIRTUAL_ENV="${INSTALL_DIR}/.venv" exec "${UV}" run trove "\$@"
 WRAPPER
 chmod +x "$BIN_DIR/trove"
 
+# ── Write uninstall script ───────────────────────────────────────────────────
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/trove"
+UNIT_FILE="$HOME/.config/systemd/user/trove.service"
+
+cat > "$BIN_DIR/trove-uninstall" <<UNINSTALLER
+#!/bin/bash
+# Trove uninstaller — reverses all changes made by install.sh.
+set -euo pipefail
+
+INSTALL_DIR="${INSTALL_DIR}"
+BIN_DIR="${BIN_DIR}"
+UNIT_FILE="${UNIT_FILE}"
+CONFIG_DIR="${CONFIG_DIR}"
+
+echo ""
+echo "WARNING: This will permanently remove Trove from your system."
+echo ""
+echo "The following will be deleted:"
+echo "  * Install directory:  \${INSTALL_DIR}"
+echo "  * Wrapper scripts:    \${BIN_DIR}/trove  and  \${BIN_DIR}/trove-uninstall"
+if [[ -f "\${UNIT_FILE}" ]]; then
+  echo "  * Systemd service:    \${UNIT_FILE}"
+fi
+echo ""
+echo "Your Trove data and configuration at \${CONFIG_DIR} will NOT be removed."
+echo "Delete that folder manually for a complete removal."
+echo ""
+read -r -p "Continue with uninstall? [y/N] " confirm
+if [[ ! "\$confirm" =~ ^[Yy]\$ ]]; then
+  echo "Uninstall cancelled."
+  exit 0
+fi
+
+# ── Remove systemd service if present ───────────────────────────────────────
+if [[ -f "\${UNIT_FILE}" ]]; then
+  echo ""
+  echo "Stopping and disabling Trove service..."
+  systemctl --user stop trove 2>/dev/null || true
+  systemctl --user disable trove 2>/dev/null || true
+  rm -f "\${UNIT_FILE}"
+  systemctl --user daemon-reload 2>/dev/null || true
+  echo "Service removed."
+fi
+
+# ── Remove install directory ─────────────────────────────────────────────────
+if [[ -d "\${INSTALL_DIR}" ]]; then
+  echo ""
+  echo "Removing install directory \${INSTALL_DIR}..."
+  rm -rf "\${INSTALL_DIR}"
+fi
+
+# ── Remove wrapper scripts (self-deletes last) ───────────────────────────────
+echo ""
+echo "Removing wrapper scripts from \${BIN_DIR}..."
+rm -f "\${BIN_DIR}/trove"
+rm -f "\${BIN_DIR}/trove-uninstall"
+
+echo ""
+echo "Trove has been uninstalled."
+echo ""
+echo "Your configuration and data at \${CONFIG_DIR} were not removed."
+echo "To delete them completely, run:"
+echo "  rm -rf \"\${CONFIG_DIR}\""
+UNINSTALLER
+chmod +x "$BIN_DIR/trove-uninstall"
+
 # ── Done ─────────────────────────────────────────────────────────────────────
 echo ""
 echo "Trove ${VERSION} installed successfully."
 echo ""
-echo "Run setup:  ${BIN_DIR}/trove setup"
-echo "Run app:    ${BIN_DIR}/trove start"
+echo "Run setup:    ${BIN_DIR}/trove setup"
+echo "Run app:      ${BIN_DIR}/trove start"
+echo "Uninstall:    ${BIN_DIR}/trove-uninstall"
 if [[ "$BIN_DIR" == "$HOME/.local/bin" ]]; then
   if ! echo "$PATH" | grep -q "$HOME/.local/bin"; then
     echo ""
