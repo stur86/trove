@@ -151,8 +151,16 @@ def _create_app_with_mode(mode: AppMode) -> FastAPI:
     # Mode endpoint — tells the frontend which surface to render.
     @application.get("/api/mode")
     def get_mode() -> dict:
-        """Return the current operating mode (setup or app)."""
-        return {"mode": mode.value}
+        """
+        Return the current operating mode and whether setup has been completed.
+
+        setup_complete is False when admin_password is empty (no credentials
+        configured yet). The frontend uses this to block access to app-mode
+        features and to gate setup wizard step advancement.
+        """
+        from backend.config.service import load_config
+        config = load_config()
+        return {"mode": mode.value, "setup_complete": bool(config.admin_password)}
 
     @application.get("/api/health")
     def health() -> dict:

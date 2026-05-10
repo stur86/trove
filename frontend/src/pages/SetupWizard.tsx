@@ -199,13 +199,18 @@ function ModelsStep({ t, system, selectedModels, setSelectedModels, busy, onPull
   )
 }
 
-function ServiceStep({ t, busy, onInstall, log, logEndRef }: { t: TranslationFunction; busy: boolean; onInstall: () => Promise<void>; log: string[]; logEndRef: RefObject<HTMLDivElement | null> }) {
+function ServiceStep({ t, busy, setupComplete, onInstall, log, logEndRef }: { t: TranslationFunction; busy: boolean; setupComplete: boolean; onInstall: () => Promise<void>; log: string[]; logEndRef: RefObject<HTMLDivElement | null> }) {
   return (
     <>
       <h1 className="text-2xl font-bold">{t('setup.service.title')}</h1>
       <p className="text-gray-600">{t('setup.service.description')}</p>
+      {!setupComplete && (
+        <Alert color="warning">
+          Admin account not set up — go back to the previous step and save credentials before installing the service.
+        </Alert>
+      )}
       <div>
-        <Button color="blue" disabled={busy} onClick={onInstall}>
+        <Button color="blue" disabled={busy || !setupComplete} onClick={onInstall}>
           {t('setup.service.button')}
         </Button>
       </div>
@@ -464,7 +469,7 @@ export default function SetupWizard() {
         )}
 
         {step === 5 && (
-          <ServiceStep t={t} busy={busy} onInstall={handleInstallService} log={log} logEndRef={logEndRef} />
+          <ServiceStep t={t} busy={busy} setupComplete={status?.admin_configured ?? false} onInstall={handleInstallService} log={log} logEndRef={logEndRef} />
         )}
 
       </div>
