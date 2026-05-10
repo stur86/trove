@@ -126,6 +126,8 @@
   "config.locale": "语言",
   "config.save": "保存",
   "config.saved": "已保存",
+  "config.no_models_available": "没有可用的模型",
+  "config.ollama_unreachable": "Ollama 无法访问 — 在模型服务运行之前，保存功能已禁用。",
   "model.gemma4_e2b": "Gemma 4 E2B（23亿参数 — 最快）",
   "model.gemma4_e4b": "Gemma 4 E4B（45亿参数 — 均衡）",
   "model.gemma4_26b": "Gemma 4 26B MoE（高效大模型）",

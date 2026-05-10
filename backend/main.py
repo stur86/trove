@@ -49,8 +49,8 @@ async def lifespan(app: FastAPI):
     """Terminate any ollama serve process we spawned on shutdown."""
     yield
     proc = RealOllamaService._serve_process
-    if proc is not None and proc.poll() is None:
-        proc.terminate()
+    if proc is not None and proc.is_running:
+        proc.proc.terminate()
 
 class AppMode(str, Enum):
     SETUP = "setup"
@@ -197,6 +197,12 @@ def _create_app_with_mode(mode: AppMode) -> FastAPI:
             if full_path and file_path.is_file():
                 return FileResponse(file_path)
             return FileResponse(_frontend_dist / "index.html")
+    else:
+        _log.warning(
+            "Frontend dist not found. Serving API without frontend assets. "
+            "Make sure the frontend is compiled and bundled with the wheel or "
+            "set TROVE_FRONTEND_DIST to the compiled frontend directory to fix this."
+        )
 
     return application
 

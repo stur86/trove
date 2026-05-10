@@ -75,7 +75,9 @@ export default function AdminPanel() {
   useEffect(() => {
     if (!authed) return
     Promise.all([configApi.get(), systemApi.check(), appApi.networkUrl(), i18nApi.listLocales(), ollamaApi.listModels()]).then(([c, sys, net, locales, pulled]) => {
-      setConfig(c)
+      const available = sys.viable_models.filter((m: ModelInfo) => pulled.models.includes(m.tag))
+      const validModel = available.find((m: ModelInfo) => m.tag === c.base_model)
+      setConfig(validModel ? c : { ...c, base_model: available[0]?.tag ?? c.base_model })
       setViableModels(sys.viable_models)
       setNetworkUrl(net.url)
       setAvailableLocales(locales)
@@ -209,8 +211,11 @@ export default function AdminPanel() {
     )
   }
 
+  // Only models that are viable AND actually present in the private Ollama instance.
+  // Never show phantom entries from config when Ollama is unreachable.
+  const availableModels = viableModels.filter(m => pulledModelTags.includes(m.tag))
   // Cap num_ctx slider at the selected model's context limit
-  const selectedModel = viableModels.find(m => m.tag === config?.base_model && pulledModelTags.includes(m.tag))
+  const selectedModel = availableModels.find(m => m.tag === config?.base_model)
   const maxCtx = selectedModel?.max_ctx ?? 131072
 
   // Whether to open on the Gems tab (set by GemForm after create/update)
@@ -248,6 +253,7 @@ export default function AdminPanel() {
                   <Select
                     id="base-model"
                     value={config.base_model}
+                    disabled={availableModels.length === 0}
                     onChange={e => {
                       const m = viableModels.find(m => m.tag === e.target.value)
                       setConfig({
@@ -258,13 +264,16 @@ export default function AdminPanel() {
                       })
                     }}
                   >
-                    {(viableModels.filter(m => pulledModelTags.includes(m.tag)).length > 0
-                      ? viableModels.filter(m => pulledModelTags.includes(m.tag))
-                      : [{ tag: config.base_model } as ModelInfo]
-                    ).map(m => (
-                      <option key={m.tag} value={m.tag}>{MODEL_LABELS[m.tag] ?? m.tag}</option>
-                    ))}
+                    {availableModels.length === 0
+                      ? <option value="">{t('config.no_models_available')}</option>
+                      : availableModels.map(m => (
+                          <option key={m.tag} value={m.tag}>{MODEL_LABELS[m.tag] ?? m.tag}</option>
+                        ))
+                    }
                   </Select>
+                  {availableModels.length === 0 && (
+                    <Alert color="warning" className="mt-2">{t('config.ollama_unreachable')}</Alert>
+                  )}
                   <div className="mt-2">
                     <HelpBar
                       prompt={t('help.model.prompt')}
@@ -342,7 +351,7 @@ export default function AdminPanel() {
                 <div>
                   <Button
                     color="blue"
-                    disabled={saveState === 'saving' || saveState === 'building'}
+                    disabled={saveState === 'saving' || saveState === 'building' || availableModels.length === 0}
                     onClick={handleSave}
                   >
                     {saveState === 'done' ? t('config.saved') : t('config.save')}

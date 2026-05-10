@@ -126,6 +126,8 @@
   "config.locale": "Langue",
   "config.save": "Enregistrer",
   "config.saved": "Enregistré",
+  "config.no_models_available": "Aucun modèle disponible",
+  "config.ollama_unreachable": "Ollama n'est pas accessible — l'enregistrement est désactivé jusqu'à ce que le service de modèle soit opérationnel.",
   "model.gemma4_e2b": "Gemma 4 E2B (2,3B — le plus rapide)",
   "model.gemma4_e4b": "Gemma 4 E4B (4,5B — équilibré)",
   "model.gemma4_26b": "Gemma 4 26B MoE (grand modèle efficace)",

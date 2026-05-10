@@ -18,7 +18,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-from backend.paths import get_config_dir
+from backend.paths import get_config_dir, get_install_dir
 
 # User-level systemd unit file path — no sudo required.
 UNIT_FILE_PATH = Path.home() / ".config" / "systemd" / "user" / "trove.service"
@@ -35,11 +35,13 @@ def _build_unit_file(app_port: int) -> str:
     """
     import sys
     trove_bin = shutil.which("trove") or f"{sys.prefix}/bin/trove"
+    install_dir = get_install_dir()
     return (
         "[Unit]\n"
         "Description=Trove LLM Platform\n"
         "After=network.target\n\n"
         "[Service]\n"
+        f"Environment=TROVE_INSTALL_DIR={install_dir}\n"
         f"ExecStart={trove_bin} start --port {app_port}\n"
         "Restart=on-failure\n"
         f"WorkingDirectory={get_config_dir()}\n\n"
