@@ -21,7 +21,7 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 
 from backend.app.auth import ADMIN_LOGIN_ALLOWED_HOSTS, require_admin, require_admin_cookie
-from backend.config.models import TroveConfig
+from backend.config.models import TroveConfig, TroveConfigUpdate
 from backend.config.service import load_config, save_config
 from backend.log_buffer import get_ollama_log_lines
 from backend.network import get_lan_ip
@@ -114,14 +114,21 @@ def admin_logout(request: Request, response: Response) -> dict:
     return {"message": "Admin logout successful. Cookie deleted."}
 
 @router.put("/admin/config", dependencies=[Depends(require_admin_cookie)])
-def update_config(config: TroveConfig) -> TroveConfig:
+def update_config(update: TroveConfigUpdate) -> TroveConfigUpdate:
     """
-    Save updated configuration to disk.
+    Update non-credential configuration fields and save to disk.
 
-    Requires admin credentials via HTTP Basic auth.
+    Accepts only the public config fields (base_model, num_ctx, locale).
+    Admin credentials are never in the request or response; use the dedicated
+    save_admin_credentials endpoint in the setup router to change those.
+    Requires admin cookie.
     """
-    save_config(config)
-    return config
+    config = load_config()
+    update_dict = update.model_dump(exclude_unset=True)
+    config_dict = config.model_dump()
+    config_dict.update(update_dict)
+    save_config(TroveConfig(**config_dict))
+    return update
 
 
 @router.post("/admin/build-model", dependencies=[Depends(require_admin_cookie)])

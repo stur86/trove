@@ -2,12 +2,13 @@
 from pydantic import BaseModel, Field
 
 
-class TroveConfig(BaseModel):
+class TroveConfigUpdate(BaseModel):
     """
-    Persistent configuration for the Trove server.
+    The subset of TroveConfig that is safe to expose to the frontend.
 
-    Stored as JSON at ~/.config/trove/config.json (XDG-compliant).
-    Changes to base_model or num_ctx trigger a Modelfile rebuild.
+    Excludes admin credentials so that neither the bcrypt hash nor the
+    username ever travels to the browser. Used as the response type for
+    GET /api/config and the request/response type for PUT /api/app/admin/config.
     """
 
     base_model: str = "gemma4:e4b"
@@ -22,6 +23,16 @@ class TroveConfig(BaseModel):
 
     locale: str = "en"
     """BCP-47 locale code for the UI language (e.g. 'en', 'fr'). Server-wide setting."""
+
+
+class TroveConfig(TroveConfigUpdate):
+    """
+    Full persistent configuration for the Trove server, including admin credentials.
+
+    Stored as JSON at ~/.config/trove/config.json (XDG-compliant).
+    Never returned directly to the frontend — use TroveConfigUpdate for API responses.
+    Changes to base_model or num_ctx trigger a Modelfile rebuild.
+    """
 
     admin_username: str = "admin"
     """Admin account username used to access the admin panel."""
