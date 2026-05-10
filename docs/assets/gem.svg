@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52" width="52" height="52" aria-hidden="true">
+  <!-- Outer hexagon base -->
+  <polygon points="26,4 46,16 46,36 26,48 6,36 6,16" fill="#f59e0b" opacity="0.9"/>
+  <!-- Crown facet (top, lightest) -->
+  <polygon points="26,4 46,16 26,22 6,16" fill="#fbbf24" opacity="0.95"/>
+  <!-- Lower side facets -->
+  <polygon points="26,22 46,16 46,36 26,48 6,36 6,16" fill="#d97706" opacity="0.85"/>
+  <!-- Base facet (darkest) -->
+  <polygon points="26,22 46,36 26,48 6,36" fill="#b45309" opacity="0.8"/>
+</svg>
