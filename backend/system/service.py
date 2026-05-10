@@ -22,21 +22,49 @@ from typing import Protocol, runtime_checkable
 
 import psutil
 
-# Port used to reach the Ollama instance Trove talks to.
+# Ports used to reach Ollama instances Trove talks to.
 #
 # By default Trove spawns its own private Ollama process on port 11435 so it
 # is fully isolated from any system-wide Ollama installation.  Set
 # TROVE_USE_GLOBAL_OLLAMA=1 in .env to reuse the system Ollama on its default
 # port (11434) instead — useful when you want to share already-pulled models.
 # In that mode Trove never spawns its own ``ollama serve`` process.
+#
+# The setup wizard uses a separate port (11436) so that the Ollama instance it
+# spawns for model installation does not collide with the app-mode Ollama (11435)
+# if the trove service is started while setup is still running.
 _OLLAMA_GLOBAL_PORT = 11434   # default system-level Ollama port
-_OLLAMA_PRIVATE_PORT = 11435  # Trove's private Ollama port
+_OLLAMA_PRIVATE_PORT = 11435  # Trove's private Ollama port (app mode)
+_OLLAMA_SETUP_PORT = 11436    # Trove's Ollama port during setup wizard
 
 TROVE_OLLAMA_PORT = (
     _OLLAMA_GLOBAL_PORT
     if os.getenv("TROVE_USE_GLOBAL_OLLAMA") == "1"
     else _OLLAMA_PRIVATE_PORT
 )
+
+# Active port singleton — overridden once at startup by _create_app_with_mode
+# in backend.main before any Ollama subprocess is spawned.  Defaults to
+# TROVE_OLLAMA_PORT so code that runs before the factory (e.g.
+# ensure_ollama_running called from cli.py start) always uses the app port.
+_active_ollama_port: int = TROVE_OLLAMA_PORT
+
+
+def set_active_ollama_port(port: int) -> None:
+    """
+    Set the port that this process's Ollama instance is bound to.
+
+    Called once from _create_app_with_mode before any Ollama subprocess is
+    spawned: setup mode passes _OLLAMA_SETUP_PORT (11436), app mode passes
+    TROVE_OLLAMA_PORT (11435 or 11434 for global mode).
+    """
+    global _active_ollama_port
+    _active_ollama_port = port
+
+
+def get_active_ollama_port() -> int:
+    """Return the port that this process's Ollama instance is bound to."""
+    return _active_ollama_port
 
 # Gemma 4 model catalogue with hardware requirements.
 # min_ram_gb is a conservative estimate for CPU-only inference.
@@ -195,15 +223,17 @@ def _get_viable_models(ram_gb: float, gpu_info: dict) -> list[dict]:
 
 def is_ollama_service_running() -> bool:
     """
-    Check whether Trove's private Ollama instance is accepting requests.
+    Check whether Trove's Ollama instance is accepting requests on the active port.
 
-    Does a lightweight HTTP GET to the Ollama root endpoint on TROVE_OLLAMA_PORT
-    rather than shelling out — faster and doesn't depend on the PATH.
+    Does a lightweight HTTP GET to the Ollama root endpoint rather than shelling
+    out — faster and doesn't depend on the PATH. Uses ``get_active_ollama_port()``
+    so setup mode (11436) and app mode (11435) are distinguished automatically
+    once ``_create_app_with_mode`` has called ``set_active_ollama_port``.
     Returns False on any error (connection refused, timeout, etc.).
     """
     try:
         with urllib.request.urlopen(
-            f"http://127.0.0.1:{TROVE_OLLAMA_PORT}", timeout=2
+            f"http://127.0.0.1:{get_active_ollama_port()}", timeout=2
         ) as resp:
             return resp.status == 200
     except Exception:

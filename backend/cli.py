@@ -28,16 +28,17 @@ cli = typer.Typer(
 )
 
 
-def _set_ollama_host() -> None:
+def _set_ollama_host(port: int | None = None) -> None:
     """
-    Point all ollama CLI commands at Trove's private Ollama port.
+    Point all ollama CLI commands at Trove's Ollama port.
 
     Setting OLLAMA_HOST before spawning uvicorn ensures the env var is
     inherited by every subprocess (model pulls, builds, serve) that the
-    OllamaService starts during the session.
+    OllamaService starts during the session.  OllamaProcess overrides this per
+    subprocess, so the value here mainly affects any direct ``ollama`` calls.
     """
     from backend.system.service import TROVE_OLLAMA_PORT
-    os.environ["OLLAMA_HOST"] = f"127.0.0.1:{TROVE_OLLAMA_PORT}"
+    os.environ["OLLAMA_HOST"] = f"127.0.0.1:{port or TROVE_OLLAMA_PORT}"
 
 
 
@@ -59,7 +60,8 @@ def setup(
     """
     if frontend_dist:
         os.environ["TROVE_FRONTEND_DIST"] = frontend_dist
-    _set_ollama_host()
+    from backend.system.service import _OLLAMA_SETUP_PORT
+    _set_ollama_host(_OLLAMA_SETUP_PORT)
     logging.basicConfig(level=logging.INFO)
     uvicorn.run("backend.main:create_app_setup", host=host, port=port, factory=True)
 

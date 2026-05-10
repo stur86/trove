@@ -28,7 +28,7 @@ from backend.config.models import TroveConfig
 from backend.config.service import load_config
 from backend.paths import get_config_dir, get_install_dir, get_ollama_bin_dir, get_ollama_models_dir
 from backend.ollama.models import StartServiceResult
-from backend.system.service import TROVE_OLLAMA_PORT, is_ollama_service_running
+from backend.system.service import get_active_ollama_port, is_ollama_service_running
 from backend.log_buffer import OLLAMA_LOGGER_NAME
 
 _ollama_logger = logging.getLogger(OLLAMA_LOGGER_NAME)
@@ -56,12 +56,13 @@ class OllamaProcess:
     that output to a logger, check liveness, and wait for completion.
     """
 
-    def __init__(self, command: list[str], port: int = TROVE_OLLAMA_PORT):
+    def __init__(self, command: list[str], port: int | None = None):
         binary = _ollama_binary()
         if binary is None:
             raise FileNotFoundError("Ollama binary not found; run setup first")
+        self.port = port if port is not None else get_active_ollama_port()
         proc_env = os.environ.copy()
-        proc_env["OLLAMA_HOST"] = f"localhost:{port}"
+        proc_env["OLLAMA_HOST"] = f"localhost:{self.port}"
         if os.getenv("TROVE_USE_GLOBAL_OLLAMA") != "1":
             proc_env["OLLAMA_MODELS"] = str(get_ollama_models_dir())
         self.proc = sp.Popen(
@@ -73,7 +74,7 @@ class OllamaProcess:
         )
 
     @classmethod
-    def run(cls, command: list[str], port: int = TROVE_OLLAMA_PORT) -> tuple[str, int]:
+    def run(cls, command: list[str], port: int | None = None) -> tuple[str, int]:
         """Run an ollama command synchronously, returning (output, returncode)."""
         proc = cls(command, port=port)
         output = proc.proc.stdout.read() if proc.proc.stdout else ""
@@ -145,17 +146,18 @@ def ensure_ollama_running() -> None:
     if proc is not None and proc.is_running:
         return  # our process is still alive
 
-    _ollama_logger.info("Starting Ollama on port %d…", TROVE_OLLAMA_PORT)
-    RealOllamaService._serve_process = OllamaProcess(["serve"], port=TROVE_OLLAMA_PORT)
+    RealOllamaService._serve_process = OllamaProcess(["serve"])
+    port = RealOllamaService._serve_process.port
+    _ollama_logger.info("Starting Ollama on port %d…", port)
     RealOllamaService._serve_process.pipe_output_to_log(_ollama_logger)
     # Wait up to 10 s for the server to become ready
     for _ in range(20):
         time.sleep(0.5)
         if is_ollama_service_running():
-            _ollama_logger.info("Ollama ready on port %d.", TROVE_OLLAMA_PORT)
+            _ollama_logger.info("Ollama ready on port %d.", port)
             return
     _ollama_logger.warning(
-        "Ollama did not become ready on port %d within 10 s.", TROVE_OLLAMA_PORT
+        "Ollama did not become ready on port %d within 10 s.", port
     )
 
 
@@ -375,7 +377,7 @@ class RealOllamaService:
         yield "data: Starting Ollama service...\n\n"
         ensure_ollama_running()
         if is_ollama_service_running():
-            yield f"data: Ollama is running on port {TROVE_OLLAMA_PORT}.\n\n"
+            yield f"data: Ollama is running on port {get_active_ollama_port()}.\n\n"
 
     def start_service(self) -> StartServiceResult:
         """
@@ -407,30 +409,28 @@ class RealOllamaService:
         if proc is not None and proc.is_running:
             return StartServiceResult(success=True)
 
-        # Spawn a new ``ollama serve`` process on the private port.
-        _ollama_logger.info("Starting Ollama on port %d…", TROVE_OLLAMA_PORT)
-        RealOllamaService._serve_process = OllamaProcess(
-            ["serve"], port=TROVE_OLLAMA_PORT
-        )
+        # Spawn a new ``ollama serve`` process on the active port.
+        RealOllamaService._serve_process = OllamaProcess(["serve"])
+        port = RealOllamaService._serve_process.port
+        _ollama_logger.info("Starting Ollama on port %d…", port)
         RealOllamaService._serve_process.pipe_output_to_log(_ollama_logger)
 
         # Wait up to 10 s for the server to become ready.
         for _ in range(20):
             time.sleep(0.5)
             if is_ollama_service_running():
-                _ollama_logger.info("Ollama ready on port %d.", TROVE_OLLAMA_PORT)
+                _ollama_logger.info("Ollama ready on port %d.", port)
                 return StartServiceResult(success=True)
 
         _ollama_logger.warning(
-            "Ollama did not become ready on port %d within 10 s.",
-            TROVE_OLLAMA_PORT,
+            "Ollama did not become ready on port %d within 10 s.", port
         )
         return StartServiceResult(success=False, reason="timeout")
 
     def stream_pull(self, model_tag: str) -> Iterator[str]:
         """Pull an Ollama model and yield SSE-formatted progress lines."""
         yield f"data: Pulling {model_tag}...\n\n"
-        pull_proc = OllamaProcess(["pull", model_tag], port=TROVE_OLLAMA_PORT)
+        pull_proc = OllamaProcess(["pull", model_tag])
         stdout = pull_proc.proc.stdout or []
         for line in stdout:
             yield f"data: {line.rstrip()}\n\n"
@@ -450,7 +450,7 @@ class RealOllamaService:
         modelfile_path = generate_modelfile(config)
         yield f"data: Building trove_model from {config.base_model}...\n\n"
         create_process = OllamaProcess(
-            ["create", "trove_model", "-f", str(modelfile_path)], port=TROVE_OLLAMA_PORT
+            ["create", "trove_model", "-f", str(modelfile_path)]
         )
         stdout = create_process.proc.stdout or []
         for line in stdout:

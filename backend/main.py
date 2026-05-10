@@ -116,6 +116,15 @@ def _create_app_with_mode(mode: AppMode) -> FastAPI:
     Args:
         mode (AppMode): The operating mode of the application (setup or app).
     """
+    # Pin the active Ollama port for this process before any subprocess is spawned.
+    # Setup uses 11436 so it does not collide with a running app-mode instance (11435).
+    from backend.system.service import (
+        _OLLAMA_SETUP_PORT, TROVE_OLLAMA_PORT, set_active_ollama_port,
+    )
+    set_active_ollama_port(
+        _OLLAMA_SETUP_PORT if mode == AppMode.SETUP else TROVE_OLLAMA_PORT
+    )
+
     application = FastAPI(title="Trove", version=__version__, lifespan=lifespan)
 
     application.add_middleware(SessionMiddleware)
