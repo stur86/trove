@@ -125,7 +125,7 @@ def _create_app_with_mode(mode: AppMode) -> FastAPI:
         _OLLAMA_SETUP_PORT if mode == AppMode.SETUP else TROVE_OLLAMA_PORT
     )
 
-    application = FastAPI(title="Trove", version=__version__, lifespan=lifespan)
+    application = FastAPI(title="Trove", version=__version__, lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
     application.add_middleware(SessionMiddleware)
 

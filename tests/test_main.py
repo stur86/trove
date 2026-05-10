@@ -18,14 +18,18 @@ def test_mode_endpoint_returns_setup(session_token):
     client = TestClient(create_app_setup(), headers={"X-Trove-Session": session_token})
     response = client.get("/api/mode")
     assert response.status_code == 200
-    assert response.json() == {"mode": "setup"}
+    data = response.json()
+    assert data["mode"] == "setup"
+    assert "setup_complete" in data
 
 
 def test_mode_endpoint_returns_app(session_token):
     """GET /api/mode returns 'app' when the app is created in app mode."""
     from backend.main import create_app_app
     client = TestClient(create_app_app(), headers={"X-Trove-Session": session_token})
-    assert client.get("/api/mode").json() == {"mode": "app"}
+    data = client.get("/api/mode").json()
+    assert data["mode"] == "app"
+    assert "setup_complete" in data
 
 
 def test_setup_router_only_in_setup_mode(session_token):
