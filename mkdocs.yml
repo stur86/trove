@@ -54,6 +54,86 @@ plugins:
             Managing gems: Gestire i Gem
             Managing documents: Gestire i documenti
             Settings: Impostazioni
+        - locale: de
+          name: Deutsch
+          build: true
+          nav_translations:
+            Home: Home
+            User guide: Benutzerhandbuch
+            Admin guide: Administratorhandbuch
+            Developer guide: Entwicklerhandbuch
+            Getting started: Erste Schritte
+            Running a gem: Einen Gem ausführen
+            Media input: Medieneingabe
+            Overview: Übersicht
+            Installation: Installation
+            Managing gems: Gems verwalten
+            Managing documents: Dokumente verwalten
+            Settings: Einstellungen
+        - locale: es
+          name: Español
+          build: true
+          nav_translations:
+            Home: Home
+            User guide: Guía del usuario
+            Admin guide: Guía del administrador
+            Developer guide: Guía del desarrollador
+            Getting started: Primeros pasos
+            Running a gem: Ejecutar un Gem
+            Media input: Entrada multimedia
+            Overview: Descripción general
+            Installation: Instalación
+            Managing gems: Gestionar Gems
+            Managing documents: Gestionar documentos
+            Settings: Configuración
+        - locale: fr
+          name: Français
+          build: true
+          nav_translations:
+            Home: Home
+            User guide: Guide utilisateur
+            Admin guide: Guide administrateur
+            Developer guide: Guide développeur
+            Getting started: Démarrage
+            Running a gem: Exécuter un Gem
+            Media input: Entrée multimédia
+            Overview: Vue d'ensemble
+            Installation: Installation
+            Managing gems: Gérer les Gems
+            Managing documents: Gérer les documents
+            Settings: Paramètres
+        - locale: pt
+          name: Português
+          build: true
+          nav_translations:
+            Home: Home
+            User guide: Guia do utilizador
+            Admin guide: Guia do administrador
+            Developer guide: Guia do desenvolvedor
+            Getting started: Primeiros passos
+            Running a gem: Executar um Gem
+            Media input: Entrada de mídia
+            Overview: Visão geral
+            Installation: Instalação
+            Managing gems: Gerir Gems
+            Managing documents: Gerir documentos
+            Settings: Configurações
+        - locale: zh
+          name: 中文
+          build: true
+          nav_translations:
+            Home: 首页
+            User guide: 用户指南
+            Admin guide: 管理员指南
+            Developer guide: 开发者指南
+            Getting started: 入门
+            Running a gem: 运行 Gem
+            Media input: 媒体输入
+            Overview: 概述
+            Installation: 安装
+            Managing gems: 管理 Gem
+            Managing documents: 管理文档
+            Settings: 设置
 
 nav:
   - Home: index.md
