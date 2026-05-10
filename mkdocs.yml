@@ -40,6 +40,9 @@ markdown_extensions:
   - admonition
   - attr_list
 
+hooks:
+  - docs/hooks/copy_sitemaps.py
+
 plugins:
   - search
   - i18n:
