@@ -17,9 +17,11 @@ const BASE = '/api'
  * (e.g. 503 → model not ready) without parsing the error message string.
  */
 export class ApiError extends Error {
-  constructor(readonly status: number, message: string) {
+  status: number
+  constructor(status: number, message: string) {
     super(message)
     this.name = 'ApiError'
+    this.status = status
   }
 }
 
