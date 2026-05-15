@@ -189,5 +189,6 @@
   "help.gem.tools.title": "工具",
   "help.gem.tools.content": "工具允许模型在运行期间执行操作——例如查询当前日期或进行计算——然后再撰写答案。只启用与此 gem 相关的工具。",
   "gem.output.copy": "复制到剪贴板",
-  "gem.output.download": "下载为文本"
+  "gem.output.download": "下载为文本",
+  "gem.error.model_not_ready": "AI 模型尚未配置。请联系管理员完成配置。"
 }

@@ -162,6 +162,19 @@ def test_run_gem_not_found(client):
     assert res.status_code == 404
 
 
+def test_run_gem_503_when_model_not_built(client, sample_gem, monkeypatch):
+    """When trove_model hasn't been built, run returns 503 before starting the stream."""
+    from backend.ollama.service import FakeOllamaService
+    monkeypatch.setattr(
+        FakeOllamaService,
+        "get_status",
+        lambda self: {"installed": True, "running": True, "model_pulled": True, "model_built": False},
+    )
+    res = client.post("/api/app/gems/hello/run", json={"values": {}})
+    assert res.status_code == 503
+    assert "model" in res.json()["detail"].lower()
+
+
 # --- /capabilities ---
 
 def test_capabilities_returns_audio_true_for_e4b(client):

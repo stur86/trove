@@ -189,5 +189,6 @@
   "help.gem.tools.title": "Werkzeuge",
   "help.gem.tools.content": "Werkzeuge ermöglichen dem Modell, während einer Ausführung Aktionen durchzuführen – etwa das aktuelle Datum abrufen oder eine Berechnung durchführen – bevor es die Antwort schreibt. Aktivieren Sie nur Werkzeuge, die für das Gem relevant sind.",
   "gem.output.copy": "In Zwischenablage kopieren",
-  "gem.output.download": "Als Text herunterladen"
+  "gem.output.download": "Als Text herunterladen",
+  "gem.error.model_not_ready": "Das KI-Modell ist noch nicht eingerichtet. Bitte bitten Sie einen Administrator, die Einrichtung abzuschließen."
 }

@@ -78,6 +78,21 @@ trove/
 
 The active model is always `trove_model` — a custom Ollama model derived from the chosen base via a generated Modelfile (`FROM <base> / PARAMETER num_ctx <n>`).
 
+## Locale editor (`scripts/i18n.py`)
+
+Read, add, or edit individual keys in locale JSON files without reloading the whole file:
+
+```bash
+uv run scripts/i18n.py locales                          # list available locale codes
+uv run scripts/i18n.py keys [--locale en] [--prefix setup]  # list keys, optional prefix filter
+uv run scripts/i18n.py get <key> [--locale en]          # print one key's value
+uv run scripts/i18n.py set <key> <value> [--locale en]  # create or update a key
+uv run scripts/i18n.py all <key>                        # print key across all locales
+uv run scripts/i18n.py missing <locale>                 # keys in 'en' absent from locale
+```
+
+Locale files live at `backend/i18n/locales/<locale>.json`. The script uses flat dot-notation keys (e.g. `setup.title`).
+
 ## Task runner (taskipy)
 
 ```bash

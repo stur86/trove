@@ -6,10 +6,21 @@ repo_url: https://github.com/simone-sturniolo/trove
 
 theme:
   name: material
+  logo: assets/gem.svg
+  favicon: assets/gem.svg
   palette:
     - scheme: default
-      primary: indigo
-      accent: indigo
+      primary: teal
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: teal
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
   features:
     - navigation.tabs
     - navigation.sections
@@ -28,6 +39,9 @@ markdown_extensions:
       base_path: .
   - admonition
   - attr_list
+
+hooks:
+  - docs/hooks/copy_sitemaps.py
 
 plugins:
   - search
