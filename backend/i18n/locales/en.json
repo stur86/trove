@@ -189,5 +189,6 @@
   "help.gem.tools.title": "Tools",
   "help.gem.tools.content": "Tools let the model perform actions during a run — like checking the current date or doing a calculation — before writing its answer. Only enable tools that are relevant to what this gem does.",
   "gem.output.copy": "Copy to clipboard",
-  "gem.output.download": "Download as text"
+  "gem.output.download": "Download as text",
+  "gem.error.model_not_ready": "The AI model is not set up yet. Please ask an administrator to complete the setup."
 }

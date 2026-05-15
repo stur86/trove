@@ -20,6 +20,7 @@ import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import 'katex/dist/katex.min.css'
 import { gemsApi, readSSEStream, type UserTask } from '../api/tasks'
+import { ApiError } from '../api/client'
 import { appApi } from '../api/app'
 import GemIcon from '../components/GemIcon'
 import { useLocale, useTranslation } from '../i18n'
@@ -143,8 +144,12 @@ export default function GemRunner() {
       setPhase('done')
     } catch (err) {
       console.error('Gem run failed:', err)
-      const detail = err instanceof Error ? err.message : String(err)
-      setOutput(`${t('gem.error.run')}\n\n\`\`\`\n${detail}\n\`\`\``)
+      if (err instanceof ApiError && err.status === 503) {
+        setOutput(t('gem.error.model_not_ready'))
+      } else {
+        const detail = err instanceof Error ? err.message : String(err)
+        setOutput(`${t('gem.error.run')}\n\n\`\`\`\n${detail}\n\`\`\``)
+      }
       setPhase('done')
     }
   }

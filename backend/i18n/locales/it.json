@@ -189,5 +189,6 @@
   "help.gem.tools.title": "Strumenti",
   "help.gem.tools.content": "Gli strumenti consentono al modello di eseguire azioni durante un'esecuzione — come controllare la data corrente o effettuare un calcolo — prima di scrivere la risposta. Attiva solo gli strumenti rilevanti per questo gem.",
   "gem.output.copy": "Copia negli appunti",
-  "gem.output.download": "Scarica come testo"
+  "gem.output.download": "Scarica come testo",
+  "gem.error.model_not_ready": "Il modello AI non è ancora stato configurato. Chiedi a un amministratore di completare la configurazione."
 }

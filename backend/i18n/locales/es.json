@@ -189,5 +189,6 @@
   "help.gem.tools.title": "Herramientas",
   "help.gem.tools.content": "Las herramientas permiten al modelo realizar acciones durante una ejecución —como consultar la fecha actual o hacer un cálculo— antes de escribir su respuesta. Activa solo las herramientas que sean relevantes para lo que hace este gem.",
   "gem.output.copy": "Copiar al portapapeles",
-  "gem.output.download": "Descargar como texto"
+  "gem.output.download": "Descargar como texto",
+  "gem.error.model_not_ready": "El modelo de IA aún no está configurado. Por favor, pida a un administrador que complete la configuración."
 }

@@ -12,6 +12,18 @@ import { fetchSession, getSessionToken } from './session'
 const BASE = '/api'
 
 /**
+ * Error thrown by all API helpers on a non-2xx response.
+ * Carries the HTTP status code so callers can handle specific cases
+ * (e.g. 503 → model not ready) without parsing the error message string.
+ */
+export class ApiError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
+/**
  * Central fetch wrapper: injects the session token and handles 401 retry.
  *
  * On a 401 response, calls fetchSession() to obtain a fresh token and retries
@@ -46,7 +58,7 @@ async function apiRequest(url: string, init: RequestInit): Promise<Response> {
  */
 export async function get<T>(path: string, headers?: HeadersInit): Promise<T> {
   const res = await apiRequest(`${BASE}${path}`, { headers: headers as Record<string, string> ?? {} })
-  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`)
+  if (!res.ok) throw new ApiError(res.status, `GET ${path} failed: ${res.status}`)
   return res.json()
 }
 
@@ -63,7 +75,7 @@ export async function put<T>(path: string, body: unknown, headers?: HeadersInit)
     headers: { 'Content-Type': 'application/json', ...(headers as Record<string, string> ?? {}) },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`PUT ${path} failed: ${res.status}`)
+  if (!res.ok) throw new ApiError(res.status, `PUT ${path} failed: ${res.status}`)
   return res.json()
 }
 
@@ -83,7 +95,7 @@ export async function post(path: string, body?: unknown, headers?: HeadersInit):
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
-  if (!res.ok) throw new Error(`POST ${path} failed: ${res.status}`)
+  if (!res.ok) throw new ApiError(res.status, `POST ${path} failed: ${res.status}`)
   return res
 }
 
@@ -100,7 +112,7 @@ export async function patch<T>(path: string, body: unknown, headers?: HeadersIni
     headers: { 'Content-Type': 'application/json', ...(headers as Record<string, string> ?? {}) },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`PATCH ${path} failed: ${res.status}`)
+  if (!res.ok) throw new ApiError(res.status, `PATCH ${path} failed: ${res.status}`)
   return res.json()
 }
 
@@ -119,7 +131,7 @@ export async function del(path: string, headers?: HeadersInit): Promise<void> {
     method: 'DELETE',
     headers: headers as Record<string, string> ?? {},
   })
-  if (!res.ok) throw new Error(`DELETE ${path} failed: ${res.status}`)
+  if (!res.ok) throw new ApiError(res.status, `DELETE ${path} failed: ${res.status}`)
 }
 
 /**
@@ -129,7 +141,7 @@ export async function del(path: string, headers?: HeadersInit): Promise<void> {
  */
 export async function getBlob(path: string): Promise<Blob> {
   const res = await apiRequest(`${BASE}${path}`, {})
-  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`)
+  if (!res.ok) throw new ApiError(res.status, `GET ${path} failed: ${res.status}`)
   return res.blob()
 }
 
@@ -144,6 +156,6 @@ export async function postFormData(path: string, form: FormData): Promise<Respon
     method: 'POST',
     body: form,
   })
-  if (!res.ok) throw new Error(`POST ${path} failed: ${res.status}`)
+  if (!res.ok) throw new ApiError(res.status, `POST ${path} failed: ${res.status}`)
   return res
 }

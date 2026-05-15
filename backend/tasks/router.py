@@ -20,6 +20,7 @@ from pydantic import BaseModel
 
 from backend.app.auth import require_admin_cookie
 from backend.documents.repository import resolve_documents
+from backend.ollama.service import OllamaService, get_ollama_service
 from backend.tasks.models import MediaInput, OutputMode, UserTask
 from backend.tasks.repository import delete_task, list_tasks, load_task, save_task
 from backend.tasks.runner import stream_task
@@ -130,7 +131,11 @@ def delete_gem(gem_id: str) -> None:
 
 
 @router.post("/gems/{gem_id}/run")
-async def run_gem(gem_id: str, req: RunRequest) -> StreamingResponse:
+async def run_gem(
+    gem_id: str,
+    req: RunRequest,
+    ollama: OllamaService = Depends(get_ollama_service),
+) -> StreamingResponse:
     """
     Run a Gem with the provided argument values and optional media.
 
@@ -142,11 +147,20 @@ async def run_gem(gem_id: str, req: RunRequest) -> StreamingResponse:
     Media fields (image, audio) must be base64-encoded. Include the
     corresponding MIME type field (image_mime, audio_mime) for correct
     handling by the model.
+
+    Raises 503 if the Ollama model has not been built yet, which can happen
+    when a bundle produced on another machine is imported without running setup.
     """
     try:
         gem = load_task(gem_id)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Gem '{gem_id}' not found")
+
+    if not ollama.get_status().get("model_built"):
+        raise HTTPException(
+            status_code=503,
+            detail="The AI model is not ready. Complete setup before running a gem.",
+        )
 
     if gem.output_mode == OutputMode.STRUCTURED:
         raise HTTPException(status_code=501, detail="Structured output not yet implemented")
