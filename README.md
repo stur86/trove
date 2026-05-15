@@ -115,10 +115,10 @@ Steps that are already complete are skipped automatically.
 
 | Model | Min RAM | Notes |
 |---|---|---|
-| Gemma 4 E2B | 4 GB | Fastest; supports audio input |
-| Gemma 4 E4B | 6 GB | Better quality; supports audio input |
-| Gemma 4 26B | 10 GB | High quality; no audio |
-| Gemma 4 31B | 20 GB | Best quality; no audio |
+| Gemma 4 E2B | 4 GB | Fastest |
+| Gemma 4 E4B | 6 GB | Better quality |
+| Gemma 4 26B | 10 GB | High quality; mixture-of-experts |
+| Gemma 4 31B | 20 GB | Best quality |
 
 ### Uninstalling Trove
 
