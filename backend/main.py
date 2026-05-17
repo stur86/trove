@@ -11,6 +11,7 @@ Mode routing:
 Shared routers (config GET, i18n, system, ollama) are always mounted.
 """
 import logging
+import os
 from contextlib import asynccontextmanager
 from enum import Enum
 from pathlib import Path
@@ -135,12 +136,15 @@ def _create_app_with_mode(mode: AppMode) -> FastAPI:
         return {"token": session_store.create()}
 
     # Allow the Vite dev server to call the backend during development.
-    application.add_middleware(
-        CORSMiddleware,
-        allow_origins=["http://localhost:5173"],
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    # Not needed in production: the frontend is served as static files from the
+    # same origin, so all requests are same-origin and require no CORS headers.
+    if os.getenv("TROVE_DEV"):
+        application.add_middleware(
+            CORSMiddleware,
+            allow_origins=["http://localhost:5173"],
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     # Shared routers — always available in both modes.
     application.include_router(config_router)   # GET /api/config
