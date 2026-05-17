@@ -1,6 +1,6 @@
 #!/bin/bash
 # Trove installer — fetches the latest release from GitHub and installs it.
-# Usage: bash install.sh [--prefix /custom/path] [--local /path/to/trove-*.whl]
+# Usage: bash install.sh [--prefix /custom/path] [--local /path/to/trove-*.whl] [--global-ollama]
 set -euo pipefail
 
 REPO="stur86/trove"
@@ -9,10 +9,13 @@ API_URL="https://api.github.com/repos/${REPO}/releases/latest"
 # ── Parse arguments ──────────────────────────────────────────────────────────
 PREFIX=""
 LOCAL_WHEEL=""
+# Pre-seed from env var so that TROVE_USE_GLOBAL_OLLAMA=1 bash install.sh also works.
+GLOBAL_OLLAMA="${TROVE_USE_GLOBAL_OLLAMA:-0}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --prefix) PREFIX=$(realpath "$2"); shift 2 ;;
-    --local)  LOCAL_WHEEL="$2"; shift 2 ;;
+    --prefix)        PREFIX=$(realpath "$2"); shift 2 ;;
+    --local)         LOCAL_WHEEL="$2"; shift 2 ;;
+    --global-ollama) GLOBAL_OLLAMA=1; shift ;;
     *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
 done
@@ -92,10 +95,16 @@ echo "Installing Trove..."
 rm "$WHEEL_PATH"
 
 # ── Write wrapper script ─────────────────────────────────────────────────────
+GLOBAL_OLLAMA_EXPORT=""
+if [[ "$GLOBAL_OLLAMA" == "1" ]]; then
+  GLOBAL_OLLAMA_EXPORT="export TROVE_USE_GLOBAL_OLLAMA=1"
+fi
+
 cat > "$BIN_DIR/trove" <<WRAPPER
 #!/bin/bash
 # Trove wrapper — runs Trove using the local uv and venv.
 export TROVE_INSTALL_DIR="${INSTALL_DIR}"
+${GLOBAL_OLLAMA_EXPORT}
 VIRTUAL_ENV="${INSTALL_DIR}/.venv" exec "${UV}" run trove "\$@"
 WRAPPER
 chmod +x "$BIN_DIR/trove"

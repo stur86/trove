@@ -36,12 +36,15 @@ def _build_unit_file(app_port: int) -> str:
     import sys
     trove_bin = shutil.which("trove") or f"{sys.prefix}/bin/trove"
     install_dir = get_install_dir()
+    env_lines = f"Environment=TROVE_INSTALL_DIR={install_dir}\n"
+    if os.getenv("TROVE_USE_GLOBAL_OLLAMA") == "1":
+        env_lines += "Environment=TROVE_USE_GLOBAL_OLLAMA=1\n"
     return (
         "[Unit]\n"
         "Description=Trove LLM Platform\n"
         "After=network.target\n\n"
         "[Service]\n"
-        f"Environment=TROVE_INSTALL_DIR={install_dir}\n"
+        f"{env_lines}"
         f"ExecStart={trove_bin} start --port {app_port}\n"
         "Restart=on-failure\n"
         f"WorkingDirectory={get_config_dir()}\n\n"
