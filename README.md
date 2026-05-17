@@ -29,6 +29,29 @@ This fetches the installer, downloads the latest Trove release, and installs eve
 
 > If you see `trove: command not found` afterwards, the installer will have printed a command to fix this. Run that command, then open a new terminal window.
 
+#### Using an existing Ollama installation
+
+By default, Trove installs and manages its own copy of Ollama. If Ollama is already installed on your system and you want Trove to use it instead (sharing models, ports, and the system Ollama service), install with the `--global-ollama` flag:
+
+```bash
+curl -LsSf https://raw.githubusercontent.com/stur86/trove/main/install.sh | bash -s -- --global-ollama
+```
+
+The `bash -s --` part is required when passing arguments through a pipe — it tells bash to read from standard input (`-s`) and then pass everything after `--` to the script.
+
+You can also pass this as an environment variable instead:
+
+```bash
+TROVE_USE_GLOBAL_OLLAMA=1 bash <(curl -LsSf https://raw.githubusercontent.com/stur86/trove/main/install.sh)
+```
+
+When this option is active:
+
+- Trove skips the Ollama install step during setup.
+- Trove uses whatever `ollama` is on your system `PATH`.
+- The Ollama install step in the setup wizard will report an error if you try to run it — this is expected; manage Ollama externally.
+- The systemd service (installed during setup) will carry the setting forward automatically, so Trove always uses the system Ollama on restart.
+
 ### Step 2 — Run the setup wizard
 
 Run setup **on the same computer you just installed Trove on**. The setup page is only accessible from that machine — other devices on your network cannot reach it. This is intentional.
