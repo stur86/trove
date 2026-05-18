@@ -53,5 +53,10 @@ jobs:
           gh release create "$TAG" \
             --title "Trove v${VERSION}" \
             --generate-notes \
-            "dist/trove-${VERSION}-py3-none-any.whl" \
-            "install.sh"
+            "dist/trove-${VERSION}-py3-none-any.whl"
+
+      - name: Trigger docs deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.TAG }}
+        run: gh workflow run docs.yml --ref "$TAG"

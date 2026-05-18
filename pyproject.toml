@@ -1,6 +1,6 @@
 [project]
 name = "trove"
-version = "1.0.3"
+version = "1.0.4"
 description = "Local LLM platform for non-technical users"
 readme = "README.md"
 requires-python = ">=3.11"
